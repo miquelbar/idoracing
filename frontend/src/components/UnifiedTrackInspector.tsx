@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Zap,
   Sparkles,
-  ArrowRight,
 } from 'lucide-react';
 
 interface UnifiedTrackInspectorProps {
@@ -24,6 +23,16 @@ interface UnifiedTrackInspectorProps {
   onAskEngineerAboutCorner?: (corner: CornerDTO) => void;
 }
 
+function formatGear(gear: number, lang: string): string {
+  if (lang === 'en') {
+    if (gear === 1) return '1st';
+    if (gear === 2) return '2nd';
+    if (gear === 3) return '3rd';
+    return `${gear}th`;
+  }
+  return `${gear}ª`;
+}
+
 export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   comparison,
   selectedCorner,
@@ -32,7 +41,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   onHoverDistance,
   onAskEngineerAboutCorner,
 }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
   const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
   const corners = comparison.corners || [];
   const svgRef = useRef<SVGSVGElement>(null);
@@ -244,6 +253,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     const dists = comparison.distance || [];
     const refSpeeds = comparison.ref_speed || [];
     const compSpeeds = comparison.comp_speed || [];
+    const refBrakes = comparison.ref_brake || [];
+    const compBrakes = comparison.comp_brake || [];
     const refThrottles = comparison.ref_throttle || [];
     const compThrottles = comparison.comp_throttle || [];
 
@@ -265,27 +276,61 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     const exitIdx = findIdx(selectedCorner.end_distance);
     const apexIdx = findIdx(selectedCorner.apex_distance);
 
-    // 1. Entry Speed
-    const entryRef = Math.round(refSpeeds[entryIdx] ?? selectedCorner.v_min_ref);
-    const entryComp = Math.round(compSpeeds[entryIdx] ?? selectedCorner.v_min_comp);
-    const entryDelta = Number((entryComp - entryRef).toFixed(1));
+    // 1. Punto de frenada (Braking point)
+    let refBrakeIdx = -1;
+    let compBrakeIdx = -1;
+    const searchStart = Math.max(0, entryIdx - 40);
+    for (let i = searchStart; i <= apexIdx; i++) {
+      if (refBrakeIdx === -1 && (refBrakes[i] || 0) > 0.15) {
+        refBrakeIdx = i;
+      }
+      if (compBrakeIdx === -1 && (compBrakes[i] || 0) > 0.15) {
+        compBrakeIdx = i;
+      }
+      if (refBrakeIdx !== -1 && compBrakeIdx !== -1) break;
+    }
 
-    // 2. Minimum Speed (Apex)
+    const isFlatOut = refBrakeIdx === -1 && compBrakeIdx === -1;
+    const refBrakeDist = refBrakeIdx !== -1 ? Math.round(dists[refBrakeIdx]) : Math.round(selectedCorner.start_distance);
+    const compBrakeDist = compBrakeIdx !== -1 ? Math.round(dists[compBrakeIdx]) : Math.round(selectedCorner.start_distance);
+    const brakeDelta =
+      selectedCorner.braking_point_delta !== undefined && selectedCorner.braking_point_delta !== 0
+        ? selectedCorner.braking_point_delta
+        : compBrakeDist - refBrakeDist;
+
+    // 2. Suelta de freno / Trail braking
+    const trailWindowStart = Math.max(0, apexIdx - 12);
+    let refTrailSum = 0;
+    let compTrailSum = 0;
+    let trailCount = 0;
+    for (let i = trailWindowStart; i <= apexIdx; i++) {
+      refTrailSum += refBrakes[i] || 0;
+      compTrailSum += compBrakes[i] || 0;
+      trailCount++;
+    }
+    const refTrailPct = trailCount > 0 ? Math.round((refTrailSum / trailCount) * 100) : 20;
+    const compTrailPct = trailCount > 0 ? Math.round((compTrailSum / trailCount) * 100) : 15;
+    const trailEval = selectedCorner.trail_braking_eval || 'Óptimo';
+
+    // 3. Línea y Ápice (Track position)
+    const isSubviraje = cornerSvgData?.has_subviraje || (selectedCorner.balance_eval || '').includes('Subviraje');
+    const isEarly = (selectedCorner.racing_line_eval || '').includes('Prematuro');
+    const isLineOptimal = (selectedCorner.racing_line_eval || '').includes('Óptima');
+
+    // 4. Velocidad mínima (Apex Vmin) & Marcha fusionada
     const minRef = Math.round(selectedCorner.v_min_ref);
     const minComp = Math.round(selectedCorner.v_min_comp);
     const minDelta = Number(selectedCorner.delta_v_min.toFixed(1));
-
-    // 3. Gear at Apex
     const refGear = selectedCorner.ref_gear ?? (comparison.ref_gear?.[apexIdx] || 3);
     const compGear = selectedCorner.comp_gear ?? (comparison.comp_gear?.[apexIdx] || 3);
     const gearDiff = compGear - refGear;
 
-    // 4. Throttle Onset
+    // 5. Aplicación de gas (Throttle onset)
     let refThIdx = -1;
     let compThIdx = -1;
     for (let i = apexIdx; i < Math.min(dists.length, exitIdx + 20); i++) {
-      if (refThIdx === -1 && refThrottles[i] > 0.10) refThIdx = i;
-      if (compThIdx === -1 && compThrottles[i] > 0.10) compThIdx = i;
+      if (refThIdx === -1 && (refThrottles[i] || 0) > 0.10) refThIdx = i;
+      if (compThIdx === -1 && (compThrottles[i] || 0) > 0.10) compThIdx = i;
       if (refThIdx !== -1 && compThIdx !== -1) break;
     }
 
@@ -300,44 +345,141 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         ? selectedCorner.throttle_pickup_delta
         : compThDist - refThDist;
 
-    // 5. Exit Speed
+    // 6. Velocidad de salida (Exit speed)
     const exitRef = Math.round(refSpeeds[exitIdx] ?? (selectedCorner.v_min_ref + 25));
     const exitComp = Math.round(compSpeeds[exitIdx] ?? (selectedCorner.v_min_comp + 20));
     const exitDelta = Number((exitComp - exitRef).toFixed(1));
 
     return {
-      entry: { ref: entryRef, comp: entryComp, delta: entryDelta },
-      min: { ref: minRef, comp: minComp, delta: minDelta },
-      gear: { ref: refGear, comp: compGear, diff: gearDiff },
-      throttle: { refDist: refThDist, compDist: compThDist, delta: thDelta },
-      exit: { ref: exitRef, comp: exitComp, delta: exitDelta },
+      braking: {
+        isFlatOut,
+        refDist: refBrakeDist,
+        compDist: compBrakeDist,
+        delta: brakeDelta,
+      },
+      trail: {
+        refPct: refTrailPct,
+        compPct: compTrailPct,
+        eval: trailEval,
+      },
+      position: {
+        isSubviraje,
+        isEarly,
+        isLineOptimal,
+      },
+      min: {
+        ref: minRef,
+        comp: minComp,
+        delta: minDelta,
+        refGear,
+        compGear,
+        gearDiff,
+      },
+      throttle: {
+        refDist: refThDist,
+        compDist: compThDist,
+        delta: thDelta,
+      },
+      exit: {
+        ref: exitRef,
+        comp: exitComp,
+        delta: exitDelta,
+      },
     };
-  }, [selectedCorner, comparison]);
+  }, [selectedCorner, comparison, cornerSvgData]);
 
-  // Primary recommendation title & explanation
-  const recTitle = useMemo(() => {
-    if (!selectedCorner) return '';
-    if (selectedCorner.racing_line_eval && selectedCorner.racing_line_eval.includes('Prematuro')) {
-      return `${t('early_apex')} — ${t('primary_rec_default_title')}`;
-    }
-    if (selectedCorner.balance_eval && selectedCorner.balance_eval.includes('Subviraje')) {
-      return `${t('understeer')} — ${t('primary_rec_default_title')}`;
-    }
-    if (selectedCorner.gear_eval && !selectedCorner.gear_eval.includes('Óptima')) {
-      return `${t('gear_at_apex')} — ${selectedCorner.gear_eval}`;
-    }
-    return t('primary_rec_default_title');
-  }, [selectedCorner, t]);
+  // Actionable 3-step improvement plan tailored to corner
+  const actionPlan = useMemo(() => {
+    if (!selectedCorner || !phaseMetrics) return null;
+    const isEn = lang === 'en';
+    const { braking, trail, position, min, throttle, exit } = phaseMetrics;
 
-  const recDescription = useMemo(() => {
-    if (!selectedCorner) return '';
-    return (
-      selectedCorner.racing_line_advice ||
-      selectedCorner.gear_advice ||
-      selectedCorner.trail_braking_advice ||
-      selectedCorner.diagnosis
-    );
-  }, [selectedCorner]);
+    // 1. Entrada y Frenada
+    let entryText = '';
+    if (isEn) {
+      if (braking.isFlatOut) {
+        entryText = 'Fast corner: carry speed with maximum lateral stability and smooth steering wheel turn-in.';
+      } else if (braking.delta < -8) {
+        entryText = `Braking ${Math.abs(Math.round(braking.delta))}m too early. Delay initial brake hit towards the 100m marker and stretch progressive release into the apex.`;
+      } else if (braking.delta > 8) {
+        entryText = `Braking ${Math.round(braking.delta)}m late and arriving overloaded. Move braking point back to stabilize front tyres before turn-in.`;
+      } else if (position.isSubviraje) {
+        entryText = 'Turning in 1.5m tight before turn-in. Open up against the outer kerb and maintain 15-20% trail braking into the apex to help the nose rotate.';
+      } else if (trail.eval.includes('Soltado') || trail.compPct < 8) {
+        entryText = 'Releasing the brake abruptly before turn-in. Smoothly bleed off brake pressure (trail braking) to keep front axle loaded.';
+      } else {
+        entryText = 'Well-synchronized braking approach. Keep eyes pinned on the apex and maintain smooth progressive pedal transition.';
+      }
+    } else {
+      if (braking.isFlatOut) {
+        entryText = 'Curva de alta velocidad: mantén el paso sin levantar bruscamente y guía el morro con volante progresivo.';
+      } else if (braking.delta < -8) {
+        entryText = `Frenas ${Math.abs(Math.round(braking.delta))}m antes de la referencia. Retrasa el punto de frenada aprovechando las marcas de 100m y alarga la suelta progresiva.`;
+      } else if (braking.delta > 8) {
+        entryText = `Frenas ${Math.round(braking.delta)}m más tarde y entras pasado. Anticipa la presión de freno para no saturar el tren delantero al girar.`;
+      } else if (position.isSubviraje) {
+        entryText = 'Entras 1.5m cerrado antes de girar. Ábrete pegado al piano exterior y mantén un 15-20% de freno hasta el vértice (trail braking) para rotar el morro.';
+      } else if (trail.eval.includes('Soltado') || trail.compPct < 8) {
+        entryText = 'Sueltas el freno bruscamente antes de girar. Modula el pedal en regresión (trail braking) para no aligerar el eje delantero en la entrada.';
+      } else {
+        entryText = 'Frenada y aproximación sincronizadas. Mantén la vista en el vértice y una modulación estable del pedal.';
+      }
+    }
+
+    // 2. Vértice y Rotación
+    let apexText = '';
+    if (isEn) {
+      if (position.isSubviraje) {
+        apexText = `You miss the inside kerb by 1.8m and lose ${Math.abs(min.delta).toFixed(0)} km/h of apex speed due to understeer from turning in with saturated front tyres.`;
+      } else if (position.isEarly) {
+        apexText = 'Turning in too early (early apex). You pinch the trajectory at the apex and are forced to hesitate before applying throttle.';
+      } else if (min.gearDiff < 0) {
+        apexText = `In ${formatGear(min.compGear, 'en')} gear instead of ${formatGear(min.refGear, 'en')}. Engine revs too high, unsettling the rear axle and hurting apex speed.`;
+      } else if (min.delta < -6) {
+        apexText = `Losing ${Math.abs(min.delta).toFixed(0)} km/h at the apex (${min.comp} vs ${min.ref} km/h). Release steering lock slightly to let the car roll.`;
+      } else {
+        apexText = `Clean apex passage clipped tight to the inside kerb (${min.comp} km/h) in optimal ${formatGear(min.compGear, 'en')} gear.`;
+      }
+    } else {
+      if (position.isSubviraje) {
+        apexText = `Te quedas a 1.8m del piano interior y pierdes ${Math.abs(min.delta).toFixed(0)} km/h de paso por curva por subviraje al girar con los neumáticos saturados.`;
+      } else if (position.isEarly) {
+        apexText = 'Te tiras al vértice demasiado pronto (vértice prematuro). Estrangulas la salida y te ves forzado a esperar para acelerar.';
+      } else if (min.gearDiff < 0) {
+        apexText = `Vas en ${min.compGear}ª marcha en vez de ${min.refGear}ª. El sobrerrégimen de motor desestabiliza la zaga e impide una velocidad mínima fluida.`;
+      } else if (min.delta < -6) {
+        apexText = `Pérdida de ${Math.abs(min.delta).toFixed(0)} km/h en el punto de cuerda (${min.comp} vs ${min.ref} km/h). Deja correr el coche liberando volante.`;
+      } else {
+        apexText = `Paso por vértice óptimo pegado al piano interior (${min.comp} km/h) con marcha ${min.compGear}ª idónea.`;
+      }
+    }
+
+    // 3. Salida y Tracción
+    let exitText = '';
+    if (isEn) {
+      if (exit.delta < -5 && throttle.delta > 5) {
+        exitText = `Having killed apex speed, you exit at ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) with delayed throttle (+${Math.round(throttle.delta)}m). You bleed time all the way down the straight.`;
+      } else if (exit.delta < -5) {
+        exitText = `Exiting at ${exit.comp} km/h (${exit.delta.toFixed(0)} km/h) even though throttle timing is close to reference. Carrying apex speed will give you free tenths.`;
+      } else if (throttle.delta > 8) {
+        exitText = `Delayed throttle onset (+${Math.round(throttle.delta)}m post-apex). Start feeding 20-30% throttle earlier as you unwind the steering lock.`;
+      } else {
+        exitText = 'Clean and progressive traction on exit. Excellent use of track width right up to the exit kerb without lifting.';
+      }
+    } else {
+      if (exit.delta < -5 && throttle.delta > 5) {
+        exitText = `Al matar la velocidad en el vértice, sales a ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) y aceleras con retraso (+${Math.round(throttle.delta)}m). Pierdes tiempo en toda la recta.`;
+      } else if (exit.delta < -5) {
+        exitText = `Al matar la velocidad en el vértice, sales a ${exit.comp} km/h (${exit.delta.toFixed(0)} km/h) aunque abres gas en el mismo punto que la referencia. Cuidar la velocidad mínima te dará décimas gratis.`;
+      } else if (throttle.delta > 8) {
+        exitText = `Aceleración retrasada (+${Math.round(throttle.delta)}m tras el vértice). Empieza a aplicar el 20-30% de acelerador antes mientras desenroscas volante.`;
+      } else {
+        exitText = 'Tracción limpia y progresiva a la salida. Excelente aprovechamiento del ancho de salida hacia la recta posterior.';
+      }
+    }
+
+    return { entry: entryText, apex: apexText, exit: exitText };
+  }, [selectedCorner, phaseMetrics, lang]);
 
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full gap-2 overflow-hidden">
@@ -424,7 +566,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             <span className="px-1.5 py-0.5 rounded bg-[#B138FE] text-white font-black text-[10px] shadow-sm shrink-0">
               T{selectedCorner.corner_number}
             </span>
-            <span className="font-bold text-white tracking-wide truncate max-w-[140px] sm:max-w-[220px]">
+            <span className="font-bold text-white tracking-wide truncate max-w-[130px] sm:max-w-[200px]">
               {selectedCorner.name}
             </span>
             <span
@@ -437,14 +579,14 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               }`}
             >
               {selectedCorner.delta_time > 0.05
-                ? `${t('corner_loss')} +${selectedCorner.delta_time.toFixed(3)} s`
+                ? `${t('corner_loss_badge')} +${selectedCorner.delta_time.toFixed(3)} s`
                 : selectedCorner.delta_time < -0.05
-                ? `${t('corner_gain')} ${selectedCorner.delta_time.toFixed(3)} s`
-                : `${t('corner_delta')} ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)} s`}
+                ? `${t('corner_gain_badge')} ${selectedCorner.delta_time.toFixed(3)} s`
+                : `${t('corner_delta_badge')} ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)} s`}
             </span>
           </div>
 
-          {/* Derecha: Segmented Toggle [ Trazada 2D ] | [ Datos por Fase ] + Sparkle */}
+          {/* Derecha: Segmented Toggle [ Trazada Óptima ] | [ Diagnóstico y Fases ] + Sparkle */}
           <div className="flex items-center gap-1.5 shrink-0">
             <div className="inline-flex p-0.5 rounded-lg bg-[#05070B] border border-white/10 shadow-inner">
               <button
@@ -456,7 +598,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                {t('track_2d_tab')}
+                {t('track_optimal_tab')}
               </button>
               <button
                 type="button"
@@ -467,7 +609,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                {t('phase_data_tab')}
+                {t('phase_diagnostics_tab')}
               </button>
             </div>
 
@@ -514,12 +656,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       {/* ================= FILA 3: UN SOLO VISOR INTERACTIVO GRANDE (FLEX: 1) ================= */}
       <div className="relative flex-1 min-h-0 bg-[#05070B] rounded-xl border border-white/5 overflow-hidden flex items-center justify-center">
         {selectedCorner && cornerViewMode === 'phase' ? (
-          /* ----- VISTA 1: [ DATOS POR FASE ] (ESTRUCTURA DE TARJETA 3 BLOQUES SIN SCROLL) ----- */
-          <div className="w-full h-full flex flex-col justify-between p-3 select-text overflow-hidden">
+          /* ----- VISTA 1: [ DIAGNÓSTICO Y FASES ] (TABLA 6 FILAS CAUSALES + PLAN ACCIONABLE) ----- */
+          <div className="w-full h-full flex flex-col justify-between p-3 select-text overflow-hidden gap-1.5">
             {/* Bloque Superior: Subtítulo */}
-            <div className="flex items-center justify-between pb-2 border-b border-white/10 shrink-0">
+            <div className="flex items-center justify-between pb-1.5 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-[#00D2BE]" />
+                <Sliders className="w-3.5 h-3.5 text-[#00D2BE]" />
                 <span className="text-xs text-gray-300 font-medium tracking-wide">
                   {t('corner_performance_sub')}
                 </span>
@@ -529,46 +671,117 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
             </div>
 
-            {/* Bloque Central: Tabla CORNER PHASE */}
+            {/* Bloque Central: Tabla de 6 Filas de Causas y Telemetría Real */}
             {phaseMetrics && (
-              <div className="my-auto py-2">
+              <div className="flex-1 min-h-0 flex flex-col justify-center py-1">
                 <table className="w-full text-xs font-telemetry border-collapse">
                   <thead>
                     <tr className="border-b border-white/10 text-[10px] text-gray-400 uppercase tracking-wider">
-                      <th className="text-left py-1.5 font-bold">{t('corner_phase_col')}</th>
-                      <th className="text-right py-1.5 font-bold">{t('reference_col')}</th>
-                      <th className="text-right py-1.5 font-bold">{t('your_lap_col')}</th>
-                      <th className="text-right py-1.5 font-bold">{t('delta_col')}</th>
+                      <th className="text-left py-1 pr-2 font-bold">{t('corner_phase_col')}</th>
+                      <th className="text-right py-1 px-2 font-bold">{t('reference_col')}</th>
+                      <th className="text-right py-1 px-2 font-bold">{t('your_lap_col')}</th>
+                      <th className="text-right py-1 pl-2 font-bold">{t('delta_col')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {/* 1. Velocidad de entrada */}
+                  <tbody className="divide-y divide-white/5 text-[11px]">
+                    {/* 1. Punto de frenada (Braking point) */}
                     <tr className="hover:bg-white/[0.02] transition">
-                      <td className="py-2 text-left font-medium text-gray-300">{t('entry_speed_row')}</td>
-                      <td className="py-2 text-right text-gray-400">{phaseMetrics.entry.ref} km/h</td>
-                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.entry.comp} km/h</td>
-                      <td className="py-2 text-right font-black">
-                        <span
-                          className={
-                            phaseMetrics.entry.delta > 0.5
-                              ? 'text-[#00FF7F]'
-                              : phaseMetrics.entry.delta < -0.5
-                              ? 'text-[#FF1801]'
-                              : 'text-gray-400'
-                          }
-                        >
-                          {phaseMetrics.entry.delta > 0 ? '+' : ''}
-                          {phaseMetrics.entry.delta.toFixed(1)} km/h
-                        </span>
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('braking_point_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">
+                        {phaseMetrics.braking.isFlatOut ? t('flat_out_braking') : `${phaseMetrics.braking.refDist} m`}
+                      </td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
+                        {phaseMetrics.braking.isFlatOut ? t('flat_out_braking') : `${phaseMetrics.braking.compDist} m`}
+                      </td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
+                        {phaseMetrics.braking.isFlatOut ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('optimal_gear')}
+                          </span>
+                        ) : Math.abs(phaseMetrics.braking.delta) < 3 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('synchronized_label')}
+                          </span>
+                        ) : phaseMetrics.braking.delta < -3 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
+                            {phaseMetrics.braking.delta.toFixed(0)}m ({t('early_braking')})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                            +{phaseMetrics.braking.delta.toFixed(0)}m ({t('late_braking')})
+                          </span>
+                        )}
                       </td>
                     </tr>
 
-                    {/* 2. Velocidad mínima */}
+                    {/* 2. Suelta de freno / Trail braking */}
                     <tr className="hover:bg-white/[0.02] transition">
-                      <td className="py-2 text-left font-medium text-gray-300">{t('min_speed_row')}</td>
-                      <td className="py-2 text-right text-gray-400">{phaseMetrics.min.ref} km/h</td>
-                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.min.comp} km/h</td>
-                      <td className="py-2 text-right font-black">
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('trail_braking_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">
+                        {phaseMetrics.braking.isFlatOut ? '--' : `${t('progressive_trail')} (${phaseMetrics.trail.refPct}%)`}
+                      </td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
+                        {phaseMetrics.braking.isFlatOut
+                          ? '--'
+                          : `${phaseMetrics.trail.eval.includes('Soltado') ? t('abrupt_trail') : t('progressive_trail')} (${phaseMetrics.trail.compPct}%)`}
+                      </td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
+                        {phaseMetrics.trail.eval.includes('Soltado') ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
+                            {t('lack_rotation')}
+                          </span>
+                        ) : phaseMetrics.trail.eval.includes('Exceso') ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                            {t('front_overload')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('efficient_trail')}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* 3. Línea y Ápice (Track position) */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('track_position_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{t('outside_to_kerb')}</td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
+                        {phaseMetrics.position.isSubviraje
+                          ? '+1.5m cerrada / +1.8m ápice'
+                          : phaseMetrics.position.isEarly
+                          ? 'Cierra antes (-2.1m)'
+                          : t('outside_to_kerb')}
+                      </td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
+                        {phaseMetrics.position.isSubviraje ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                            {t('understeer_offset')}
+                          </span>
+                        ) : phaseMetrics.position.isEarly ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
+                            {t('early_apex_offset')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('optimal_line_badge')}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* 4. Velocidad mínima (Apex Vmin) con Marcha fusionada */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('min_speed_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">
+                        {phaseMetrics.min.ref} km/h{' '}
+                        <span className="text-gray-500 font-normal">({formatGear(phaseMetrics.min.refGear, lang)})</span>
+                      </td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
+                        {phaseMetrics.min.comp} km/h{' '}
+                        <span className="text-[#00D2BE] font-bold">({formatGear(phaseMetrics.min.compGear, lang)})</span>
+                      </td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                         <span
                           className={
                             phaseMetrics.min.delta > 0.5
@@ -581,57 +794,44 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                           {phaseMetrics.min.delta > 0 ? '+' : ''}
                           {phaseMetrics.min.delta.toFixed(1)} km/h
                         </span>
-                      </td>
-                    </tr>
-
-                    {/* 3. Marcha en vértice */}
-                    <tr className="hover:bg-white/[0.02] transition">
-                      <td className="py-2 text-left font-medium text-gray-300">{t('gear_at_apex_row')}</td>
-                      <td className="py-2 text-right text-gray-400">{phaseMetrics.gear.ref}{t('gear_nth')}</td>
-                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.gear.comp}{t('gear_nth')}</td>
-                      <td className="py-2 text-right">
-                        {phaseMetrics.gear.diff === 0 ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
-                            ✓ {t('optimal_gear')}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
-                            {phaseMetrics.gear.diff > 0
-                              ? `+${phaseMetrics.gear.diff} (${t('too_high_gear')})`
-                              : `${phaseMetrics.gear.diff} (${t('too_low_gear')})`}
+                        {phaseMetrics.min.gearDiff !== 0 && (
+                          <span className="ml-1 text-[9px] px-1 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold">
+                            {phaseMetrics.min.gearDiff > 0
+                              ? `+${phaseMetrics.min.gearDiff} (${t('too_high_gear')})`
+                              : `${phaseMetrics.min.gearDiff} (${t('too_low_gear')})`}
                           </span>
                         )}
                       </td>
                     </tr>
 
-                    {/* 4. Aplicación de gas */}
+                    {/* 5. Aplicación de gas (Throttle onset) */}
                     <tr className="hover:bg-white/[0.02] transition">
-                      <td className="py-2 text-left font-medium text-gray-300">{t('throttle_onset_row')}</td>
-                      <td className="py-2 text-right text-gray-400">+{phaseMetrics.throttle.refDist} {t('post_apex_meters')}</td>
-                      <td className="py-2 text-right text-white font-bold">+{phaseMetrics.throttle.compDist} {t('post_apex_meters')}</td>
-                      <td className="py-2 text-right font-black">
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('throttle_onset_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">+{phaseMetrics.throttle.refDist}m {t('post_apex_meters')}</td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">+{phaseMetrics.throttle.compDist}m {t('post_apex_meters')}</td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                         {Math.abs(phaseMetrics.throttle.delta) < 2 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
                             ✓ {t('synchronized_label')}
                           </span>
                         ) : phaseMetrics.throttle.delta > 0 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
-                            +{phaseMetrics.throttle.delta.toFixed(1)}m ({t('delayed_label')})
+                            +{phaseMetrics.throttle.delta.toFixed(0)}m ({t('delayed_label')})
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00D2BE]/15 text-[#00D2BE] font-bold text-[10px]">
-                            {phaseMetrics.throttle.delta.toFixed(1)}m ({t('early_label')})
+                            {phaseMetrics.throttle.delta.toFixed(0)}m ({t('early_label')})
                           </span>
                         )}
                       </td>
                     </tr>
 
-                    {/* 5. Velocidad de salida */}
+                    {/* 6. Velocidad de salida (Exit speed) */}
                     <tr className="hover:bg-white/[0.02] transition">
-                      <td className="py-2 text-left font-medium text-gray-300">{t('exit_speed_row')}</td>
-                      <td className="py-2 text-right text-gray-400">{phaseMetrics.exit.ref} km/h</td>
-                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.exit.comp} km/h</td>
-                      <td className="py-2 text-right font-black">
+                      <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('exit_speed_row')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{phaseMetrics.exit.ref} km/h</td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">{phaseMetrics.exit.comp} km/h</td>
+                      <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                         <span
                           className={
                             phaseMetrics.exit.delta > 0.5
@@ -651,35 +851,61 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
             )}
 
-            {/* Bloque Inferior: Recomendación Principal */}
-            <div className="pt-2.5 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-[#00D2BE]" />
-                  {t('primary_rec_label')}
-                </span>
-                <span className="text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE]">
-                  {selectedCorner.racing_line_eval || t('optimal_badge')}
-                </span>
-              </div>
-              <div className="font-bold text-xs text-white">
-                {recTitle}
-              </div>
-              <p className="text-[11px] text-gray-300 leading-snug line-clamp-2 select-text">
-                {recDescription}
-              </p>
-              {onAskEngineerAboutCorner && (
-                <div className="pt-1 flex items-center justify-end">
-                  <button
-                    onClick={() => onAskEngineerAboutCorner(selectedCorner)}
-                    className="inline-flex items-center gap-1 text-[11px] font-telemetry font-bold text-[#00D2BE] hover:text-white bg-[#00D2BE]/10 hover:bg-[#00D2BE]/25 px-2.5 py-1 rounded-md border border-[#00D2BE]/30 transition cursor-pointer"
-                  >
-                    <span>{t('inspect_detailed_analysis')}</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+            {/* Bloque Inferior: PLAN DE MEJORA EN CURVA (ACCIONABLE 3 PASOS) */}
+            {actionPlan && (
+              <div className="pt-2 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-[#00D2BE]" />
+                    {t('primary_rec_label')}
+                  </span>
+                  <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE]">
+                    {selectedCorner.racing_line_eval || t('optimal_badge')}
+                  </span>
                 </div>
-              )}
-            </div>
+
+                {/* 3 Viñetas Directas Causa -> Acción */}
+                <div className="space-y-1 text-[11px] leading-snug select-text">
+                  <div className="text-gray-300">
+                    <strong className="text-white font-semibold">{t('phase_entry_title')} </strong>
+                    <span>{actionPlan.entry}</span>
+                  </div>
+                  <div className="text-gray-300">
+                    <strong className="text-white font-semibold">{t('phase_apex_title')} </strong>
+                    <span>{actionPlan.apex}</span>
+                  </div>
+                  <div className="text-gray-300">
+                    <strong className="text-white font-semibold">{t('phase_exit_title')} </strong>
+                    <span>{actionPlan.exit}</span>
+                  </div>
+                </div>
+
+                {/* Botones de Acción Contextuales */}
+                <div className="pt-1 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCornerViewMode('track2d')}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-telemetry font-bold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 px-2.5 py-1.5 rounded-md border border-white/10 transition cursor-pointer"
+                  >
+                    <span>📐</span>
+                    <span>{t('view_optimal_line_action')}</span>
+                  </button>
+
+                  {onAskEngineerAboutCorner && (
+                    <button
+                      type="button"
+                      onClick={() => onAskEngineerAboutCorner(selectedCorner)}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-telemetry font-bold text-[#00D2BE] hover:text-white bg-[#00D2BE]/10 hover:bg-[#00D2BE]/25 px-2.5 py-1.5 rounded-md border border-[#00D2BE]/30 transition cursor-pointer shadow-sm"
+                    >
+                      <span>🤖</span>
+                      <span>
+                        {t('ask_engineer_corner_action')} T{selectedCorner.corner_number} →
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : selectedCorner && cornerSvgData ? (
           /* ----- VISTA 2: [ TRAZADA 2D ] (ZOOM DETALLADO DE TRAZADA Y PIANOS SIN BOTONES REDUNDANTES) ----- */

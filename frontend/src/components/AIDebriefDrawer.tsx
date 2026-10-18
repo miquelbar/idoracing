@@ -35,6 +35,7 @@ interface AIDebriefDrawerProps {
   selectedCorner?: CornerDTO | null;
   trackName?: string;
   carName?: string;
+  initialTab?: 'debrief' | 'radio';
 }
 
 function formatMetricKey(key: string, lang: 'es' | 'en' = 'es'): string {
@@ -240,14 +241,22 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   selectedCorner,
   trackName = 'Circuito',
   carName = 'GT3',
+  initialTab,
 }) => {
   const { lang, t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>('debrief');
+  const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>(initialTab || 'debrief');
   const [debriefViewMode, setDebriefViewMode] = useState<'structured' | 'full'>('structured');
   const [inputMessage, setInputMessage] = useState('');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Sync initialTab when drawer opens
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Close on Escape key
   useEffect(() => {

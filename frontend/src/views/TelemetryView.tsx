@@ -120,6 +120,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
     }
   };
 
+  const [debriefTab, setDebriefTab] = useState<'debrief' | 'radio'>('debrief');
+
   const handleAskAboutCorner = (corner: CornerDTO) => {
     const isEn = lang === 'en';
     const question = isEn
@@ -129,6 +131,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       : `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${
           corner.delta_time > 0 ? '+' : ''
         }${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
+    setDebriefTab('radio');
     onOpenDebrief();
     handleSendChatMessage(question);
   };
@@ -173,6 +176,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         selectedCorner={selectedCorner}
         trackName={comparison.track_name}
         carName={comparison.car_name}
+        initialTab={debriefTab}
       />
     </div>
   );
