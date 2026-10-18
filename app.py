@@ -1,5 +1,5 @@
 """
-ACC Coach — Local Formula 1-Style Driving Coach & Telemetry Suite for Assetto Corsa Competizione (ACC).
+SimCoach — Local Formula 1-Style Driving Coach & Telemetry Suite for Sim Racing (ACC, LMU, iRacing).
 Streamlit Application Entrypoint.
 """
 
