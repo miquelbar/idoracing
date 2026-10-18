@@ -49,7 +49,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   const deltaS3 = compS3 && refS3 ? compS3 - refS3 : 0;
 
   return (
-    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm z-30 select-none">
+    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm z-30">
       {/* Left: Context Ribbon ([Badge ACC] Track · Car | Vueltas | [Cambiar Pista]) */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {/* Game Pill */}

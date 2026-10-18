@@ -48,12 +48,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     };
   }, [comparison, selectedCorner]);
 
-  // SVG Chart Geometry (Expanded full-height telemetry panel)
+  // SVG Chart Geometry with Proportional Channel Heights:
+  // 35% Speed (175px), 15% Delta (75px), 35% Pedals (175px), 15% Gear (75px)
   const width = 850;
-  const hSpeed = 160;
-  const hDelta = 65;
-  const hPedals = 130;
-  const hGear = 45;
+  const totalHeight = 500;
+  const hSpeed = 175;  // 35%
+  const hDelta = 75;   // 15%
+  const hPedals = 175; // 35%
+  const hGear = 75;    // 15%
   const padLeft = 45;
   const padRight = 20;
 
@@ -83,6 +85,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     gearRefPath,
     gearCompPath,
     hoverData,
+    minSpeed,
+    maxSpeed,
+    maxDelta,
   } = useMemo(() => {
     const dists = comparison.distance;
     const refSp = comparison.ref_speed;
@@ -109,30 +114,55 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         gearRefPath: '',
         gearCompPath: '',
         hoverData: null,
+        minSpeed: 50,
+        maxSpeed: 250,
+        maxDelta: 0.5,
       };
     }
 
-    // Scale mappings
-    const maxSpeed = Math.max(260, ...filteredIndices.map((i) => Math.max(refSp[i] || 0, compSp[i] || 0)));
-    const minSpeed = Math.max(0, Math.min(50, ...filteredIndices.map((i) => Math.min(refSp[i] || 200, compSp[i] || 200))));
-    const speedSpan = maxSpeed - minSpeed || 1;
+    // 1. Dynamic Speed Range: [Vmin - 10 km/h, Vmax + 10 km/h] (avoids empty black space)
+    const speedsInView: number[] = [];
+    for (let i = 0; i < filteredIndices.length; i++) {
+      const idx = filteredIndices[i];
+      const s1 = refSp[idx];
+      const s2 = compSp[idx];
+      if (typeof s1 === 'number' && s1 > 5) speedsInView.push(s1);
+      if (typeof s2 === 'number' && s2 > 5) speedsInView.push(s2);
+    }
 
-    const toYSpeed = (s: number) => hSpeed - 15 - ((s - minSpeed) / speedSpan) * (hSpeed - 30);
+    const rawMinSpeed = speedsInView.length > 0 ? Math.min(...speedsInView) : 50;
+    const rawMaxSpeed = speedsInView.length > 0 ? Math.max(...speedsInView) : 250;
 
-    // Delta scale (-1.5s to +1.5s or dynamic)
-    const deltasInView = filteredIndices.map((i) => deltaT[i] || 0);
-    const maxDelta = Math.max(0.5, ...deltasInView.map(Math.abs));
-    const toYDelta = (dt: number) => (hDelta / 2) - (dt / maxDelta) * ((hDelta - 16) / 2);
+    const minSpeedVal = Math.max(0, Math.floor((rawMinSpeed - 10) / 10) * 10);
+    const maxSpeedVal = Math.ceil((rawMaxSpeed + 10) / 10) * 10;
+    const speedSpan = Math.max(20, maxSpeedVal - minSpeedVal);
 
-    // Pedals (0 to 100%)
-    const toPct = (val: number) => (val <= 1.05 ? val * 100 : val);
-    const toYPedal = (val: number) => {
-      const pct = toPct(val);
-      return hPedals - 10 - (Math.min(100, Math.max(0, pct)) / 100) * (hPedals - 20);
+    const toYSpeed = (s: number) => {
+      const clamped = Math.max(minSpeedVal, Math.min(maxSpeedVal, s));
+      return hSpeed - 14 - ((clamped - minSpeedVal) / speedSpan) * (hSpeed - 28);
     };
 
-    // Gear (1 to 7)
-    const toYGear = (g: number) => hGear - 8 - ((g - 1) / 6) * (hGear - 16);
+    // 2. Dynamic Delta Range
+    const deltasInView = filteredIndices.map((i) => deltaT[i] || 0);
+    const maxDeltaObserved = Math.max(0.2, ...deltasInView.map(Math.abs));
+    const maxDeltaVal = Math.ceil(maxDeltaObserved * 10) / 10;
+    const toYDelta = (dt: number) => {
+      const clamped = Math.max(-maxDeltaVal, Math.min(maxDeltaVal, dt));
+      return (hDelta / 2) - (clamped / maxDeltaVal) * ((hDelta - 16) / 2);
+    };
+
+    // 3. Pedals (0 to 100%)
+    const toPct = (val: number) => (val <= 1.05 ? val * 100 : val);
+    const toYPedal = (val: number) => {
+      const pct = Math.max(0, Math.min(100, toPct(val)));
+      return hPedals - 14 - (pct / 100) * (hPedals - 28);
+    };
+
+    // 4. Gear (1 to 7)
+    const toYGear = (g: number) => {
+      const clamped = Math.max(1, Math.min(7, g));
+      return hGear - 14 - ((clamped - 1) / 6) * (hGear - 28);
+    };
 
     let spR = '';
     let spC = '';
@@ -238,6 +268,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       gearRefPath: gR,
       gearCompPath: gC,
       hoverData: hData,
+      minSpeed: minSpeedVal,
+      maxSpeed: maxSpeedVal,
+      maxDelta: maxDeltaVal,
     };
   }, [comparison, filteredIndices, domainMin, domainMax, hoverDistance]);
 
@@ -347,10 +380,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       </div>
 
       {/* SVG Stack Chart Canvas */}
-      <div className="relative flex-1 bg-[#07090E]/60 rounded-lg border border-white/5 select-none overflow-hidden">
+      <div className="relative flex-1 bg-[#07090E]/60 rounded-lg border border-white/5 overflow-hidden">
         <svg
-          viewBox={`0 0 ${width} ${hSpeed + hDelta + hPedals + hGear}`}
-          className="w-full h-full cursor-crosshair"
+          viewBox={`0 0 ${width} ${totalHeight}`}
+          preserveAspectRatio="none"
+          className="w-full h-full cursor-crosshair select-none"
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         >
@@ -372,13 +406,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   x1={x}
                   y1={0}
                   x2={x}
-                  y2={hSpeed + hDelta + hPedals + hGear}
+                  y2={totalHeight}
                   stroke="rgba(255, 255, 255, 0.05)"
                   strokeDasharray="4,4"
                 />
                 <text
                   x={x}
-                  y={hSpeed + hDelta + hPedals + hGear - 2}
+                  y={totalHeight - 3}
                   fill="#718096"
                   fontSize="9px"
                   fontFamily="'JetBrains Mono', monospace"
@@ -390,11 +424,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             );
           })}
 
-          {/* ================= CHANNEL 1: SPEED ================= */}
+          {/* ================= CHANNEL 1: SPEED (35% height) ================= */}
           <g transform="translate(0, 0)">
             <rect x={padLeft} y={0} width={chartWidth} height={hSpeed} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hSpeed} x2={width - padRight} y2={hSpeed} stroke="rgba(255,255,255,0.1)" />
-            <text x={padLeft + 8} y={18} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
+
+            {/* Y-Axis Labels for Speed */}
+            <text x={padLeft - 6} y={16} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{maxSpeed}</text>
+            <text x={padLeft - 6} y={hSpeed / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
+            <text x={padLeft - 6} y={hSpeed - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
+
+            <text x={padLeft + 8} y={16} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               VELOCIDAD (KM/H)
             </text>
 
@@ -402,11 +442,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={speedCompPath} fill="none" stroke="#B138FE" strokeWidth="2.5" />
           </g>
 
-          {/* ================= CHANNEL 2: DELTA TIME ================= */}
+          {/* ================= CHANNEL 2: DELTA TIME (15% height) ================= */}
           <g transform={`translate(0, ${hSpeed})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hDelta} fill="rgba(0,0,0,0.3)" />
             <line x1={padLeft} y1={hDelta / 2} x2={width - padRight} y2={hDelta / 2} stroke="rgba(255,255,255,0.2)" strokeDasharray="2,2" />
             <line x1={padLeft} y1={hDelta} x2={width - padRight} y2={hDelta} stroke="rgba(255,255,255,0.1)" />
+
+            {/* Y-Axis Labels for Delta */}
+            <text x={padLeft - 6} y={14} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
+            <text x={padLeft - 6} y={hDelta / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
+            <text x={padLeft - 6} y={hDelta - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
+
             <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               TIEMPO DELTA Δt (S)
             </text>
@@ -417,7 +463,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={deltaPath} fill="none" stroke="#FFD700" strokeWidth="1.8" />
           </g>
 
-          {/* ================= CHANNEL 3: THROTTLE & BRAKE (TRAIL BRAKING) ================= */}
+          {/* ================= CHANNEL 3: THROTTLE & BRAKE / TRAIL BRAKING (35% height) ================= */}
           <g transform={`translate(0, ${hSpeed + hDelta})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hPedals} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hPedals} x2={width - padRight} y2={hPedals} stroke="rgba(255,255,255,0.1)" />
@@ -444,11 +490,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={brkCompPath} fill="none" stroke="#FF1801" strokeWidth="2.4" />
           </g>
 
-          {/* ================= CHANNEL 4: GEAR ================= */}
+          {/* ================= CHANNEL 4: GEAR (15% height) ================= */}
           <g transform={`translate(0, ${hSpeed + hDelta + hPedals})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hGear} fill="rgba(0,0,0,0.3)" />
+
+            {/* Y-Axis Labels for Gear */}
+            <text x={padLeft - 6} y={16} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
+            <text x={padLeft - 6} y={hGear / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
+            <text x={padLeft - 6} y={hGear - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
+
             <text x={padLeft + 8} y={14} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              MARCHA (1 - 6)
+              MARCHA (1 - 7)
             </text>
 
             <path d={gearRefPath} fill="none" stroke="#00D2BE" strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
@@ -461,7 +513,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               x1={hoverData.x}
               y1={0}
               x2={hoverData.x}
-              y2={hSpeed + hDelta + hPedals + hGear}
+              y2={totalHeight}
               stroke="#00D2BE"
               strokeWidth="1.5"
               strokeDasharray="4,2"

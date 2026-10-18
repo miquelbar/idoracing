@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { AIDebriefDrawer } from '../components/AIDebriefDrawer';
-import { CornerInspector } from '../components/CornerInspector';
 import { TelemetryCharts } from '../components/TelemetryCharts';
-import { TrackMap } from '../components/TrackMap';
+import { UnifiedTrackInspector } from '../components/UnifiedTrackInspector';
 import { fetchCoachReport, sendChatMessage } from '../services/api';
 import type {
   ChatMessage,
@@ -121,7 +120,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full min-h-0 overflow-hidden select-none">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full min-h-0 overflow-hidden">
       {/* 1. Left Column (~58% = 7 cols): Canales de Telemetría Sincronizados de arriba a abajo */}
       <div className="lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden">
         <TelemetryCharts
@@ -133,29 +132,16 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         />
       </div>
 
-      {/* 2. Right Column (~42% = 5 cols): Mapa 2D general (arriba) y Análisis Curva a Curva (abajo) */}
-      <div className="lg:col-span-5 flex flex-col h-full min-h-0 gap-2 overflow-hidden">
-        {/* Right Top (~36%): Mapa 2D general con aspect ratio exacto */}
-        <div className="h-[36%] min-h-[160px] max-h-[230px] shrink-0">
-          <TrackMap
-            comparison={comparison}
-            hoverDistance={hoverDistance}
-            onHoverDistance={onHoverDistance}
-            selectedCorner={selectedCorner}
-            onSelectCorner={onSelectCorner}
-            compact={true}
-          />
-        </div>
-
-        {/* Right Bottom (remaining ~64%): Análisis Curva a Curva & Trazada */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <CornerInspector
-            corners={comparison.corners}
-            selectedCorner={selectedCorner}
-            onSelectCorner={onSelectCorner}
-            onAskEngineerAboutCorner={handleAskAboutCorner}
-          />
-        </div>
+      {/* 2. Right Column (~42% = 5 cols): Un solo Visor Unificado de Pista & Curvas */}
+      <div className="lg:col-span-5 flex flex-col h-full min-h-0 overflow-hidden">
+        <UnifiedTrackInspector
+          comparison={comparison}
+          selectedCorner={selectedCorner}
+          onSelectCorner={onSelectCorner}
+          hoverDistance={hoverDistance}
+          onHoverDistance={onHoverDistance}
+          onAskEngineerAboutCorner={handleAskAboutCorner}
+        />
       </div>
 
       {/* 3. Slide-over AI Debrief & Live Team Radio Drawer */}
