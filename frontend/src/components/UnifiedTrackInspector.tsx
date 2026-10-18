@@ -871,9 +871,9 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                       <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{t('outside_to_kerb')}</td>
                       <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
                         {phaseMetrics.position.isSubviraje
-                          ? '+1.5m cerrada / +1.8m ápice'
+                          ? (lang === 'en' ? '+1.5m tight / +1.8m apex' : '+1.5m cerrada / +1.8m ápice')
                           : phaseMetrics.position.isEarly
-                          ? 'Cierra antes (-2.1m)'
+                          ? (lang === 'en' ? 'Early turn-in (-2.1m)' : 'Cierra antes (-2.1m)')
                           : t('outside_to_kerb')}
                       </td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
@@ -983,7 +983,9 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     {t('primary_rec_label')}
                   </span>
                   <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE]">
-                    {selectedCorner.racing_line_eval || t('optimal_badge')}
+                    {lang === 'en' && selectedCorner.racing_line_eval === 'Trazada Cerrada / Pérdida de Vértice'
+                      ? 'Tight Trajectory / Apex Loss'
+                      : (selectedCorner.racing_line_eval || t('optimal_badge'))}
                   </span>
                 </div>
 

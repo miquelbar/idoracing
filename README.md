@@ -44,19 +44,19 @@ Telemetry analysis should be accessible, private, and directly actionable:
 
 ### 2. 🔍 Corner-by-Corner Racing Line & Technique Inspector
 - **Corner Phase Breakdown Table**: Structured 4-column phase performance analysis comparing your corner entry, apex, and exit against the reference lap:
-  - `FASE DE CURVA` | `REFERENCIA` | `TU VUELTA` | `DIFERENCIA`
+  - `CORNER PHASE` | `REFERENCE` | `YOUR LAP` | `DELTA`
   - **Braking Point Delta**: Pinpoints whether you braked too early or arrived overloaded into the corner entry.
   - **Trail Braking Modulation**: Evaluates progressive pedal bleed-off vs. abrupt release to maintain front tire grip.
   - **Track Position & Line**: Identifies entry tightening, understeer offsets (+1.8m wide off apex), or early apex pinching.
   - **Minimum Speed ($V_{min}$) & Apex Gear**: Detects overslowing and incorrect downshifts upsetting chassis balance.
   - **Throttle Onset Distance & Exit Speed**: Measures post-apex throttle commitment and corner exit momentum.
-  - **Direct Radio Feedback Loop**: One-click jump to chat with Pep about the specific corner (`[ 🎧 Consultar a Pep sobre T1 → ]`).
+  - **Direct Radio Feedback Loop**: One-click jump to chat with Pep about the specific corner (`[ 🎧 Ask Pep about T1 → ]`).
 
 ![Corner Phase Performance Analysis](docs/screenshots/corner-phase-analysis.png)
 *Corner Phase Breakdown Table: braking point delta, trail braking modulation score, minimum apex speed, and Pep's engineering debrief.*
 
 - **High-Resolution 2D Trajectory Inspector**: Compare your driven line vs. optimal line, with marked Entry, Apex, and Exit points, curb boundaries, and speed delta shading.
-- **Segmented Mode Toggle**: Instant switching between **Trazada Óptima** (2D Trajectory) and **Diagnóstico y Fases** (Corner Phase Table) without vertical scrolling.
+- **Segmented Mode Toggle**: Instant switching between **Optimal Line** (2D Trajectory) and **Phase Breakdown** (Corner Phase Table) without vertical scrolling.
 
 ![Corner 2D Trajectory](docs/screenshots/corner-trace-2d.png)
 *High-resolution 2D Corner Trajectory analysis with curbs, speed delta ribbon, and apex alignment.*
