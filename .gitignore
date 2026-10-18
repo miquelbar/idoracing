@@ -62,3 +62,7 @@ Thumbs.db
 
 # Frontend
 frontend/node_modules/
+frontend/dist/
+
+# Scratch & temporary artifacts
+scratch/

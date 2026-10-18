@@ -48,6 +48,7 @@ export interface ComparisonResponse {
   delta_time_total: number;
   track_name: string;
   car_name: string;
+  game_name?: string;
   distance: number[];
   ref_speed: number[];
   comp_speed: number[];
@@ -90,6 +91,7 @@ export interface SessionSummary {
   session_id: string;
   track: string;
   car: string;
+  game?: string;
   date?: string;
   duration?: number;
   best_lap_time?: number;

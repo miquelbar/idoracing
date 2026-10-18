@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
+import { ActiveSessionBanner } from './components/ActiveSessionBanner';
 import { Header, type NavTab } from './components/Header';
+import { SessionSwitcherModal } from './components/SessionSwitcherModal';
 import {
   autodiscoverSims,
   fetchComparison,
@@ -23,8 +25,30 @@ import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
 import { TelemetryView } from './views/TelemetryView';
 
+function getTabFromHash(): NavTab {
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  if (['sessions', 'telemetry', 'engineer', 'files', 'settings'].includes(hash)) {
+    return hash as NavTab;
+  }
+  return 'telemetry';
+}
+
+function detectGameName(sess?: SessionSummary | null, comp?: ComparisonResponse | null): string {
+  if (comp?.game_name) return comp.game_name;
+  if (!sess) return 'Assetto Corsa Competizione';
+  const id = (sess.session_id || '').toLowerCase();
+  const car = (sess.car || '').toLowerCase();
+  if (id.startsWith('lmu') || car.includes('lmgt3') || car.includes('hypercar') || car.includes('lmp2')) {
+    return 'Le Mans Ultimate';
+  }
+  if (id.includes('iracing')) {
+    return 'iRacing';
+  }
+  return 'Assetto Corsa Competizione';
+}
+
 export const App: React.FC = () => {
-  const [currentTab, setCurrentTab] = useState<NavTab>('telemetry');
+  const [currentTab, setCurrentTab] = useState<NavTab>(getTabFromHash);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -38,9 +62,24 @@ export const App: React.FC = () => {
   const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
   const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
 
+  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync state with URL hash routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentTab(getTabFromHash());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleNavigateTab = (tab: NavTab) => {
+    setCurrentTab(tab);
+    window.location.hash = `#/${tab}`;
+  };
 
   const loadInitialData = async () => {
     try {
@@ -190,7 +229,7 @@ export const App: React.FC = () => {
       setLoading(true);
       await importLocalFile(filepath);
       await loadInitialData();
-      setCurrentTab('telemetry');
+      handleNavigateTab('telemetry');
     } catch (err: any) {
       setError(err?.message || 'Error importando archivo local');
       setLoading(false);
@@ -222,15 +261,43 @@ export const App: React.FC = () => {
     }
   };
 
+  const currentSession = sessions.find((s) => s.session_id === selectedSessionId) || sessions[0];
+  const activeGame = detectGameName(currentSession, comparison);
+  const activeTrack = comparison?.track_name || currentSession?.track || 'Ricardo Tormo de Valencia';
+  const activeCar = comparison?.car_name || currentSession?.car || 'Porsche 911 GT3 R (992)';
+
   return (
     <div className="min-h-screen bg-[#08090C] text-[#E2E8F0] flex flex-col font-sans selection:bg-[#00D2BE] selection:text-black">
-      {/* 2026 SimCoach Header with Clean Section Tabs */}
+      {/* 1. Header with Brand, Section Tabs & AI Status */}
       <Header
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={handleNavigateTab}
         status={status}
-        activeTrack={comparison?.track_name}
-        activeCar={comparison?.car_name}
+      />
+
+      {/* 2. Prominent Active Session Banner (Outside Top Bar) */}
+      <ActiveSessionBanner
+        trackName={activeTrack}
+        carName={activeCar}
+        gameName={activeGame}
+        lapCount={currentSession?.lap_count}
+        bestLapTime={currentSession?.best_lap_time}
+        refLapNumber={refLapNumber}
+        compLapNumber={compLapNumber}
+        onOpenSwitcher={() => setIsSwitcherOpen(true)}
+      />
+
+      {/* 3. Global Session Switcher Modal (Available across all screens) */}
+      <SessionSwitcherModal
+        isOpen={isSwitcherOpen}
+        onClose={() => setIsSwitcherOpen(false)}
+        sessions={sessions}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSession}
+        autoData={autoData}
+        onImportLocal={handleImportLocal}
+        onLoadDemo={handleLoadDemo}
+        loading={loadingDemo}
       />
 
       {/* Main Viewport */}
@@ -244,7 +311,7 @@ export const App: React.FC = () => {
                 SINCRONIZANDO TELEMETRÍA SIMCOACH
               </h2>
               <p className="text-xs text-gray-400">
-                Alineando canales métricos y calculando deltas de velocidad...
+                Cargando datos de pista y alineando canales métricos...
               </p>
             </div>
           </div>
@@ -266,7 +333,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Active View Tab Content */}
+        {/* Active View Tab Content (Driven by URL Hash Routing) */}
         {!loading && (
           <>
             {currentTab === 'telemetry' && comparison && (
@@ -291,7 +358,7 @@ export const App: React.FC = () => {
                 compLapNumber={compLapNumber}
                 onSelectRefLap={handleSelectRefLap}
                 onSelectCompLap={handleSelectCompLap}
-                onGoToTelemetry={() => setCurrentTab('telemetry')}
+                onGoToTelemetry={() => handleNavigateTab('telemetry')}
                 onLoadDemo={handleLoadDemo}
                 autoData={autoData}
                 onImportLocal={handleImportLocal}
@@ -315,6 +382,10 @@ export const App: React.FC = () => {
                 onSessionImported={loadInitialData}
                 onLoadDemo={handleLoadDemo}
                 loading={loading}
+                activeTrackName={activeTrack}
+                activeCarName={activeCar}
+                activeGameName={activeGame}
+                onOpenSwitcher={() => setIsSwitcherOpen(true)}
               />
             )}
 
@@ -332,7 +403,7 @@ export const App: React.FC = () => {
       <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-4">
           <span>
-            SIMCOACH v{status?.version || '2026.1'} • Multi-Sim Motorsport Telemetry
+            SIMCOACH v{status?.version || '2026.2'} • {activeGame}
           </span>
           <span className="hidden md:inline text-gray-700">|</span>
           <span className="hidden md:inline text-gray-400">
@@ -341,7 +412,7 @@ export const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-gray-400">
-            {comparison ? `${comparison.track_name} (${comparison.car_name})` : 'Circuit Ricardo Tormo (Valencia)'}
+            {activeTrack} • {activeCar}
           </span>
           <span className="text-[#00D2BE] font-bold flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />

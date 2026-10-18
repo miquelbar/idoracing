@@ -129,6 +129,7 @@ class ComparisonResponse(BaseModel):
     delta_time_total: float
     track_name: str
     car_name: str
+    game_name: Optional[str] = "Assetto Corsa Competizione"
     distance: List[float]
     ref_speed: List[float]
     comp_speed: List[float]
@@ -347,6 +348,7 @@ def get_lap_comparison(
         delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
         track_name=matched_session.track if matched_session else "Circuito",
         car_name=matched_session.car if matched_session else "GT3",
+        game_name="Le Mans Ultimate" if (matched_session and (matched_session.session_id.startswith("lmu") or "lmgt3" in matched_session.car.lower())) else "Assetto Corsa Competizione",
         distance=distance_grid,
         ref_speed=ref_speed,
         comp_speed=comp_speed,

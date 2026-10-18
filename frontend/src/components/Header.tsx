@@ -15,16 +15,12 @@ interface HeaderProps {
   currentTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   status: SystemStatus | null;
-  activeTrack?: string;
-  activeCar?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
   status,
-  activeTrack,
-  activeCar,
 }) => {
   const tabs = [
     { id: 'sessions', label: 'Sesiones & Garaje', icon: Layers },
@@ -37,22 +33,18 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b border-[#1E2638] bg-[#0A0C12]/95 backdrop-blur-md sticky top-0 z-40 px-6 py-2.5">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Brand & Active Track */}
+        {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#E10600] to-[#800300] text-white font-bold shadow-sm">
             <span className="font-f1-brand text-lg italic">S</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-f1-brand text-xl tracking-wider text-white font-black italic">
-                SIM<span className="text-[#00D2BE]">COACH</span>
-              </span>
-            </div>
-            {activeTrack && (
-              <p className="text-[11px] text-gray-400 font-telemetry">
-                {activeTrack} {activeCar ? `• ${activeCar}` : ''}
-              </p>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="font-f1-brand text-xl tracking-wider text-white font-black italic">
+              SIM<span className="text-[#00D2BE]">COACH</span>
+            </span>
+            <span className="text-[10px] text-gray-500 font-telemetry tracking-widest uppercase hidden lg:inline">
+              PRO
+            </span>
           </div>
         </div>
 
