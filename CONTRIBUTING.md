@@ -1,13 +1,13 @@
-# Contributing to ACC Coach
+# Contributing to IdoRacing Analytics
 
-Thank you for your interest in contributing to ACC Coach!
+Thank you for your interest in contributing to IdoRacing Analytics!
 
 ## Development Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/miquelbar/acc-coach.git
-   cd acc-coach
+   git clone https://github.com/miquelbar/idoracing.git
+   cd idoracing
    ```
 
 2. Create a virtual environment and install dependencies:

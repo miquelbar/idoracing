@@ -3,7 +3,7 @@
 > ### **Every lap tells a story.**
 > **Multi-sim telemetry analysis. Built for faster laps.**
 
-[![CI](https://github.com/miquelbar/acc-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/miquelbar/acc-coach/actions/workflows/ci.yml)
+[![CI](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml/badge.svg)](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
@@ -160,8 +160,8 @@ idoracing-analytics/
 
 #### 2. Clone & Setup Backend
 ```bash
-git clone https://github.com/miquelbar/acc-coach.git
-cd acc-coach
+git clone https://github.com/miquelbar/idoracing.git
+cd idoracing
 
 # Create and activate Python virtual environment
 python3 -m venv .venv
