@@ -23,11 +23,12 @@ import { EngineerView } from './views/EngineerView';
 import { FilesView } from './views/FilesView';
 import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
+import { SetupHistoryView } from './views/SetupHistoryView';
 import { TelemetryView } from './views/TelemetryView';
 
 function getTabFromHash(): NavTab {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  if (['sessions', 'telemetry', 'engineer', 'files', 'settings'].includes(hash)) {
+  if (['sessions', 'telemetry', 'setup', 'engineer', 'files', 'settings'].includes(hash)) {
     return hash as NavTab;
   }
   return 'telemetry';
@@ -363,6 +364,15 @@ export const App: React.FC = () => {
                 autoData={autoData}
                 onImportLocal={handleImportLocal}
                 loading={loadingDemo}
+              />
+            )}
+
+            {currentTab === 'setup' && (
+              <SetupHistoryView
+                selectedSessionId={selectedSessionId}
+                trackName={activeTrack}
+                carName={activeCar}
+                onGoToTelemetry={() => handleNavigateTab('telemetry')}
               />
             )}
 

@@ -5,13 +5,14 @@ import {
   CheckCircle,
   FileText,
   Lightbulb,
+  MessageSquare,
   RefreshCw,
   Send,
   Sparkles,
   Target,
   User,
 } from 'lucide-react';
-import { CornerSelector } from '../components/CornerSelector';
+import { CornerInspector } from '../components/CornerInspector';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { TimingTower } from '../components/TimingTower';
 import { TrackMap } from '../components/TrackMap';
@@ -85,7 +86,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
     {
       role: 'assistant',
       content:
-        'Canal de radio abierto. He procesado la telemetría de tus vueltas. ¿Qué duda técnica o curva quieres revisar?',
+        'Canal de radio abierto. He procesado la telemetría de tus vueltas. Selecciona cualquier curva para ver la trazada y el análisis técnico o pregúntame directamente.',
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
@@ -102,30 +103,30 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       );
       onReportGenerated(rep);
     } catch (err: any) {
-      setReportError(err?.message || 'Error calculando debrief con IA');
+      setReportError(err?.message || 'Error al generar el informe con el modelo local');
     } finally {
       setLoadingReport(false);
     }
   };
 
-  const handleSendChat = async (questionText?: string) => {
-    const textToSend = questionText || inputMessage.trim();
+  const handleSendChatMessage = async (msgText?: string) => {
+    const textToSend = (msgText || inputMessage).trim();
     if (!textToSend || chatLoading) return;
 
     const newMsgs: ChatMessage[] = [...chatMessages, { role: 'user', content: textToSend }];
     setChatMessages(newMsgs);
-    if (!questionText) setInputMessage('');
+    if (!msgText) setInputMessage('');
+    setChatLoading(true);
 
     try {
-      setChatLoading(true);
-      const reply = await sendChatMessage(newMsgs, comparison.ref_lap_id, comparison.comp_lap_id);
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: reply.content }]);
+      const res = await sendChatMessage(newMsgs, comparison.ref_lap_id, comparison.comp_lap_id);
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: res.content }]);
     } catch (err: any) {
       setChatMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Error de comunicación por radio: ' + (err?.message || 'Fallo de conexión'),
+          content: 'Error de comunicación en radio. Comprueba que el servidor local esté activo.',
         },
       ]);
     } finally {
@@ -133,30 +134,30 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
     }
   };
 
-  // Find key trail braking corners in current comparison
-  const trailCorners = comparison.corners.filter((c) =>
-    [1, 2, 4, 8, 11, 14].includes(c.corner_number)
-  );
+  const handleAskAboutCorner = (corner: CornerDTO) => {
+    const question = `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${corner.delta_time > 0 ? '+' : ''}${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
+    handleSendChatMessage(question);
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* 1. Timing Tower */}
       <TimingTower comparison={comparison} />
 
-      {/* 2. Dual Workspace: 2D Closed Track Map & 4-Row Telemetry Stack */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: 2D Track Map (5 cols) */}
-        <div className="lg:col-span-5 h-[490px]">
-          <TrackMap
-            comparison={comparison}
-            hoverDistance={hoverDistance}
-            selectedCorner={selectedCorner}
-            onSelectCorner={onSelectCorner}
-          />
-        </div>
+      {/* 2. Top Section: Large Track Map & Trazada Explorer */}
+      <div className="h-[440px] w-full">
+        <TrackMap
+          comparison={comparison}
+          hoverDistance={hoverDistance}
+          selectedCorner={selectedCorner}
+          onSelectCorner={onSelectCorner}
+        />
+      </div>
 
-        {/* Right Column: 4-Channel Synchronized Telemetry (7 cols) */}
-        <div className="lg:col-span-7 h-[490px]">
+      {/* 3. Bottom 50/50 Split: Synchronized Telemetry Charts (Left) & Corner/Trazada Inspector (Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* Left Column (6 cols): Canales de Telemetría Sincronizados */}
+        <div className="lg:col-span-6 flex flex-col h-full min-h-[520px]">
           <TelemetryCharts
             comparison={comparison}
             hoverDistance={hoverDistance}
@@ -165,16 +166,19 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
             onResetZoom={() => onSelectCorner(null)}
           />
         </div>
+
+        {/* Right Column (6 cols): Inspector de Curva, Trazada Real vs Óptima SVG, y Diagnóstico IA */}
+        <div className="lg:col-span-6 flex flex-col h-full min-h-[520px]">
+          <CornerInspector
+            corners={comparison.corners}
+            selectedCorner={selectedCorner}
+            onSelectCorner={onSelectCorner}
+            onAskEngineerAboutCorner={handleAskAboutCorner}
+          />
+        </div>
       </div>
 
-      {/* 3. Corner-by-Corner Segment HUD Cards */}
-      <CornerSelector
-        corners={comparison.corners}
-        selectedCorner={selectedCorner}
-        onSelectCorner={onSelectCorner}
-      />
-
-      {/* 4. Integrated AI Debrief & Trail Braking Suite */}
+      {/* 4. Integrated Deep AI Debrief & Live Engineer Radio Console */}
       <div className="glass-panel rounded-xl p-5 border border-white/10 space-y-5">
         {/* Debrief Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
@@ -184,10 +188,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
-                Debrief Integrado & Análisis de Trail Braking
+                Debrief Integral de Competición & Radio de Equipo
               </h3>
               <p className="text-xs text-gray-400 font-telemetry">
-                Ingeniero de Competición • Modelo:{' '}
+                Ingeniero de Competición • Modelo Activo:{' '}
                 <strong className="text-[#00D2BE]">{activeModel}</strong>
               </p>
             </div>
@@ -220,269 +224,193 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
           </div>
         )}
 
-        {/* Loading State */}
-        {loadingReport && (
-          <div className="py-12 flex flex-col items-center justify-center space-y-3">
-            <div className="w-10 h-10 border-3 border-[#00D2BE] border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-gray-300 font-telemetry">
-              El ingeniero de pista está calculando deltas de acelerador, presión regresiva de freno y técnica de trail braking...
-            </p>
-          </div>
-        )}
-
-        {/* Call-to-action if no report generated yet */}
-        {!report && !loadingReport && (
-          <div className="p-6 rounded-xl bg-[#0B0E16] border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white">¿Quieres conocer dónde ganas o pierdes tiempo?</h4>
-              <p className="text-xs text-gray-400 max-w-2xl leading-relaxed">
-                Pulsa en <strong>Analizar Telemetría con IA</strong> para generar un debrief estructurado en 5 partes, análisis de modulación de freno hacia el ápice (trail braking) y ejercicios específicos para tu siguiente tanda.
-              </p>
-            </div>
-            <button
-              onClick={() => handleGenerateDebrief(false)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-xs font-bold rounded-lg cursor-pointer transition shrink-0"
-            >
-              Cargar Análisis Inicial
-            </button>
-          </div>
-        )}
-
-        {/* Full Integrated Debrief Content */}
-        {report && !loadingReport && (
-          <div className="space-y-5 animate-in fade-in duration-300">
-            {/* Trail Braking Technical Guide Matrix */}
-            <div className="p-4 rounded-xl bg-[#0D111A] border border-[#00D2BE]/20 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider flex items-center gap-1.5 font-telemetry">
-                  <Target className="w-4 h-4" />
-                  Técnica de Trail Braking (Modulación de Pedal en Apoyo)
-                </span>
-                <span className="text-[10px] font-telemetry px-2 py-0.5 rounded bg-[#00D2BE]/10 text-[#00D2BE] border border-[#00D2BE]/30">
-                  GT3 / LMGT3 Dynamic
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                {/* Where to Trail Brake */}
-                <div className="p-3.5 rounded-lg bg-[#0A0D14] border border-emerald-500/20 space-y-1.5">
-                  <div className="flex items-center gap-2 text-[#00FF7F] font-bold">
-                    <span className="w-2 h-2 rounded-full bg-[#00FF7F]" />
-                    <span>Dónde SÍ aplicar Trail Braking:</span>
+        {/* Report Content Grid */}
+        {report ? (
+          <div className="space-y-5">
+            {/* 1. Numerical Metrics Overview */}
+            {report.metrics && Object.keys(report.metrics).length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Object.entries(report.metrics).map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="p-3 rounded-lg bg-[#0E121B] border border-white/5 font-telemetry"
+                  >
+                    <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">
+                      {formatMetricKey(k)}
+                    </span>
+                    <span className="text-sm font-bold text-white block truncate">
+                      {formatMetricValue(v)}
+                    </span>
                   </div>
-                  <p className="text-gray-300 text-[11px] leading-relaxed">
-                    <strong>Curvas lentas y medias cerradas</strong> (T1 Aspar, T2 Doohan, T8 Bernat Martínez, T14 Adrián Campos).
-                  </p>
-                  <p className="text-gray-400 text-[11px] leading-relaxed">
-                    <strong>Técnica:</strong> Frena al 100% en recta. Al iniciar el giro de volante, desvanece suavemente la presión del 100% al 15-20% manteniéndola hasta el vértice. Esto mantiene la masa sobre el eje delantero, dando rotación al morro y evitando subviraje en entrada.
-                  </p>
-                </div>
-
-                {/* Where NOT to Trail Brake */}
-                <div className="p-3.5 rounded-lg bg-[#0A0D14] border border-amber-500/20 space-y-1.5">
-                  <div className="flex items-center gap-2 text-[#FFD700] font-bold">
-                    <span className="w-2 h-2 rounded-full bg-[#FFD700]" />
-                    <span>Dónde NO abusar del Trail Braking:</span>
-                  </div>
-                  <p className="text-gray-300 text-[11px] leading-relaxed">
-                    <strong>Curvas rápidas en apoyo aerodinámico</strong> (T3, T7, T12).
-                  </p>
-                  <p className="text-gray-400 text-[11px] leading-relaxed">
-                    <strong>Técnica:</strong> Suelta el pedal de freno en línea recta antes de meter volante o da un toque breve y desahogado. En virajes veloces, el alerón y difusor generan el agarre; mantener freno residual en apoyo desestabiliza la zaga.
-                  </p>
-                </div>
+                ))}
               </div>
+            )}
 
-              {/* Trail Braking Corner Badges */}
-              <div className="mt-2 pt-2 border-t border-white/5">
-                <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-2 font-telemetry">
-                  Evaluación de tus virajes críticos de frenada:
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 font-telemetry">
-                  {trailCorners.map((tc) => (
-                    <div
-                      key={`tb-c-${tc.corner_number}`}
-                      onClick={() => onSelectCorner(tc)}
-                      className="p-2 rounded bg-[#131824] border border-white/5 hover:border-[#00D2BE]/40 cursor-pointer transition text-xs"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-white">T{tc.corner_number}</span>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                            tc.trail_braking_eval?.includes('Efectivo') || tc.trail_braking_eval?.includes('Óptimo')
-                              ? 'bg-[#00FF7F]/15 text-[#00FF7F]'
-                              : tc.trail_braking_eval?.includes('Prematuro')
-                              ? 'bg-[#FFD700]/15 text-[#FFD700]'
-                              : 'bg-[#FF453A]/15 text-[#FF453A]'
-                          }`}
-                        >
-                          {tc.trail_braking_eval?.replace('Trail Braking ', '') || 'Evaluada'}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-gray-400 block truncate">{tc.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Debrief 5 Sections Grid */}
+            {/* 2. Structured Analysis Columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Section 1: Facts */}
-              <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
+              {/* Facts (Left) */}
+              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
                   <CheckCircle className="w-4 h-4 text-[#00D2BE]" />
-                  <span>1. Hechos Observados en Telemetría</span>
+                  <span>1. Hechos Observados en Datos</span>
                 </div>
-                <div className="space-y-1.5 text-xs text-gray-300 leading-relaxed font-telemetry">
-                  {(report.facts || []).map((fact, idx) => (
-                    <div key={`fact-${idx}`} className="flex items-start gap-2">
-                      <span className="text-[#00D2BE] font-bold">•</span>
-                      <span>{fact}</span>
-                    </div>
-                  ))}
-                </div>
+                <ul className="space-y-2 text-xs text-gray-300">
+                  {report.facts && report.facts.length > 0 ? (
+                    report.facts.map((fact, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-[#00D2BE] mt-0.5">•</span>
+                        <span>{fact}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-500">Sin hechos críticos registrados.</li>
+                  )}
+                </ul>
               </div>
 
-              {/* Section 2: Metrics */}
-              <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#00D2BE] uppercase tracking-wider">
-                  <Target className="w-4 h-4" />
-                  <span>2. Métricas de Apoyo</span>
+              {/* Hypotheses & Technique (Right) */}
+              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Lightbulb className="w-4 h-4 text-amber-400" />
+                  <span>2. Diagnóstico Técnico de Conducción</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-telemetry text-xs">
-                  {Object.entries(report.metrics || {}).map(([k, v]) => (
-                    <div key={k} className="p-2.5 rounded-lg bg-[#131722] border border-white/5">
-                      <span className="text-[10px] text-gray-400 block mb-0.5">{formatMetricKey(k)}</span>
-                      <span className="text-white font-bold text-xs block leading-snug">{formatMetricValue(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section 3: Technical Hypothesis */}
-              <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#B138FE] uppercase tracking-wider">
-                  <Lightbulb className="w-4 h-4" />
-                  <span>3. Hipótesis Técnica de Conducción</span>
-                </div>
-                <div className="space-y-1.5 text-xs text-gray-300 leading-relaxed">
-                  {(report.hypotheses || []).map((hypo, idx) => (
-                    <p key={`hypo-${idx}`} className="flex items-start gap-2">
-                      <span className="text-[#B138FE] font-bold">•</span>
-                      <span>{hypo}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              {/* Section 4: Practical Exercises */}
-              <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#00FF7F] uppercase tracking-wider">
-                  <Sparkles className="w-4 h-4" />
-                  <span>4. Ejercicios para la Siguiente Tanda</span>
-                </div>
-                <div className="space-y-1.5 text-xs text-gray-300 leading-relaxed">
-                  {(report.exercises || []).map((ex, idx) => (
-                    <div key={`ex-${idx}`} className="p-2.5 rounded-lg bg-[#00FF7F]/5 border border-[#00FF7F]/20 text-[#E2E8F0]">
-                      <strong>Paso {idx + 1}:</strong> {ex}
-                    </div>
-                  ))}
-                </div>
+                <ul className="space-y-2 text-xs text-gray-300">
+                  {report.hypotheses && report.hypotheses.length > 0 ? (
+                    report.hypotheses.map((hyp, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-amber-400 mt-0.5">•</span>
+                        <span>{hyp}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-500">Técnica consistente sin desviaciones mayores.</li>
+                  )}
+                </ul>
               </div>
             </div>
 
-            {/* Section 5: Verification Indicator Banner */}
-            <div className="p-3.5 rounded-xl bg-[#121622] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-telemetry">
-              <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4 text-[#00D2BE]" />
-                <span className="text-gray-400">5. Criterio de Verificación:</span>
-                <strong className="text-white">{report.verification_indicator}</strong>
-              </div>
-              <span className="px-2.5 py-1 rounded bg-[#00D2BE]/10 border border-[#00D2BE]/30 text-[#00D2BE] text-[11px] font-bold">
-                Confianza: {report.confidence || 'Alta (Telemetría + IA)'}
-              </span>
-            </div>
-
-            {/* Quick Radio Chat Bar */}
-            <div className="p-4 rounded-xl bg-[#090C12] border border-white/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2 font-telemetry">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Canal de Radio con Ingeniero ({activeModel})
-                </span>
-                <span className="text-[10px] text-gray-400 font-telemetry">Preguntas directas sobre tus vueltas</span>
-              </div>
-
-              {/* Quick Prompt Chips */}
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                {[
-                  '¿Cómo mejoro el trail braking en la T1?',
-                  '¿Por qué pierdo tiempo en la horquilla T8?',
-                  '¿Dónde debería acelerar antes?',
-                ].map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => handleSendChat(chip)}
-                    disabled={chatLoading}
-                    className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 border border-white/5 transition cursor-pointer text-xs"
-                  >
-                    {chip}
-                  </button>
-                ))}
+            {/* 3. Actionable Exercises & Verification */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Exercises */}
+              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <Target className="w-4 h-4 text-[#FF1801]" />
+                  <span>3. Plan de Ejercicios para la Siguiente Tanda</span>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-300">
+                  {report.exercises && report.exercises.length > 0 ? (
+                    report.exercises.map((ex, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-[#FF1801] mt-0.5 font-bold">{idx + 1}.</span>
+                        <span>{ex}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-500">Mantener el ritmo actual.</li>
+                  )}
+                </ul>
               </div>
 
-              {/* Radio Messages */}
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {chatMessages.map((msg, i) => (
-                  <div
-                    key={`chat-${i}`}
-                    className={`p-2.5 rounded-lg text-xs leading-relaxed ${
-                      msg.role === 'assistant'
-                        ? 'bg-[#121622] text-gray-200 border border-white/5'
-                        : 'bg-[#00D2BE]/10 text-white border border-[#00D2BE]/30 ml-6'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1 text-[10px] font-bold text-gray-400">
-                      {msg.role === 'assistant' ? (
-                        <>
-                          <Bot className="w-3 h-3 text-[#00D2BE]" />
-                          <span>Ingeniero de Pista</span>
-                        </>
-                      ) : (
-                        <>
-                          <User className="w-3 h-3 text-[#B138FE]" />
-                          <span>Piloto</span>
-                        </>
-                      )}
-                    </div>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Input row */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                  placeholder="Pregunta a tu ingeniero sobre cualquier curva, freno o trazada..."
-                  disabled={chatLoading}
-                  className="flex-1 bg-[#141824] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE]"
-                />
-                <button
-                  onClick={() => handleSendChat()}
-                  disabled={chatLoading || !inputMessage.trim()}
-                  className="px-3.5 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold transition cursor-pointer disabled:opacity-40"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+              {/* Verification Indicator & Raw Report */}
+              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                  <FileText className="w-4 h-4 text-[#B138FE]" />
+                  <span>4. Indicador Objetivo de Mejora</span>
+                </div>
+                <div className="p-3 rounded-lg bg-black/40 border border-white/5 font-telemetry text-xs text-purple-200">
+                  {report.verification_indicator ||
+                    'Comprobar aumento de velocidad mínima en vértice (+5 km/h) sin penalizar tracción.'}
+                </div>
               </div>
             </div>
           </div>
+        ) : (
+          !loadingReport && (
+            <div className="p-6 rounded-xl bg-[#090D15] border border-white/5 text-center space-y-3">
+              <Sparkles className="w-8 h-8 text-[#00D2BE] mx-auto opacity-70" />
+              <h4 className="text-sm font-bold text-white">¿Quieres un debrief integral con IA?</h4>
+              <p className="text-xs text-gray-400 max-w-lg mx-auto">
+                Pulsa en <strong>Analizar Telemetría con IA</strong> para sintetizar pérdidas por sector,
+                modulación de trail braking en las 14 curvas y ejercicios concretos para tu próxima tanda.
+              </p>
+              <button
+                onClick={() => handleGenerateDebrief(false)}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition cursor-pointer"
+              >
+                Cargar Análisis Inicial
+              </button>
+            </div>
+          )
         )}
+
+        {/* 5. Integrated Live Team Radio Console */}
+        <div className="mt-5 pt-5 border-t border-white/10">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="w-3.5 h-3.5 text-[#00D2BE]" />
+              Canal de Radio • Preguntas Directas al Ingeniero IA
+            </h4>
+            <span className="text-[10px] text-gray-400 font-telemetry">
+              Respuestas calibradas sobre tus datos de vuelta
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[#07090E] border border-white/5 space-y-3 max-h-[220px] overflow-y-auto mb-3">
+            {chatMessages.map((m, idx) => (
+              <div
+                key={idx}
+                className={`flex gap-2.5 text-xs ${
+                  m.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                {m.role === 'assistant' && (
+                  <div className="w-6 h-6 rounded-md bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE] shrink-0 mt-0.5">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                )}
+                <div
+                  className={`p-2.5 rounded-lg max-w-[85%] leading-relaxed ${
+                    m.role === 'user'
+                      ? 'bg-[#B138FE]/20 border border-[#B138FE]/40 text-purple-100'
+                      : 'bg-[#0E131F] border border-white/5 text-gray-300'
+                  }`}
+                >
+                  {m.content}
+                </div>
+                {m.role === 'user' && (
+                  <div className="w-6 h-6 rounded-md bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center text-[#B138FE] shrink-0 mt-0.5">
+                    <User className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex gap-2 text-xs text-gray-400 items-center">
+                <RefreshCw className="w-3 h-3 animate-spin text-[#00D2BE]" />
+                <span>El ingeniero está consultando los canales de telemetría...</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+              placeholder="Ej: ¿Dónde pierdo más tiempo entre T1 y T4? ¿Cómo mejoro la frenada en T11?"
+              className="flex-1 bg-[#090D15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE] font-telemetry"
+            />
+            <button
+              onClick={() => handleSendChatMessage()}
+              disabled={chatLoading || !inputMessage.trim()}
+              className="px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Transmitir</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

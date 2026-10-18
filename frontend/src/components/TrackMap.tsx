@@ -15,14 +15,14 @@ export const TrackMap: React.FC<TrackMapProps> = ({
   selectedCorner,
   onSelectCorner,
 }) => {
-  const { pathSegments, cornerPoints, carPoint, viewBox } = useMemo(() => {
+  const { pathSegments, cornerPoints, selectedCornerSegments, carPoint, viewBox } = useMemo(() => {
     const xs = comparison.track_x || [];
     const ys = comparison.track_y || [];
     const dists = comparison.distance || [];
     const deltas = comparison.delta_speed || [];
 
     if (xs.length === 0 || ys.length === 0) {
-      return { pathSegments: [], cornerPoints: [], carPoint: null, viewBox: '0 0 800 600' };
+      return { pathSegments: [], cornerPoints: [], selectedCornerSegments: [], carPoint: null, viewBox: '0 0 800 600' };
     }
 
     const minX = Math.min(...xs);
@@ -90,6 +90,21 @@ export const TrackMap: React.FC<TrackMapProps> = ({
       };
     });
 
+    // Highlight segments for the selected corner
+    const cornerSegments: Array<{ d: string }> = [];
+    if (selectedCorner) {
+      for (let i = 0; i < xs.length - step; i += step) {
+        const dCurrent = dists[i] || 0;
+        if (dCurrent >= selectedCorner.start_distance - 15 && dCurrent <= selectedCorner.end_distance + 15) {
+          const p1 = toSvg(xs[i], ys[i]);
+          const p2 = toSvg(xs[i + step], ys[i + step]);
+          cornerSegments.push({
+            d: `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`,
+          });
+        }
+      }
+    }
+
     // Car scrub point
     let currentCar = null;
     if (hoverDistance !== null && dists.length > 0) {
@@ -108,21 +123,63 @@ export const TrackMap: React.FC<TrackMapProps> = ({
     return {
       pathSegments: segments,
       cornerPoints: corners,
+      selectedCornerSegments: cornerSegments,
       carPoint: currentCar,
       viewBox: `0 0 ${width} ${height}`,
     };
-  }, [comparison, hoverDistance]);
+  }, [comparison, hoverDistance, selectedCorner]);
 
   return (
     <div className="glass-panel rounded-xl p-4 flex flex-col h-full relative overflow-hidden">
       {/* Title & Legend Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           <Navigation className="w-4 h-4 text-[#00D2BE]" />
           <h3 className="font-bold text-sm text-white tracking-wide uppercase">
-            Mapa de Pista 2D • Heatmap de Velocidad (ΔV km/h)
+            Mapa de Pista 2D • Heatmap & Trazada Curva a Curva
           </h3>
         </div>
+
+        {/* Center: Active Corner Navigation when selected */}
+        {selectedCorner && (
+          <div className="flex items-center gap-2 bg-[#121824] px-2.5 py-1 rounded-lg border border-[#B138FE]/50 shadow-sm self-start sm:self-auto">
+            <button
+              onClick={() => {
+                const allCorners = comparison.corners || [];
+                const idx = allCorners.findIndex((c) => c.corner_number === selectedCorner.corner_number);
+                const prevIdx = idx > 0 ? idx - 1 : allCorners.length - 1;
+                onSelectCorner(allCorners[prevIdx]);
+              }}
+              className="text-gray-400 hover:text-white px-1 text-xs font-bold transition cursor-pointer"
+              title="Curva anterior"
+            >
+              ◀
+            </button>
+            <span className="text-xs font-bold text-white font-telemetry flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#FFB800] animate-pulse" />
+              T{selectedCorner.corner_number}: {selectedCorner.name}
+            </span>
+            <button
+              onClick={() => {
+                const allCorners = comparison.corners || [];
+                const idx = allCorners.findIndex((c) => c.corner_number === selectedCorner.corner_number);
+                const nextIdx = idx < allCorners.length - 1 ? idx + 1 : 0;
+                onSelectCorner(allCorners[nextIdx]);
+              }}
+              className="text-gray-400 hover:text-white px-1 text-xs font-bold transition cursor-pointer"
+              title="Curva siguiente"
+            >
+              ▶
+            </button>
+            <button
+              onClick={() => onSelectCorner(null)}
+              className="text-gray-400 hover:text-white ml-1 text-xs transition cursor-pointer font-bold"
+              title="Ver vuelta completa"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex items-center gap-3 text-[11px] font-telemetry">
@@ -135,8 +192,8 @@ export const TrackMap: React.FC<TrackMapProps> = ({
             <span className="text-gray-300">Más Lento (-V)</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#B138FE]" />
-            <span className="text-gray-300">Curva</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FFB800]" />
+            <span className="text-gray-300">Curva Activa</span>
           </div>
         </div>
       </div>
@@ -154,6 +211,9 @@ export const TrackMap: React.FC<TrackMapProps> = ({
             </filter>
             <filter id="glow-corner" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#B138FE" floodOpacity="0.7" />
+            </filter>
+            <filter id="glow-active-corner" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#FFB800" floodOpacity="0.95" />
             </filter>
           </defs>
 
@@ -181,6 +241,19 @@ export const TrackMap: React.FC<TrackMapProps> = ({
               strokeWidth="4.5"
               strokeLinecap="round"
               fill="none"
+            />
+          ))}
+
+          {/* Glowing Highlight for Selected Corner Segment */}
+          {selectedCornerSegments.map((seg, idx) => (
+            <path
+              key={`active-corner-${idx}`}
+              d={seg.d}
+              stroke="#FFB800"
+              strokeWidth="8.5"
+              strokeLinecap="round"
+              fill="none"
+              filter="url(#glow-active-corner)"
             />
           ))}
 

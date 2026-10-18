@@ -6,10 +6,11 @@ import {
   Layers,
   MessageSquare,
   Settings,
+  Wrench,
 } from 'lucide-react';
 import type { SystemStatus } from '../types/telemetry';
 
-export type NavTab = 'sessions' | 'telemetry' | 'engineer' | 'files' | 'settings';
+export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'files' | 'settings';
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
   const tabs = [
     { id: 'sessions', label: 'Sesiones & Garaje', icon: Layers },
     { id: 'telemetry', label: 'Telemetría & Trazada', icon: Gauge },
+    { id: 'setup', label: 'Historial & Setup', icon: Wrench },
     { id: 'engineer', label: 'Ingeniero de Pista (IA)', icon: MessageSquare },
     { id: 'files', label: 'Archivos & Simuladores', icon: FolderOpen },
     { id: 'settings', label: 'Ajustes IA', icon: Settings },

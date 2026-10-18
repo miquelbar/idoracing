@@ -127,3 +127,19 @@ export async function uploadTelemetryFile(file: File): Promise<any> {
   if (!res.ok) throw new Error('Failed to upload file');
   return res.json();
 }
+
+export async function fetchCarSetup(sessionId?: string): Promise<any> {
+  const url = sessionId ? `${API_BASE}/setup?session_id=${encodeURIComponent(sessionId)}` : `${API_BASE}/setup`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch car setup');
+  return res.json();
+}
+
+export async function fetchLapHistory(sessionId?: string, compLapNumber?: number): Promise<any> {
+  const params = new URLSearchParams();
+  if (sessionId) params.append('session_id', sessionId);
+  if (compLapNumber !== undefined) params.append('comp_lap_number', String(compLapNumber));
+  const res = await fetch(`${API_BASE}/lap-history?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch lap history');
+  return res.json();
+}

@@ -79,6 +79,15 @@ class CornerAnalysis(BaseModel):
     diagnosis: str = ""
     trail_eval: Optional[str] = "Óptimo"
     trail_advice: Optional[str] = None
+    ref_gear: int = 0
+    comp_gear: int = 0
+    gear_eval: str = "Óptima"
+    gear_advice: str = ""
+    balance_eval: str = "Equilibrio Neutro"
+    balance_advice: str = ""
+    racing_line_eval: str = "Trazada Óptima"
+    racing_line_advice: str = ""
+    racing_line_svg: Optional[Dict[str, Any]] = None
 
 
 class LapComparison(BaseModel):

@@ -38,6 +38,28 @@ export interface CornerDTO {
   severity: 'info' | 'warning' | 'critical' | 'success';
   trail_braking_eval?: string;
   trail_braking_advice?: string;
+  ref_gear?: number;
+  comp_gear?: number;
+  gear_eval?: string;
+  gear_advice?: string;
+  balance_eval?: string;
+  balance_advice?: string;
+  racing_line_eval?: string;
+  racing_line_advice?: string;
+  racing_line_svg?: {
+    corner_number: number;
+    turn_dir: string;
+    outer_curb: string;
+    inner_curb: string;
+    asphalt_fill: string;
+    optimal_line: string;
+    actual_line: string;
+    turn_in: { x: number; y: number; label: string };
+    apex_ref: { x: number; y: number; label: string };
+    apex_comp: { x: number; y: number; label: string };
+    exit_pt: { x: number; y: number; label: string };
+    has_subviraje: boolean;
+  };
 }
 
 export interface ComparisonResponse {
@@ -113,3 +135,66 @@ export interface AutoDiscoverData {
   lmu_found: number;
   lmu_files: AutoDiscoverFile[];
 }
+
+export interface CarSetupData {
+  car_name: string;
+  track_name: string;
+  setup_name: string;
+  tyres: {
+    compound: string;
+    pressures_hot_psi: Record<string, number>;
+    camber_deg: Record<string, number>;
+    toe_deg: Record<string, number>;
+  };
+  electronics: {
+    tc1: number;
+    tc2: number;
+    abs: number;
+    ecu_map: number;
+  };
+  brakes: {
+    bias_pct: number;
+    pad_type: string;
+    ducts: { front: number; rear: number };
+  };
+  aerodynamics: {
+    rear_wing: number;
+    front_splitter: string;
+    ride_height_mm: { front: number; rear: number };
+    rake_mm: number;
+  };
+  suspension: {
+    front_arb: number;
+    rear_arb: number;
+    diff_preload_nm: number;
+  };
+  drivetrain: {
+    diff_preload_nm: number;
+  };
+  notes: string[];
+}
+
+export interface LapRecordItem {
+  lap_number: number;
+  lap_time: number;
+  lap_time_str: string;
+  sector_times: number[];
+  gap_to_pb: number;
+  is_pb: boolean;
+  v_max: number;
+  date: string;
+  session_id: string;
+}
+
+export interface LapHistoryData {
+  pb_lap: LapRecordItem;
+  comparison_lap?: LapRecordItem;
+  laps: LapRecordItem[];
+  track_name: string;
+  car_name: string;
+  delta_s1: number;
+  delta_s2: number;
+  delta_s3: number;
+  delta_total: number;
+}
+
