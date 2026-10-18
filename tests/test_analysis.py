@@ -76,3 +76,42 @@ def test_ui_figures_generation():
     fig_map = build_track_map_figure(aligned, corners)
     assert fig_map is not None
 
+
+def test_sebring_multitrack_corners_and_telemetry():
+    from analysis.tracks import get_track_corners, get_track_length
+    from analysis.telemetry_generator import generate_lap_telemetry_for_track
+
+    corners = get_track_corners("Sebring International Raceway")
+    assert len(corners) == 17
+    assert corners[0]["name"] == "Turn 1 Sweeper"
+    assert corners[16]["name"] == "Sunset Bend (T17)"
+
+    track_len = get_track_length("Sebring International Raceway")
+    assert track_len == 6019.0
+
+    target_time = 118.350
+    t_data = generate_lap_telemetry_for_track(
+        track_name="Sebring International Raceway",
+        target_lap_time=target_time,
+        is_reference=True,
+    )
+    assert len(t_data["distance"]) > 2500
+    assert abs(float(t_data["time"][-1]) - target_time) < 0.1
+    assert float(t_data["distance"][-1]) >= 6000.0
+
+    # Test corner analysis extraction on Sebring
+    comp_t_data = generate_lap_telemetry_for_track(
+        track_name="Sebring International Raceway",
+        target_lap_time=120.100,
+        is_reference=False,
+    )
+    ref_dict = {k: v.tolist() for k, v in t_data.items()}
+    comp_dict = {k: v.tolist() for k, v in comp_t_data.items()}
+
+    aligned = align_laps_by_distance(ref_dict, comp_dict, step_m=2.0)
+    sebring_corners_analysis = extract_corners_analysis(aligned, track_name="Sebring International Raceway")
+    assert len(sebring_corners_analysis) == 17
+    assert sebring_corners_analysis[0].corner_number == 1
+    assert sebring_corners_analysis[0].racing_line_svg is not None
+
+

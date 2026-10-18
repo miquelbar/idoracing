@@ -14,6 +14,7 @@ def compare_laps(
     ref_lap: Lap,
     comp_lap: Lap,
     step_m: float = 2.0,
+    track_name: Optional[str] = None,
 ) -> LapComparison:
     """
     Compare a reference lap and a comparison lap with distance alignment
@@ -42,7 +43,7 @@ def compare_laps(
             step_m=step_m,
         )
 
-        corners = extract_corners_analysis(aligned_data)
+        corners = extract_corners_analysis(aligned_data, track_name=track_name)
 
         # Average channel differences per sector/track third
         n_pts = len(aligned_data["distance"])

@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from analysis.alignment import align_laps_by_distance
 from analysis.corners import extract_corners_analysis
 from analysis.lap_comparison import compare_laps
+from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor
 from coach.llm_client import LLMClient
@@ -296,35 +297,38 @@ def get_lap_comparison(
     matched_session: Optional[Session] = None
 
     target_sessions = [storage.get_session(session_id)] if session_id else [storage.get_session(s.session_id) for s in sessions]
-    target_sessions = [s for s in target_sessions if s is not None]
+    target_sessions = [ensure_session_telemetry(s) for s in target_sessions if s is not None]
+
+    if not target_sessions:
+        synth = create_synthetic_session()
+        target_sessions = [synth]
+
+    matched_session = target_sessions[0]
 
     if ref_lap_id and comp_lap_id:
-        for full_s in target_sessions:
-            for lap in full_s.laps:
-                lap_label = f"Lap {lap.lap_number}"
-                if lap_label == ref_lap_id or str(lap.lap_number) == ref_lap_id:
-                    ref_lap = lap
-                if lap_label == comp_lap_id or str(lap.lap_number) == comp_lap_id:
-                    comp_lap = lap
-                if ref_lap and comp_lap:
-                    matched_session = full_s
-                    break
+        for lap in matched_session.laps:
+            lap_label = f"Lap {lap.lap_number}"
+            if lap_label == ref_lap_id or str(lap.lap_number) == ref_lap_id:
+                ref_lap = lap
+            if lap_label == comp_lap_id or str(lap.lap_number) == comp_lap_id:
+                comp_lap = lap
             if ref_lap and comp_lap:
                 break
-    else:
-        # Default: pick first session with valid laps
-        for full_s in target_sessions:
-            valid_laps = sorted([l for l in full_s.laps if l.lap_time > 0 and l.is_valid and l.telemetry], key=lambda x: x.lap_time)
-            if len(valid_laps) >= 2:
-                ref_lap = valid_laps[0]
-                comp_lap = valid_laps[1]
-                matched_session = full_s
-                break
-            elif len(valid_laps) == 1 and len(full_s.laps) >= 2:
-                ref_lap = valid_laps[0]
-                comp_lap = full_s.laps[1]
-                matched_session = full_s
-                break
+
+    if not ref_lap or not comp_lap:
+        valid_laps = sorted([l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and l.telemetry], key=lambda x: x.lap_time)
+        if len(valid_laps) >= 2:
+            ref_lap = valid_laps[0]
+            comp_lap = valid_laps[1]
+        elif len(valid_laps) == 1:
+            ref_lap = valid_laps[0]
+            comp_lap = matched_session.laps[1] if len(matched_session.laps) > 1 else valid_laps[0]
+        elif len(matched_session.laps) >= 2:
+            ref_lap = matched_session.laps[0]
+            comp_lap = matched_session.laps[1]
+        elif len(matched_session.laps) == 1:
+            ref_lap = matched_session.laps[0]
+            comp_lap = matched_session.laps[0]
 
     if not ref_lap or not comp_lap:
         # Fallback to demo
@@ -333,7 +337,7 @@ def get_lap_comparison(
         comp_lap = synth.laps[2]
         matched_session = synth
 
-    comparison = compare_laps(ref_lap, comp_lap)
+    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track if matched_session else None)
     aligned = align_laps_by_distance(ref_lap.telemetry or {}, comp_lap.telemetry or {}, step_m=2.0)
 
     # Build telemetry arrays
@@ -395,6 +399,16 @@ def get_lap_comparison(
     ref_sectors = {f"S{i+1}": t for i, t in enumerate(ref_lap.sector_times)}
     comp_sectors = {f"S{i+1}": t for i, t in enumerate(comp_lap.sector_times)}
 
+    detected_game = "Assetto Corsa Competizione"
+    if matched_session:
+        sid = (matched_session.session_id or "").lower()
+        sf = (matched_session.source_file or "").lower()
+        car = (matched_session.car or "").lower()
+        if "lmu" in sid or "le mans" in sf or "lmgt3" in car or "hypercar" in car or "lmp2" in car:
+            detected_game = "Le Mans Ultimate"
+        elif "iracing" in sid or "iracing" in sf:
+            detected_game = "iRacing"
+
     return ComparisonResponse(
         ref_lap_id=f"Lap {ref_lap.lap_number}",
         comp_lap_id=f"Lap {comp_lap.lap_number}",
@@ -403,7 +417,7 @@ def get_lap_comparison(
         delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
         track_name=matched_session.track if matched_session else "Circuito",
         car_name=matched_session.car if matched_session else "GT3",
-        game_name="Le Mans Ultimate" if (matched_session and (matched_session.session_id.startswith("lmu") or "lmgt3" in matched_session.car.lower())) else "Assetto Corsa Competizione",
+        game_name=detected_game,
         distance=distance_grid,
         ref_speed=ref_speed,
         comp_speed=comp_speed,

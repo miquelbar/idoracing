@@ -94,6 +94,13 @@ class Storage:
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT id FROM sessions WHERE session_id = ?", (session.session_id,))
+            existing = cursor.fetchone()
+            if existing:
+                session.id = existing["id"]
+                # Clean up old laps for this session before inserting new ones
+                cursor.execute("DELETE FROM laps WHERE session_id = ?", (session.id,))
+
             # Insert or replace session
             cursor.execute("""
             INSERT OR REPLACE INTO sessions (
@@ -199,7 +206,7 @@ class Storage:
                 query += " AND s.track LIKE ?"
                 params.append(f"%{track}%")
 
-            query += " GROUP BY s.id ORDER BY s.date DESC"
+            query += " GROUP BY s.session_id ORDER BY s.date DESC"
             cursor.execute(query, params)
             rows = cursor.fetchall()
 

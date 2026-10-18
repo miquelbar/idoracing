@@ -3,10 +3,12 @@ Corner-by-corner driving analysis and technical diagnosis.
 Extracts apex speeds, braking points, throttle pickup points, and time loss per corner.
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import numpy as np
 from domain.session import CornerAnalysis
-from importers.synthetic import VALENCIA_CORNERS
+from analysis.tracks import VALENCIA_CORNERS, SEBRING_CORNERS, get_track_corners
+
+
 
 
 def analyze_corner(
@@ -92,28 +94,30 @@ def analyze_corner(
     # Technical driving diagnosis grounded in verified telemetry facts
     diagnosis_parts = []
     if brake_delta_dist is not None:
-        if brake_delta_dist < -15.0:
+        if brake_delta_dist < -12.0:
             diagnosis_parts.append(f"Frenada anticipada {abs(brake_delta_dist):.1f}m antes que la referencia.")
-        elif brake_delta_dist > 15.0:
+        elif brake_delta_dist > 12.0:
             diagnosis_parts.append(f"Frenada tardía {brake_delta_dist:.1f}m pasada de referencia.")
 
-    if speed_delta_min > 8.0:
+    if speed_delta_min > 6.0:
         diagnosis_parts.append(f"Exceso de reducción de velocidad en el vértice (-{speed_delta_min:.1f} km/h).")
     elif speed_delta_min < -5.0:
         diagnosis_parts.append(f"Mayor velocidad de paso en vértice (+{abs(speed_delta_min):.1f} km/h).")
 
-    if th_delta_dist is not None and th_delta_dist > 15.0:
+    if th_delta_dist is not None and th_delta_dist > 12.0:
         diagnosis_parts.append(f"Aceleración retrasada {th_delta_dist:.1f}m en la salida comprometiendo la recta posterior.")
 
-    if not diagnosis_parts:
-        if abs(time_delta_corner) < 0.05:
-            diagnosis = "Paso por curva muy similar a la referencia (diferencia mínima)."
-        elif time_delta_corner > 0:
-            diagnosis = f"Pérdida moderada de {time_delta_corner:.2f}s distribuida en la sección."
-        else:
-            diagnosis = f"Ganancia de {abs(time_delta_corner):.2f}s en este viraje."
+    if abs(time_delta_corner) < 0.04:
+        timing_summary = f"Paso consistente (delta {time_delta_corner:+.3f}s)."
+    elif time_delta_corner < 0:
+        timing_summary = f"Ganancia de {abs(time_delta_corner):.3f}s."
     else:
-        diagnosis = " ".join(diagnosis_parts)
+        timing_summary = f"Pérdida de +{time_delta_corner:.3f}s."
+
+    if diagnosis_parts:
+        diagnosis = f"{timing_summary} " + " ".join(diagnosis_parts)
+    else:
+        diagnosis = f"{timing_summary} Velocidad de paso en vértice {comp_min_speed:.0f} km/h (Ref: {ref_min_speed:.0f} km/h)."
 
     # Trail Braking Analysis
     trail_eval = "Óptimo"
@@ -220,7 +224,7 @@ def analyze_corner(
         racing_line_advice = "Excelente aproximación abierta, ataque certero al punto de cuerda y salida amplia aprovechando el piano exterior."
 
     # Generate Racing Line SVG Data
-    turn_dir = "right" if number in [2, 3, 4, 8, 11] else "left"
+    turn_dir = corner_def.get("turn_dir", "right" if number in [2, 3, 4, 8, 11] else "left")
     racing_line_svg = generate_racing_line_svg(
         corner_number=number,
         turn_dir=turn_dir,
@@ -336,10 +340,12 @@ def generate_racing_line_svg(
 def extract_corners_analysis(
     aligned_data: Dict[str, np.ndarray],
     corners_list: Optional[List[Dict]] = None,
+    track_name: Optional[str] = None,
 ) -> List[CornerAnalysis]:
-    """Analyze all defined track corners."""
+    """Analyze all defined track corners for the specific track."""
     if corners_list is None:
-        corners_list = VALENCIA_CORNERS
+        total_dist = float(aligned_data["distance"][-1]) if "distance" in aligned_data and len(aligned_data["distance"]) > 0 else 0.0
+        corners_list = get_track_corners(track_name, total_dist)
 
     analyses: List[CornerAnalysis] = []
     for c_def in corners_list:

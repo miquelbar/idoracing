@@ -1,5 +1,6 @@
 import React from 'react';
 import { Flag, RefreshCw, Trophy } from 'lucide-react';
+import { formatLapTime } from '../utils/formatters';
 
 interface ActiveSessionBannerProps {
   trackName: string;
@@ -9,14 +10,7 @@ interface ActiveSessionBannerProps {
   bestLapTime?: number;
   refLapNumber?: number;
   compLapNumber?: number;
-  onOpenSwitcher: () => void;
-}
-
-function formatLapTime(seconds?: number): string {
-  if (!seconds || seconds <= 0 || isNaN(seconds)) return '--:--.---';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toFixed(3).padStart(6, '0')}`;
+  onNavigateToSessions: () => void;
 }
 
 export const ActiveSessionBanner: React.FC<ActiveSessionBannerProps> = ({
@@ -27,7 +21,7 @@ export const ActiveSessionBanner: React.FC<ActiveSessionBannerProps> = ({
   bestLapTime,
   refLapNumber,
   compLapNumber,
-  onOpenSwitcher,
+  onNavigateToSessions,
 }) => {
   const isLMU = gameName.toLowerCase().includes('le mans');
   const isiRacing = gameName.toLowerCase().includes('iracing');
@@ -101,9 +95,9 @@ export const ActiveSessionBanner: React.FC<ActiveSessionBannerProps> = ({
             </div>
           )}
 
-          {/* Global Switcher Button */}
+          {/* Global Switcher Button (Navigates to Sessions Hub) */}
           <button
-            onClick={onOpenSwitcher}
+            onClick={onNavigateToSessions}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#171E2D] hover:bg-[#202B3F] text-white border border-[#2D3A52] hover:border-[#00D2BE]/60 text-xs font-bold tracking-wide transition cursor-pointer shadow-md group"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#00D2BE] group-hover:rotate-180 transition-transform duration-300" />

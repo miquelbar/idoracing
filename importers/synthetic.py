@@ -11,23 +11,8 @@ import numpy as np
 from domain.session import Lap, Session
 from importers.motec_binary import create_synthetic_ld_bytes
 
-# Official Valencia Ricardo Tormo Turn definitions (Distance in meters along 4005m lap)
-VALENCIA_CORNERS = [
-    {"number": 1, "name": "Curva Aspar", "start": 580, "apex": 780, "end": 900, "gear": 3, "target_speed": 142.0},
-    {"number": 2, "name": "Curva Doohan", "start": 920, "apex": 1080, "end": 1220, "gear": 3, "target_speed": 128.0},
-    {"number": 3, "name": "Curva 3", "start": 1220, "apex": 1320, "end": 1420, "gear": 4, "target_speed": 175.0},
-    {"number": 4, "name": "Curva Nico Terol", "start": 1420, "apex": 1530, "end": 1660, "gear": 2, "target_speed": 78.0},
-    {"number": 5, "name": "Curva 5", "start": 1660, "apex": 1750, "end": 1840, "gear": 3, "target_speed": 138.0},
-    {"number": 6, "name": "Curva 6", "start": 1840, "apex": 1940, "end": 2040, "gear": 3, "target_speed": 145.0},
-    {"number": 7, "name": "Curva 7", "start": 2040, "apex": 2100, "end": 2160, "gear": 3, "target_speed": 152.0},
-    {"number": 8, "name": "Curva Bernat Martinez", "start": 2160, "apex": 2260, "end": 2380, "gear": 2, "target_speed": 92.0},
-    {"number": 9, "name": "Curva 9", "start": 2380, "apex": 2460, "end": 2550, "gear": 3, "target_speed": 130.0},
-    {"number": 10, "name": "Curva 10", "start": 2550, "apex": 2650, "end": 2800, "gear": 3, "target_speed": 135.0},
-    {"number": 11, "name": "Curva Champi Herreros", "start": 2800, "apex": 2980, "end": 3120, "gear": 2, "target_speed": 85.0},
-    {"number": 12, "name": "Curva 12", "start": 3120, "apex": 3260, "end": 3400, "gear": 3, "target_speed": 125.0},
-    {"number": 13, "name": "Curva 13", "start": 3400, "apex": 3520, "end": 3620, "gear": 3, "target_speed": 138.0},
-    {"number": 14, "name": "Curva Adrian Campos", "start": 3620, "apex": 3740, "end": 3950, "gear": 2, "target_speed": 89.0},
-]
+from analysis.tracks import VALENCIA_CORNERS
+
 
 TRACK_LENGTH = 4005.0  # meters
 

@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ActiveSessionBanner } from './components/ActiveSessionBanner';
 import { Header, type NavTab } from './components/Header';
-import { SessionSwitcherModal } from './components/SessionSwitcherModal';
 import {
   autodiscoverSims,
   fetchComparison,
   fetchHealth,
+  fetchSession,
   fetchSessions,
   generateDemoSession,
   importLocalFile,
@@ -19,6 +19,7 @@ import type {
   SessionSummary,
   SystemStatus,
 } from './types/telemetry';
+import { detectSimGame } from './utils/formatters';
 import { EngineerView } from './views/EngineerView';
 import { FilesView } from './views/FilesView';
 import { SessionsView } from './views/SessionsView';
@@ -34,25 +35,12 @@ function getTabFromHash(): NavTab {
   return 'telemetry';
 }
 
-function detectGameName(sess?: SessionSummary | null, comp?: ComparisonResponse | null): string {
-  if (comp?.game_name) return comp.game_name;
-  if (!sess) return 'Assetto Corsa Competizione';
-  const id = (sess.session_id || '').toLowerCase();
-  const car = (sess.car || '').toLowerCase();
-  if (id.startsWith('lmu') || car.includes('lmgt3') || car.includes('hypercar') || car.includes('lmp2')) {
-    return 'Le Mans Ultimate';
-  }
-  if (id.includes('iracing')) {
-    return 'iRacing';
-  }
-  return 'Assetto Corsa Competizione';
-}
-
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavTab>(getTabFromHash);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [activeFullSession, setActiveFullSession] = useState<any | null>(null);
   const [refLapNumber, setRefLapNumber] = useState<number>(1);
   const [compLapNumber, setCompLapNumber] = useState<number>(2);
 
@@ -63,7 +51,6 @@ export const App: React.FC = () => {
   const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
   const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
 
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,19 +98,29 @@ export const App: React.FC = () => {
       const activeSessionId = activeSession?.session_id || null;
       setSelectedSessionId(activeSessionId);
 
+      let fullSess = null;
+      if (activeSessionId) {
+        try {
+          fullSess = await fetchSession(activeSessionId);
+          setActiveFullSession(fullSess);
+        } catch (e) {
+          console.warn('Could not load full session:', e);
+        }
+      }
+
       // Determine default lap numbers to compare
       let p1 = 1;
       let p2 = 2;
-      if (activeSession && activeSession.laps && activeSession.laps.length >= 2) {
-        const valid = [...activeSession.laps]
-          .filter((l) => l.lap_time > 0 && l.is_valid)
-          .sort((a, b) => a.lap_time - b.lap_time);
+      if (fullSess && fullSess.laps && fullSess.laps.length >= 2) {
+        const valid = [...fullSess.laps]
+          .filter((l: any) => l.lap_time > 0 && l.is_valid)
+          .sort((a: any, b: any) => a.lap_time - b.lap_time);
         if (valid.length >= 2) {
           p1 = valid[0].lap_number;
           p2 = valid[1].lap_number;
         } else {
-          p1 = activeSession.laps[0].lap_number;
-          p2 = activeSession.laps[1].lap_number;
+          p1 = fullSess.laps[0].lap_number;
+          p2 = fullSess.laps[1].lap_number;
         }
       }
       setRefLapNumber(p1);
@@ -151,20 +148,27 @@ export const App: React.FC = () => {
     try {
       setLoading(true);
       setSelectedSessionId(sessionId);
-      const sess = sessions.find((s) => s.session_id === sessionId);
+
+      let fullSess = null;
+      try {
+        fullSess = await fetchSession(sessionId);
+        setActiveFullSession(fullSess);
+      } catch (e) {
+        console.warn('Could not load full session:', e);
+      }
 
       let p1 = 1;
       let p2 = 2;
-      if (sess && sess.laps && sess.laps.length >= 2) {
-        const valid = [...sess.laps]
-          .filter((l) => l.lap_time > 0 && l.is_valid)
-          .sort((a, b) => a.lap_time - b.lap_time);
+      if (fullSess && fullSess.laps && fullSess.laps.length >= 2) {
+        const valid = [...fullSess.laps]
+          .filter((l: any) => l.lap_time > 0 && l.is_valid)
+          .sort((a: any, b: any) => a.lap_time - b.lap_time);
         if (valid.length >= 2) {
           p1 = valid[0].lap_number;
           p2 = valid[1].lap_number;
         } else {
-          p1 = sess.laps[0].lap_number;
-          p2 = sess.laps[1].lap_number;
+          p1 = fullSess.laps[0].lap_number;
+          p2 = fullSess.laps[1].lap_number;
         }
       }
       setRefLapNumber(p1);
@@ -263,7 +267,7 @@ export const App: React.FC = () => {
   };
 
   const currentSession = sessions.find((s) => s.session_id === selectedSessionId) || sessions[0];
-  const activeGame = detectGameName(currentSession, comparison);
+  const activeGame = detectSimGame(currentSession, comparison);
   const activeTrack = comparison?.track_name || currentSession?.track || 'Ricardo Tormo de Valencia';
   const activeCar = comparison?.car_name || currentSession?.car || 'Porsche 911 GT3 R (992)';
 
@@ -285,20 +289,7 @@ export const App: React.FC = () => {
         bestLapTime={currentSession?.best_lap_time}
         refLapNumber={refLapNumber}
         compLapNumber={compLapNumber}
-        onOpenSwitcher={() => setIsSwitcherOpen(true)}
-      />
-
-      {/* 3. Global Session Switcher Modal (Available across all screens) */}
-      <SessionSwitcherModal
-        isOpen={isSwitcherOpen}
-        onClose={() => setIsSwitcherOpen(false)}
-        sessions={sessions}
-        selectedSessionId={selectedSessionId}
-        onSelectSession={handleSelectSession}
-        autoData={autoData}
-        onImportLocal={handleImportLocal}
-        onLoadDemo={handleLoadDemo}
-        loading={loadingDemo}
+        onNavigateToSessions={() => handleNavigateTab('sessions')}
       />
 
       {/* Main Viewport */}
@@ -354,6 +345,8 @@ export const App: React.FC = () => {
               <SessionsView
                 sessions={sessions}
                 selectedSessionId={selectedSessionId}
+                activeFullSession={activeFullSession}
+                comparison={comparison}
                 onSelectSession={handleSelectSession}
                 refLapNumber={refLapNumber}
                 compLapNumber={compLapNumber}
@@ -392,10 +385,7 @@ export const App: React.FC = () => {
                 onSessionImported={loadInitialData}
                 onLoadDemo={handleLoadDemo}
                 loading={loading}
-                activeTrackName={activeTrack}
-                activeCarName={activeCar}
-                activeGameName={activeGame}
-                onOpenSwitcher={() => setIsSwitcherOpen(true)}
+                onOpenSwitcher={() => handleNavigateTab('sessions')}
               />
             )}
 
