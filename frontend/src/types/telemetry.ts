@@ -1,10 +1,25 @@
 export interface SystemStatus {
   status: string;
   version: string;
-  ollama_available: boolean;
-  ollama_model: string;
-  ai_enabled: boolean;
+  provider: string;
+  ai_available: boolean;
+  active_model: string;
+  ollama_models: string[];
   session_count: number;
+}
+
+export interface SettingsDTO {
+  provider: string;
+  ollama_model: string;
+  ollama_base_url: string;
+  openai_api_key?: string;
+  openai_base_url?: string;
+  openai_model?: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
 }
 
 export interface CornerDTO {
@@ -62,20 +77,35 @@ export interface CoachReport {
 }
 
 export interface LapSummary {
-  lap_id: string;
   lap_number: number;
   lap_time: number;
+  sector_times?: number[];
   is_valid: boolean;
-  sectors?: Record<string, number>;
 }
 
 export interface SessionSummary {
+  id?: string;
   session_id: string;
   track: string;
   car: string;
-  driver?: string;
   date?: string;
-  lap_count: number;
+  duration?: number;
   best_lap_time?: number;
+  average_speed?: number;
+  lap_count: number;
   laps?: LapSummary[];
+}
+
+export interface AutoDiscoverFile {
+  filename: string;
+  path: string;
+}
+
+export interface AutoDiscoverData {
+  acc_path: string;
+  acc_found: number;
+  acc_files: AutoDiscoverFile[];
+  lmu_path: string;
+  lmu_found: number;
+  lmu_files: AutoDiscoverFile[];
 }

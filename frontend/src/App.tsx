@@ -1,36 +1,42 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { AIEngineerModal } from './components/AIEngineerModal';
-import { CornerSelector } from './components/CornerSelector';
-import { Header } from './components/Header';
-import { ImportModal } from './components/ImportModal';
-import { TelemetryCharts } from './components/TelemetryCharts';
-import { TimingTower } from './components/TimingTower';
-import { TrackMap } from './components/TrackMap';
+import { Header, type NavTab } from './components/Header';
 import {
+  autodiscoverSims,
   fetchComparison,
   fetchHealth,
   fetchSessions,
   generateDemoSession,
+  importLocalFile,
 } from './services/api';
 import type {
+  AutoDiscoverData,
   CoachReport,
   ComparisonResponse,
   CornerDTO,
   SessionSummary,
   SystemStatus,
 } from './types/telemetry';
+import { EngineerView } from './views/EngineerView';
+import { FilesView } from './views/FilesView';
+import { SessionsView } from './views/SessionsView';
+import { SettingsView } from './views/SettingsView';
+import { TelemetryView } from './views/TelemetryView';
 
 export const App: React.FC = () => {
+  const [currentTab, setCurrentTab] = useState<NavTab>('telemetry');
   const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [, setSessions] = useState<SessionSummary[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [refLapNumber, setRefLapNumber] = useState<number>(1);
+  const [compLapNumber, setCompLapNumber] = useState<number>(2);
+
   const [comparison, setComparison] = useState<ComparisonResponse | null>(null);
   const [hoverDistance, setHoverDistance] = useState<number | null>(null);
   const [selectedCorner, setSelectedCorner] = useState<CornerDTO | null>(null);
 
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [isCoachOpen, setIsCoachOpen] = useState(false);
   const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
+  const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -41,26 +47,57 @@ export const App: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Load health
+      // 1. Fetch system status
       const h = await fetchHealth();
       setStatus(h);
 
-      // Load sessions
-      const s = await fetchSessions();
-      setSessions(s);
-
-      // If no sessions exist, auto-generate demo
-      if (s.length === 0) {
-        await generateDemoSession();
-        const updatedSessions = await fetchSessions();
-        setSessions(updatedSessions);
+      // 2. Fetch local autodiscovered sim files
+      try {
+        const ad = await autodiscoverSims();
+        setAutoData(ad);
+      } catch (err) {
+        console.warn('Auto-discover warning:', err);
       }
 
-      // Load initial comparison
-      const comp = await fetchComparison();
+      // 3. Fetch existing sessions
+      let sList = await fetchSessions();
+      if (sList.length === 0) {
+        await generateDemoSession();
+        sList = await fetchSessions();
+      }
+      setSessions(sList);
+
+      const activeSession = sList[0];
+      const activeSessionId = activeSession?.session_id || null;
+      setSelectedSessionId(activeSessionId);
+
+      // Determine default lap numbers to compare
+      let p1 = 1;
+      let p2 = 2;
+      if (activeSession && activeSession.laps && activeSession.laps.length >= 2) {
+        const valid = [...activeSession.laps]
+          .filter((l) => l.lap_time > 0 && l.is_valid)
+          .sort((a, b) => a.lap_time - b.lap_time);
+        if (valid.length >= 2) {
+          p1 = valid[0].lap_number;
+          p2 = valid[1].lap_number;
+        } else {
+          p1 = activeSession.laps[0].lap_number;
+          p2 = activeSession.laps[1].lap_number;
+        }
+      }
+      setRefLapNumber(p1);
+      setCompLapNumber(p2);
+
+      // 4. Fetch telemetry comparison
+      const comp = await fetchComparison(
+        String(p1),
+        String(p2),
+        activeSessionId || undefined
+      );
       setComparison(comp);
     } catch (err: any) {
-      setError(err?.message || 'Error cargando datos de telemetría');
+      setError(err?.message || 'Error inicializando el sistema de telemetría');
     } finally {
       setLoading(false);
     }
@@ -69,6 +106,72 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  const handleSelectSession = async (sessionId: string) => {
+    try {
+      setLoading(true);
+      setSelectedSessionId(sessionId);
+      const sess = sessions.find((s) => s.session_id === sessionId);
+
+      let p1 = 1;
+      let p2 = 2;
+      if (sess && sess.laps && sess.laps.length >= 2) {
+        const valid = [...sess.laps]
+          .filter((l) => l.lap_time > 0 && l.is_valid)
+          .sort((a, b) => a.lap_time - b.lap_time);
+        if (valid.length >= 2) {
+          p1 = valid[0].lap_number;
+          p2 = valid[1].lap_number;
+        } else {
+          p1 = sess.laps[0].lap_number;
+          p2 = sess.laps[1].lap_number;
+        }
+      }
+      setRefLapNumber(p1);
+      setCompLapNumber(p2);
+
+      const comp = await fetchComparison(String(p1), String(p2), sessionId);
+      setComparison(comp);
+      setSelectedCorner(null);
+      setCoachReport(null);
+    } catch (err: any) {
+      setError(err?.message || 'Error cambiando de sesión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRefLap = async (lapNumber: number) => {
+    if (lapNumber === refLapNumber) return;
+    try {
+      setRefLapNumber(lapNumber);
+      const comp = await fetchComparison(
+        String(lapNumber),
+        String(compLapNumber),
+        selectedSessionId || undefined
+      );
+      setComparison(comp);
+      setSelectedCorner(null);
+    } catch (err: any) {
+      setError(err?.message || 'Error seleccionando vuelta de referencia');
+    }
+  };
+
+  const handleSelectCompLap = async (lapNumber: number) => {
+    if (lapNumber === compLapNumber) return;
+    try {
+      setCompLapNumber(lapNumber);
+      const comp = await fetchComparison(
+        String(refLapNumber),
+        String(lapNumber),
+        selectedSessionId || undefined
+      );
+      setComparison(comp);
+      setSelectedCorner(null);
+    } catch (err: any) {
+      setError(err?.message || 'Error seleccionando vuelta comparada');
+    }
+  };
 
   const handleLoadDemo = async () => {
     try {
@@ -82,6 +185,18 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleImportLocal = async (filepath: string) => {
+    try {
+      setLoading(true);
+      await importLocalFile(filepath);
+      await loadInitialData();
+      setCurrentTab('telemetry');
+    } catch (err: any) {
+      setError(err?.message || 'Error importando archivo local');
+      setLoading(false);
+    }
+  };
+
   const handleCornerSelect = (corner: CornerDTO | null) => {
     setSelectedCorner(corner);
     if (corner) {
@@ -89,29 +204,47 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRefreshAutoData = async () => {
+    try {
+      const ad = await autodiscoverSims();
+      setAutoData(ad);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const handleSettingsSaved = async () => {
+    try {
+      const h = await fetchHealth();
+      setStatus(h);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#08090C] text-[#E2E8F0] flex flex-col font-sans selection:bg-[#00D2BE] selection:text-black">
-      {/* 2026 F1 Brand Navigation Header */}
+      {/* 2026 SimCoach Header with Clean Section Tabs */}
       <Header
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
         status={status}
-        onOpenImport={() => setIsImportOpen(true)}
-        onLoadDemo={handleLoadDemo}
-        onOpenCoach={() => setIsCoachOpen(true)}
-        loadingDemo={loadingDemo}
+        activeTrack={comparison?.track_name}
+        activeCar={comparison?.car_name}
       />
 
-      {/* Main Studio Viewport */}
+      {/* Main Viewport */}
       <main className="flex-1 p-4 md:p-6 max-w-[1720px] mx-auto w-full">
         {/* Loading Spinner */}
         {loading && (
           <div className="py-24 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-14 h-14 border-4 border-[#00D2BE] border-t-transparent rounded-full animate-spin shadow-[0_0_25px_rgba(0,210,190,0.5)]" />
+            <div className="w-12 h-12 border-4 border-[#00D2BE] border-t-transparent rounded-full animate-spin shadow-[0_0_25px_rgba(0,210,190,0.4)]" />
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-white tracking-wide font-telemetry">
-                INICIALIZANDO SIMCOACH F1 SUITE
+              <h2 className="text-base font-bold text-white tracking-wide font-telemetry">
+                SINCRONIZANDO TELEMETRÍA SIMCOACH
               </h2>
               <p className="text-xs text-gray-400">
-                Alineando vueltas por distancia métrica y calibrando micro-sectores...
+                Alineando canales métricos y calculando deltas de velocidad...
               </p>
             </div>
           </div>
@@ -133,83 +266,86 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Telemetry Dashboard */}
-        {!loading && comparison && (
-          <div className="space-y-4 animate-in fade-in duration-300">
-            {/* 1. Timing Tower with Micro Sectors & GAP */}
-            <TimingTower comparison={comparison} />
+        {/* Active View Tab Content */}
+        {!loading && (
+          <>
+            {currentTab === 'telemetry' && comparison && (
+              <TelemetryView
+                comparison={comparison}
+                hoverDistance={hoverDistance}
+                onHoverDistance={setHoverDistance}
+                selectedCorner={selectedCorner}
+                onSelectCorner={handleCornerSelect}
+              />
+            )}
 
-            {/* 2. Dual Workspace: 2D Track Heatmap & 4-Row Telemetry Stack */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              {/* Left Column: 2D Track Map */}
-              <div className="lg:col-span-5 h-[480px]">
-                <TrackMap
-                  comparison={comparison}
-                  hoverDistance={hoverDistance}
-                  selectedCorner={selectedCorner}
-                  onSelectCorner={handleCornerSelect}
-                />
-              </div>
+            {currentTab === 'sessions' && (
+              <SessionsView
+                sessions={sessions}
+                selectedSessionId={selectedSessionId}
+                onSelectSession={handleSelectSession}
+                refLapNumber={refLapNumber}
+                compLapNumber={compLapNumber}
+                onSelectRefLap={handleSelectRefLap}
+                onSelectCompLap={handleSelectCompLap}
+                onGoToTelemetry={() => setCurrentTab('telemetry')}
+                onLoadDemo={handleLoadDemo}
+                autoData={autoData}
+                onImportLocal={handleImportLocal}
+                loading={loadingDemo}
+              />
+            )}
 
-              {/* Right Column: 4-Channel Synchronized Telemetry */}
-              <div className="lg:col-span-7 h-[480px]">
-                <TelemetryCharts
-                  comparison={comparison}
-                  hoverDistance={hoverDistance}
-                  onHoverDistance={setHoverDistance}
-                  selectedCorner={selectedCorner}
-                  onResetZoom={() => setSelectedCorner(null)}
-                />
-              </div>
-            </div>
+            {currentTab === 'engineer' && (
+              <EngineerView
+                comparison={comparison}
+                report={coachReport}
+                onReportGenerated={setCoachReport}
+                activeModel={status?.active_model || 'qwen3.8:27b-32k'}
+              />
+            )}
 
-            {/* 3. Corner-by-Corner Segment HUD Cards */}
-            <CornerSelector
-              corners={comparison.corners}
-              selectedCorner={selectedCorner}
-              onSelectCorner={handleCornerSelect}
-            />
-          </div>
+            {currentTab === 'files' && (
+              <FilesView
+                autoData={autoData}
+                onRefreshAutoData={handleRefreshAutoData}
+                onSessionImported={loadInitialData}
+                onLoadDemo={handleLoadDemo}
+                loading={loading}
+              />
+            )}
+
+            {currentTab === 'settings' && (
+              <SettingsView
+                status={status}
+                onSettingsSaved={handleSettingsSaved}
+              />
+            )}
+          </>
         )}
       </main>
 
-      {/* Footer Status Line */}
+      {/* Clean Status Footer */}
       <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-4">
           <span>
-            SIMCOACH v{status?.version || '2026.1'} • Formula 1 Telemetry Engine
+            SIMCOACH v{status?.version || '2026.1'} • Multi-Sim Motorsport Telemetry
           </span>
           <span className="hidden md:inline text-gray-700">|</span>
           <span className="hidden md:inline text-gray-400">
-            Inferencia: {status?.ollama_available ? `Ollama (${status.ollama_model})` : 'Reglas Numéricas Deterministas'}
+            Motor IA: {status?.active_model || 'qwen3.8:27b-32k'} ({status?.provider || 'ollama'})
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-gray-400">Circuit Ricardo Tormo (Valencia, 4005m)</span>
-          <span className="text-emerald-400 font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            LIVE
+          <span className="text-gray-400">
+            {comparison ? `${comparison.track_name} (${comparison.car_name})` : 'Circuit Ricardo Tormo (Valencia)'}
+          </span>
+          <span className="text-[#00D2BE] font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+            ACTIVO
           </span>
         </div>
       </footer>
-
-      {/* Modals */}
-      {comparison && (
-        <AIEngineerModal
-          isOpen={isCoachOpen}
-          onClose={() => setIsCoachOpen(false)}
-          refLapId={comparison.ref_lap_id}
-          compLapId={comparison.comp_lap_id}
-          report={coachReport}
-          onReportGenerated={(rep) => setCoachReport(rep)}
-        />
-      )}
-
-      <ImportModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onSessionLoaded={loadInitialData}
-      />
     </div>
   );
 };

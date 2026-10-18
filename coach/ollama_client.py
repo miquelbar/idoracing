@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
-DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "45.0"))
+DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
+DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "60.0"))
 DEFAULT_AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes")
 
 

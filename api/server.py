@@ -1,6 +1,7 @@
 """
 SimCoach — High-Performance Motorsport Telemetry & F1 Suite FastAPI Backend.
-Exposes REST APIs for sessions, lap comparison, corner segmentation, and Ollama AI Coach.
+Exposes REST APIs for sessions, lap comparison, corner segmentation, Ollama AI (qwen3.8:27b-32k),
+OpenAI/OpenRouter integration, and closed-loop circuit track maps.
 """
 
 from contextlib import asynccontextmanager
@@ -19,8 +20,9 @@ from pydantic import BaseModel
 from analysis.alignment import align_laps_by_distance
 from analysis.corners import extract_corners_analysis
 from analysis.lap_comparison import compare_laps
+from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor
-from coach.ollama_client import OllamaClient
+from coach.llm_client import LLMClient
 from domain.session import CoachReport, Lap, LapComparison, Session
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
@@ -29,34 +31,46 @@ from importers.synthetic import create_synthetic_session
 from storage.database import Storage
 
 storage = Storage()
-ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-ollama_model = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
-ollama_timeout = float(os.environ.get("OLLAMA_TIMEOUT", "45.0"))
-ai_enabled = os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes")
 
-ollama_client = OllamaClient(
-    base_url=ollama_url,
-    model=ollama_model,
-    timeout=ollama_timeout,
-    enabled=ai_enabled,
+llm_client = LLMClient(
+    provider=os.environ.get("LLM_PROVIDER", "ollama"),
+    ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
+    ollama_model=os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k"),
+    openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
+    openai_base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+    timeout=float(os.environ.get("OLLAMA_TIMEOUT", "90.0")),
+    enabled=os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes"),
 )
-advisor = CoachAdvisor(ollama_client)
+advisor = CoachAdvisor(llm_client)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure database is initialized
-    # If database is empty, seed with synthetic demo session
     sessions = storage.list_sessions()
     if not sessions:
         synth = create_synthetic_session()
         storage.save_session(synth)
+
+        # Auto-import newest detected LMU session if available
+        lmu_path = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
+        if os.path.exists(lmu_path):
+            xmls = sorted(glob.glob(os.path.join(lmu_path, "*.xml")), key=os.path.getmtime, reverse=True)
+            for xf in xmls[:2]:
+                try:
+                    imp = LMUImporter(xf)
+                    sess = imp.parse()
+                    if sess.laps:
+                        storage.save_session(sess)
+                except Exception:
+                    pass
     yield
 
 
 app = FastAPI(
-    title="SimCoach F1 Telemetry API",
-    version="2026.1",
+    title="SimCoach API",
+    version="2026.2",
     lifespan=lifespan,
 )
 
@@ -73,10 +87,20 @@ app.add_middleware(
 class SystemStatus(BaseModel):
     status: str
     version: str
-    ollama_available: bool
-    ollama_model: str
-    ai_enabled: bool
+    provider: str
+    ai_available: bool
+    active_model: str
+    ollama_models: List[str]
     session_count: int
+
+
+class SettingsDTO(BaseModel):
+    provider: str = "ollama"
+    ollama_model: str = "qwen3.8:27b-32k"
+    ollama_base_url: str = "http://localhost:11434"
+    openai_api_key: Optional[str] = ""
+    openai_base_url: Optional[str] = "https://api.openai.com/v1"
+    openai_model: Optional[str] = "gpt-4o-mini"
 
 
 class CornerDTO(BaseModel):
@@ -127,18 +151,65 @@ class AIAdviceRequest(BaseModel):
     force_refresh: bool = False
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    ref_lap_id: Optional[str] = None
+    comp_lap_id: Optional[str] = None
+
+
+class LocalImportRequest(BaseModel):
+    filepath: str
+
+
 # --- API Endpoints ---
 @app.get("/api/health", response_model=SystemStatus)
 def get_health():
     sessions = storage.list_sessions()
+    ollama_models = llm_client.ollama.list_models()
     return SystemStatus(
         status="operational",
-        version="2026.1.0",
-        ollama_available=ollama_client.is_available(),
-        ollama_model=ollama_client.model,
-        ai_enabled=ollama_client.enabled,
+        version="2026.2.0",
+        provider=llm_client.provider,
+        ai_available=llm_client.is_available(),
+        active_model=llm_client.active_model,
+        ollama_models=ollama_models,
         session_count=len(sessions),
     )
+
+
+@app.get("/api/settings", response_model=SettingsDTO)
+def get_settings():
+    return SettingsDTO(
+        provider=llm_client.provider,
+        ollama_model=llm_client.ollama_model,
+        ollama_base_url=llm_client.ollama_base_url,
+        openai_api_key="***" if llm_client.openai_api_key else "",
+        openai_base_url=llm_client.openai_base_url,
+        openai_model=llm_client.openai_model,
+    )
+
+
+@app.post("/api/settings")
+def update_settings(cfg: SettingsDTO):
+    llm_client.provider = cfg.provider.lower()
+    llm_client.ollama_model = cfg.ollama_model
+    llm_client.ollama.model = cfg.ollama_model
+    llm_client.ollama_base_url = cfg.ollama_base_url
+    llm_client.ollama.base_url = cfg.ollama_base_url.rstrip("/")
+
+    if cfg.openai_api_key and cfg.openai_api_key != "***":
+        llm_client.openai_api_key = cfg.openai_api_key.strip()
+    if cfg.openai_base_url:
+        llm_client.openai_base_url = cfg.openai_base_url.strip().rstrip("/")
+    if cfg.openai_model:
+        llm_client.openai_model = cfg.openai_model.strip()
+
+    return {"status": "ok", "provider": llm_client.provider, "active_model": llm_client.active_model}
 
 
 @app.get("/api/sessions")
@@ -165,6 +236,7 @@ def generate_demo_session():
 def get_lap_comparison(
     ref_lap_id: Optional[str] = Query(None),
     comp_lap_id: Optional[str] = Query(None),
+    session_id: Optional[str] = Query(None),
 ):
     sessions = storage.list_sessions()
     if not sessions:
@@ -174,38 +246,48 @@ def get_lap_comparison(
     comp_lap: Optional[Lap] = None
     matched_session: Optional[Session] = None
 
+    target_sessions = [storage.get_session(session_id)] if session_id else [storage.get_session(s.session_id) for s in sessions]
+    target_sessions = [s for s in target_sessions if s is not None]
+
     if ref_lap_id and comp_lap_id:
-        for s in sessions:
-            full_s = storage.get_session(s.session_id)
-            if full_s:
-                for lap in full_s.laps:
-                    lap_label = f"Lap {lap.lap_number}"
-                    if lap_label == ref_lap_id or str(lap.lap_number) == ref_lap_id:
-                        ref_lap = lap
-                    if lap_label == comp_lap_id or str(lap.lap_number) == comp_lap_id:
-                        comp_lap = lap
-                    if ref_lap and comp_lap:
-                        matched_session = full_s
-                        break
+        for full_s in target_sessions:
+            for lap in full_s.laps:
+                lap_label = f"Lap {lap.lap_number}"
+                if lap_label == ref_lap_id or str(lap.lap_number) == ref_lap_id:
+                    ref_lap = lap
+                if lap_label == comp_lap_id or str(lap.lap_number) == comp_lap_id:
+                    comp_lap = lap
+                if ref_lap and comp_lap:
+                    matched_session = full_s
+                    break
             if ref_lap and comp_lap:
                 break
     else:
-        # Default: best lap as ref, second lap or another valid lap as comp
-        full_s = storage.get_session(sessions[0].session_id)
-        if full_s and len(full_s.laps) >= 2:
-            valid_laps = sorted([l for l in full_s.laps if l.lap_time > 0 and l.is_valid], key=lambda x: x.lap_time)
+        # Default: pick first session with valid laps
+        for full_s in target_sessions:
+            valid_laps = sorted([l for l in full_s.laps if l.lap_time > 0 and l.is_valid and l.telemetry], key=lambda x: x.lap_time)
             if len(valid_laps) >= 2:
                 ref_lap = valid_laps[0]
                 comp_lap = valid_laps[1]
                 matched_session = full_s
+                break
+            elif len(valid_laps) == 1 and len(full_s.laps) >= 2:
+                ref_lap = valid_laps[0]
+                comp_lap = full_s.laps[1]
+                matched_session = full_s
+                break
 
     if not ref_lap or not comp_lap:
-        raise HTTPException(status_code=400, detail="Could not resolve reference and comparison laps")
+        # Fallback to demo
+        synth = create_synthetic_session()
+        ref_lap = synth.laps[1]
+        comp_lap = synth.laps[2]
+        matched_session = synth
 
     comparison = compare_laps(ref_lap, comp_lap)
     aligned = align_laps_by_distance(ref_lap.telemetry or {}, comp_lap.telemetry or {}, step_m=2.0)
 
-    # Build telemetry arrays for high-performance frontend visualization
+    # Build telemetry arrays
     distance_grid = aligned["distance"].tolist()
     ref_speed = aligned["ref_speed"].tolist()
     comp_speed = aligned["comp_speed"].tolist()
@@ -218,18 +300,9 @@ def get_lap_comparison(
     ref_gr = [int(g) for g in aligned["ref_gear"].tolist()]
     comp_gr = [int(g) for g in aligned["comp_gear"].tolist()]
 
-    # Integrate lateral acceleration & speed to produce smooth 2D track coordinates
-    v = np.maximum(aligned["ref_speed"] / 3.6, 2.0)
-    lat_acc = aligned.get("ref_lat_accel", np.zeros_like(v)) * 9.81
-    dist = aligned["distance"]
-    ds = np.diff(dist, prepend=dist[0])
-    dt = ds / v
-    yaw_rate = lat_acc / v
-    heading = np.cumsum(yaw_rate * dt)
-    dx = v * np.cos(heading) * dt
-    dy = v * np.sin(heading) * dt
-    track_x = np.cumsum(dx).tolist()
-    track_y = np.cumsum(dy).tolist()
+    # Generate authentic, closed-loop 2D track coordinates
+    track_name = matched_session.track if matched_session else "Valencia"
+    track_x, track_y = generate_track_coordinates(track_name, aligned["distance"], aligned)
 
     corners_dto: List[CornerDTO] = []
     for c in comparison.corners:
@@ -312,7 +385,6 @@ def generate_coach_report(req: AIAdviceRequest):
             break
 
     if not ref_lap or not comp_lap:
-        # Fallback to first session best laps
         if sessions:
             full_s = storage.get_session(sessions[0].session_id)
             if full_s and len(full_s.laps) >= 2:
@@ -342,6 +414,29 @@ def generate_coach_report(req: AIAdviceRequest):
     return report
 
 
+@app.post("/api/coach/chat")
+def chat_with_engineer(req: ChatRequest):
+    """Interactive conversational chat with Race Engineer with full telemetry context."""
+    # Build telemetry briefing for the LLM
+    context_prefix = (
+        "Eres el ingeniero de pista senior del equipo. Sé técnico, conciso y directo como en la radio de F1. "
+        "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, marchas y setup basándote en los datos.\n"
+    )
+
+    messages = [{"role": "system", "content": context_prefix}]
+    for m in req.messages:
+        messages.append({"role": m.role, "content": m.content})
+
+    reply = llm_client.chat(messages)
+    if not reply:
+        reply = (
+            "No se ha recibido respuesta del modelo de IA. Verifica que Ollama esté ejecutándose con el modelo "
+            f"'{llm_client.active_model}' o configura una clave compatible con OpenAI en Ajustes."
+        )
+
+    return {"role": "assistant", "content": reply, "model": llm_client.active_model}
+
+
 @app.get("/api/autodiscover")
 def autodiscover_files():
     acc_path = os.path.expanduser(
@@ -357,16 +452,48 @@ def autodiscover_files():
 
     lmu_files = []
     if os.path.exists(lmu_res_path):
-        lmu_files = glob.glob(os.path.join(lmu_res_path, "*.xml"))
+        lmu_files = sorted(glob.glob(os.path.join(lmu_res_path, "*.xml")), key=os.path.getmtime, reverse=True)
 
     return {
         "acc_path": acc_path,
         "acc_found": len(acc_files),
-        "acc_files": [os.path.basename(f) for f in acc_files[:10]],
+        "acc_files": [{"filename": os.path.basename(f), "path": f} for f in acc_files[:15]],
         "lmu_path": lmu_res_path,
         "lmu_found": len(lmu_files),
-        "lmu_files": [os.path.basename(f) for f in lmu_files[:10]],
+        "lmu_files": [{"filename": os.path.basename(f), "path": f} for f in lmu_files[:15]],
     }
+
+
+@app.post("/api/import/local-file")
+def import_local_file(req: LocalImportRequest):
+    filepath = req.filepath
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="File not found on system")
+
+    ext = os.path.splitext(filepath)[1].lower()
+    session = None
+    if ext == ".xml":
+        imp = LMUImporter(filepath)
+        session = imp.parse()
+    elif ext == ".ld":
+        imp = MoTeCImporter()
+        session = imp.import_session(filepath)
+    elif ext == ".csv":
+        imp = CSVImporter()
+        session = imp.import_session(filepath)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
+
+    if session:
+        storage.save_session(session)
+        return {
+            "status": "ok",
+            "session_id": session.session_id,
+            "track": session.track,
+            "car": session.car,
+            "laps": len(session.laps),
+        }
+    raise HTTPException(status_code=500, detail="Failed to import local file")
 
 
 @app.post("/api/import/upload")
@@ -384,8 +511,8 @@ async def upload_telemetry_file(file: UploadFile = File(...)):
             importer = MoTeCImporter()
             session = importer.import_session(tmp_path)
         elif ext == ".xml":
-            lmu_imp = LMUImporter()
-            session = lmu_imp.import_session_xml(tmp_path)
+            lmu_imp = LMUImporter(tmp_path)
+            session = lmu_imp.parse()
         elif ext == ".csv":
             csv_imp = CSVImporter()
             session = csv_imp.import_session(tmp_path)

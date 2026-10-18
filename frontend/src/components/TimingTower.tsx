@@ -40,24 +40,22 @@ export const TimingTower: React.FC<TimingTowerProps> = ({ comparison }) => {
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4">
       {/* P1: Reference Lap Card */}
-      <div className="lg:col-span-5 glass-panel rounded-xl p-4 border-l-4 border-l-[#00D2BE] relative overflow-hidden group">
-        <div className="absolute top-0 right-0 px-3 py-1 bg-[#00D2BE]/10 rounded-bl-lg border-b border-l border-[#00D2BE]/20">
-          <span className="text-[10px] font-bold tracking-widest text-[#00D2BE] uppercase font-telemetry">
-            VUELTA DE REFERENCIA (BENCHMARK)
+      <div className="lg:col-span-5 glass-panel rounded-xl p-4 border-l-4 border-l-[#00D2BE] flex flex-col justify-between">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center font-telemetry font-extrabold text-xs text-[#00D2BE]">
+              P1
+            </div>
+            <div>
+              <h3 className="font-bold text-xs text-white truncate max-w-[220px]">
+                {comparison.car_name}
+              </h3>
+              <span className="text-[10px] text-gray-400 font-telemetry">{comparison.ref_lap_id} • {comparison.track_name}</span>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-[#00D2BE]/15 text-[#00D2BE] border border-[#00D2BE]/30 font-telemetry">
+            REFERENCIA
           </span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-7 h-7 rounded bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center font-telemetry font-extrabold text-sm text-[#00D2BE]">
-            P1
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
-              {comparison.car_name}
-              <span className="text-xs font-normal text-gray-400">• {comparison.track_name}</span>
-            </h3>
-            <span className="text-xs text-gray-400 font-telemetry">ID: {comparison.ref_lap_id}</span>
-          </div>
         </div>
 
         <div className="flex items-baseline justify-between mt-3">
@@ -95,24 +93,22 @@ export const TimingTower: React.FC<TimingTowerProps> = ({ comparison }) => {
       </div>
 
       {/* P2: Comparison Lap Card */}
-      <div className="lg:col-span-5 glass-panel rounded-xl p-4 border-l-4 border-l-[#B138FE] relative overflow-hidden group">
-        <div className="absolute top-0 right-0 px-3 py-1 bg-[#B138FE]/10 rounded-bl-lg border-b border-l border-[#B138FE]/20">
-          <span className="text-[10px] font-bold tracking-widest text-[#B138FE] uppercase font-telemetry">
-            VUELTA COMPARADA (TELEMETRÍA)
+      <div className="lg:col-span-5 glass-panel rounded-xl p-4 border-l-4 border-l-[#B138FE] flex flex-col justify-between">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center font-telemetry font-extrabold text-xs text-[#B138FE]">
+              P2
+            </div>
+            <div>
+              <h3 className="font-bold text-xs text-white truncate max-w-[220px]">
+                {comparison.comp_lap_id}
+              </h3>
+              <span className="text-[10px] text-gray-400 font-telemetry">Vuelta de Análisis</span>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-[#B138FE]/15 text-[#B138FE] border border-[#B138FE]/30 font-telemetry">
+            COMPARADA
           </span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-7 h-7 rounded bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center font-telemetry font-extrabold text-sm text-[#B138FE]">
-            P2
-          </div>
-          <div>
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
-              Vuelta de Análisis
-              <span className="text-xs font-normal text-gray-400">• Piloto</span>
-            </h3>
-            <span className="text-xs text-gray-400 font-telemetry">ID: {comparison.comp_lap_id}</span>
-          </div>
         </div>
 
         <div className="flex items-baseline justify-between mt-3">

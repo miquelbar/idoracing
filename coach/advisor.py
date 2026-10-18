@@ -4,8 +4,9 @@ Synthesizes verified numerical metrics from LapComparison into structured techni
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from domain.session import CoachReport, LapComparison
+from coach.llm_client import LLMClient
 from coach.ollama_client import OllamaClient
 
 
@@ -32,8 +33,8 @@ DIRECTRICES OBLIGATORIAS:
 class CoachAdvisor:
     """Generates structured coaching reports from lap comparisons."""
 
-    def __init__(self, ollama_client: Optional[OllamaClient] = None):
-        self.ollama = ollama_client or OllamaClient()
+    def __init__(self, llm_client: Optional[Any] = None):
+        self.ollama = llm_client or LLMClient()
 
     def generate_report(
         self,
