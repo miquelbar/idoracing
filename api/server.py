@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="SimCoach API",
+    title="IdoRacing Analytics API",
     version="2026.2",
     lifespan=lifespan,
 )

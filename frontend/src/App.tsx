@@ -21,7 +21,6 @@ import type {
 } from './types/telemetry';
 import { detectSimGame } from './utils/formatters';
 import { EngineerView } from './views/EngineerView';
-import { FilesView } from './views/FilesView';
 import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
 import { SetupHistoryView } from './views/SetupHistoryView';
@@ -29,7 +28,7 @@ import { TelemetryView } from './views/TelemetryView';
 
 function getTabFromHash(): NavTab {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  if (['sessions', 'telemetry', 'setup', 'engineer', 'files', 'settings'].includes(hash)) {
+  if (['sessions', 'telemetry', 'setup', 'engineer', 'settings'].includes(hash)) {
     return hash as NavTab;
   }
   return 'telemetry';
@@ -300,7 +299,7 @@ export const App: React.FC = () => {
             <div className="w-12 h-12 border-4 border-[#00D2BE] border-t-transparent rounded-full animate-spin shadow-[0_0_25px_rgba(0,210,190,0.4)]" />
             <div className="space-y-1">
               <h2 className="text-base font-bold text-white tracking-wide font-telemetry">
-                SINCRONIZANDO TELEMETRÍA SIMCOACH
+                SINCRONIZANDO TELEMETRÍA IDORACING ANALYTICS
               </h2>
               <p className="text-xs text-gray-400">
                 Cargando datos de pista y alineando canales métricos...
@@ -356,6 +355,7 @@ export const App: React.FC = () => {
                 onLoadDemo={handleLoadDemo}
                 autoData={autoData}
                 onImportLocal={handleImportLocal}
+                onRefreshAutoData={handleRefreshAutoData}
                 loading={loadingDemo}
               />
             )}
@@ -378,17 +378,6 @@ export const App: React.FC = () => {
               />
             )}
 
-            {currentTab === 'files' && (
-              <FilesView
-                autoData={autoData}
-                onRefreshAutoData={handleRefreshAutoData}
-                onSessionImported={loadInitialData}
-                onLoadDemo={handleLoadDemo}
-                loading={loading}
-                onOpenSwitcher={() => handleNavigateTab('sessions')}
-              />
-            )}
-
             {currentTab === 'settings' && (
               <SettingsView
                 status={status}
@@ -403,7 +392,7 @@ export const App: React.FC = () => {
       <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-4">
           <span>
-            SIMCOACH v{status?.version || '2026.2'} • {activeGame}
+            IDORACING ANALYTICS v{status?.version || '2026.2'} • {activeGame}
           </span>
           <span className="hidden md:inline text-gray-700">|</span>
           <span className="hidden md:inline text-gray-400">

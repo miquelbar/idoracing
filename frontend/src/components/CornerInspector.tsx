@@ -29,6 +29,38 @@ export const CornerInspector: React.FC<CornerInspectorProps> = ({
   const activeCorner = selectedCorner || corners[0];
   const activeIdx = corners.findIndex((c) => c.corner_number === activeCorner.corner_number);
 
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const pillRefs = React.useRef<{ [key: number]: HTMLButtonElement | null }>({});
+
+  React.useEffect(() => {
+    const el = pillRefs.current[activeCorner.corner_number];
+    if (el) {
+      el.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [activeCorner.corner_number]);
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (scrollContainerRef.current && e.deltaY !== 0) {
+      scrollContainerRef.current.scrollLeft += e.deltaY;
+    }
+  };
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -140, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 140, behavior: 'smooth' });
+    }
+  };
+
   const handlePrev = () => {
     const prevIdx = activeIdx > 0 ? activeIdx - 1 : corners.length - 1;
     onSelectCorner(corners[prevIdx]);
@@ -72,32 +104,60 @@ export const CornerInspector: React.FC<CornerInspectorProps> = ({
           </div>
         </div>
 
-        {/* Carousel Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          {corners.map((c) => {
-            const isSelected = c.corner_number === activeCorner.corner_number;
-            const lost = c.delta_time > 0.05;
-            const gained = c.delta_time < -0.05;
+        {/* Carousel Container with explicit scroll buttons & smooth scroll */}
+        <div className="relative group/carousel">
+          <button
+            onClick={scrollLeft}
+            type="button"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-black/80 hover:bg-[#B138FE] text-white border border-white/20 flex items-center justify-center text-xs opacity-75 hover:opacity-100 transition shadow-md cursor-pointer"
+            title="Desplazar curvas hacia la izquierda"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
 
-            return (
-              <button
-                key={`pill-${c.corner_number}`}
-                onClick={() => onSelectCorner(c)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-telemetry font-bold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#B138FE] text-white shadow-[0_0_12px_rgba(177,56,254,0.4)]'
-                    : 'bg-[#0E121B] hover:bg-[#151B27] text-gray-400 hover:text-white border border-white/5'
-                }`}
-              >
-                <span>T{c.corner_number}</span>
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    gained ? 'bg-[#00FF7F]' : lost ? 'bg-[#FF1801]' : 'bg-gray-500'
+          <div
+            ref={scrollContainerRef}
+            onWheel={handleWheel}
+            className="flex items-center gap-1.5 overflow-x-auto px-7 py-1 scroll-smooth scrollbar-thin"
+            style={{ scrollbarWidth: 'thin' }}
+          >
+            {corners.map((c) => {
+              const isSelected = c.corner_number === activeCorner.corner_number;
+              const lost = c.delta_time > 0.05;
+              const gained = c.delta_time < -0.05;
+
+              return (
+                <button
+                  key={`pill-${c.corner_number}`}
+                  ref={(el) => {
+                    pillRefs.current[c.corner_number] = el;
+                  }}
+                  onClick={() => onSelectCorner(c)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-telemetry font-bold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#B138FE] text-white shadow-[0_0_12px_rgba(177,56,254,0.4)] ring-1 ring-white/30'
+                      : 'bg-[#0E121B] hover:bg-[#151B27] text-gray-400 hover:text-white border border-white/5'
                   }`}
-                />
-              </button>
-            );
-          })}
+                >
+                  <span>T{c.corner_number}</span>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      gained ? 'bg-[#00FF7F]' : lost ? 'bg-[#FF1801]' : 'bg-gray-500'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={scrollRight}
+            type="button"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-black/80 hover:bg-[#B138FE] text-white border border-white/20 flex items-center justify-center text-xs opacity-75 hover:opacity-100 transition shadow-md cursor-pointer"
+            title="Desplazar curvas hacia la derecha"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

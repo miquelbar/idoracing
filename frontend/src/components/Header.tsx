@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Cpu,
-  FolderOpen,
   Gauge,
   Layers,
   MessageSquare,
@@ -10,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { SystemStatus } from '../types/telemetry';
 
-export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'files' | 'settings';
+export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'settings';
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -28,7 +27,6 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'telemetry', label: 'Telemetría & Trazada', icon: Gauge },
     { id: 'setup', label: 'Historial & Setup', icon: Wrench },
     { id: 'engineer', label: 'Ingeniero de Pista (IA)', icon: MessageSquare },
-    { id: 'files', label: 'Archivos & Simuladores', icon: FolderOpen },
     { id: 'settings', label: 'Ajustes IA', icon: Settings },
   ] as const;
 
@@ -37,15 +35,20 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#E10600] to-[#800300] text-white font-bold shadow-sm">
-            <span className="font-f1-brand text-lg italic">S</span>
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#E10600] via-[#C00000] to-[#121824] text-white font-bold shadow-md border border-[#E10600]/40">
+            <span className="font-f1-brand text-sm italic tracking-tighter">IR</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-f1-brand text-xl tracking-wider text-white font-black italic">
-              SIM<span className="text-[#00D2BE]">COACH</span>
-            </span>
-            <span className="text-[10px] text-gray-500 font-telemetry tracking-widest uppercase hidden lg:inline">
-              PRO
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className="font-f1-brand text-lg tracking-wider text-white font-black italic">
+                IDORACING
+              </span>
+              <span className="text-xs font-bold text-[#00D2BE] font-telemetry tracking-widest uppercase">
+                ANALYTICS
+              </span>
+            </div>
+            <span className="text-[9px] text-gray-400 font-telemetry -mt-0.5 hidden sm:inline">
+              Every lap tells a story
             </span>
           </div>
         </div>

@@ -1,17 +1,21 @@
 services:
-  simcoach:
+  idoracing:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: simcoach
+    container_name: idoracing-analytics
     restart: unless-stopped
     ports:
-      # Accessible locally and from your LAN (localhost:8501)
+      # Accessible locally and from your LAN
       - "8501:8501"
     environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:14b}
-      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-60.0}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3.8:27b-32k}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-90.0}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - AI_ENABLED=${AI_ENABLED:-true}
       - SIMCOACH_DB_PATH=/app/data/simcoach.db
     volumes:
