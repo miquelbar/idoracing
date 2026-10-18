@@ -1,5 +1,5 @@
 """
-SimCoach — High-Performance Motorsport Telemetry & F1 Suite FastAPI Backend.
+IdoRacing Analytics — High-Performance Motorsport Telemetry Suite FastAPI Backend.
 Exposes REST APIs for sessions, lap comparison, corner segmentation, Ollama AI (qwen3.8:27b-32k),
 OpenAI/OpenRouter integration, and closed-loop circuit track maps.
 """
@@ -644,7 +644,7 @@ def chat_with_engineer(req: ChatRequest):
     """Interactive conversational chat with Race Engineer with full telemetry context."""
     # Build telemetry briefing for the LLM
     context_prefix = (
-        "Eres el ingeniero de pista senior del equipo. Sé técnico, conciso y directo como en la radio de F1. "
+        "Eres el ingeniero de pista senior del equipo. Sé técnico, conciso y directo como por la radio del equipo. "
         "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, marchas y setup basándote en los datos.\n"
     )
 

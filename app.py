@@ -1,5 +1,5 @@
 """
-SimCoach — Local Formula 1-Style Driving Coach & Telemetry Suite for Sim Racing (ACC, LMU, iRacing).
+IdoRacing Analytics — Local Driving Coach & Telemetry Suite for Sim Racing (ACC, LMU, iRacing).
 Streamlit Application Entrypoint.
 """
 
@@ -30,13 +30,13 @@ from ui.components import (
 )
 
 st.set_page_config(
-    page_title="SimCoach — F1 Telemetry Suite",
+    page_title="IdoRacing Analytics — Telemetry Suite",
     page_icon="🏎️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom Motorsport & Formula 1-Grade Dark CSS
+# Custom Motorsport-Grade Dark CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -45,7 +45,7 @@ st.markdown("""
         font-family: 'Titillium Web', sans-serif;
     }
 
-    .f1-card {
+    .racing-card {
         background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
         border: 1px solid #30363D;
         border-radius: 8px;
@@ -54,7 +54,7 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
 
-    .f1-badge-purple {
+    .racing-badge-purple {
         background-color: #8A2BE2;
         color: white;
         padding: 3px 8px;
@@ -63,7 +63,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace;
     }
 
-    .f1-badge-green {
+    .racing-badge-green {
         background-color: #00D2BE;
         color: #000;
         padding: 3px 8px;
@@ -72,7 +72,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace;
     }
 
-    .f1-badge-yellow {
+    .racing-badge-yellow {
         background-color: #FFD700;
         color: #000;
         padding: 3px 8px;
@@ -81,7 +81,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace;
     }
 
-    .f1-badge-red {
+    .racing-badge-red {
         background-color: #FF1801;
         color: white;
         padding: 3px 8px;
@@ -90,7 +90,7 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace;
     }
 
-    .f1-metric-val {
+    .racing-metric-val {
         font-family: 'JetBrains Mono', monospace;
         font-size: 24px;
         font-weight: 700;
@@ -131,14 +131,14 @@ advisor = CoachAdvisor(ollama_client)
 
 
 def main():
-    st.sidebar.markdown("## 🏎️ SIMCOACH")
-    st.sidebar.caption("Universal SimRacing Telemetry & F1 Suite  \n*(ACC • Le Mans Ultimate • iRacing)*")
+    st.sidebar.markdown("## 🏎️ IDORACING ANALYTICS")
+    st.sidebar.caption("Universal SimRacing Telemetry Suite  \n*(ACC • Le Mans Ultimate • iRacing)*")
 
     page = st.sidebar.radio(
         "Navegación",
         [
             "📊 Dashboard & Evolución",
-            "📈 Comparador F1 (Mapa & Tiempos)",
+            "📈 Comparador (Mapa & Tiempos)",
             "🧠 Ingeniero de Pista (IA)",
             "📥 Importar Telemetría",
             "⏱️ Historial de Vueltas",
@@ -181,7 +181,7 @@ def main():
                 with st.spinner("Generando telemetría multicanal de alta precisión..."):
                     demo_sess = create_synthetic_session()
                     storage.save_session(demo_sess)
-                    st.success("¡Sesión cargada! Explora ahora el Comparador F1.")
+                    st.success("¡Sesión cargada! Explora ahora el Comparador de Telemetría.")
                     st.rerun()
         else:
             # Progression chart
@@ -223,10 +223,10 @@ def main():
                 st.rerun()
 
     # -------------------------------------------------------------
-    # PAGE 2: COMPARADOR F1 (MAPA Y TIEMPOS SUPERPUESTOS)
+    # PAGE 2: COMPARADOR (MAPA Y TIEMPOS SUPERPUESTOS)
     # -------------------------------------------------------------
-    elif page == "📈 Comparador F1 (Mapa & Tiempos)":
-        st.title("📈 Telemetría de Competición — F1 Overlay Suite")
+    elif page == "📈 Comparador (Mapa & Tiempos)":
+        st.title("📈 Telemetría de Competición — Overlay Suite")
 
         sessions = storage.list_sessions()
         if not sessions:
@@ -261,13 +261,13 @@ def main():
             aligned_data = align_laps_by_distance(ref_lap.telemetry, comp_lap.telemetry)
 
         # ---------------------------------------------------------
-        # F1 TIMING TOWER HEADER (MICRO-SECTORES & DELTA GLOBAL)
+        # TIMING TOWER HEADER (MICRO-SECTORES & DELTA GLOBAL)
         # ---------------------------------------------------------
         delta_str, delta_color = format_delta(comparison.time_difference)
         s_diffs = comparison.sector_differences
 
         st.markdown(f"""
-        <div class="f1-card">
+        <div class="racing-card">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div>
                     <span style="color: #718096; font-size: 13px; font-weight: 700; text-transform: uppercase;">Comparativa de Vuelta</span><br>
@@ -278,19 +278,19 @@ def main():
                 <div style="display: flex; gap: 20px; align-items: center;">
                     <div style="text-align: center;">
                         <span style="color: #718096; font-size: 11px;">SECTOR 1</span><br>
-                        <span class="{ 'f1-badge-green' if s_diffs.get('sector1', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector1', 0.0):+.3f}s</span>
+                        <span class="{ 'racing-badge-green' if s_diffs.get('sector1', 0) <= 0 else 'racing-badge-red' }">{s_diffs.get('sector1', 0.0):+.3f}s</span>
                     </div>
                     <div style="text-align: center;">
                         <span style="color: #718096; font-size: 11px;">SECTOR 2</span><br>
-                        <span class="{ 'f1-badge-green' if s_diffs.get('sector2', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector2', 0.0):+.3f}s</span>
+                        <span class="{ 'racing-badge-green' if s_diffs.get('sector2', 0) <= 0 else 'racing-badge-red' }">{s_diffs.get('sector2', 0.0):+.3f}s</span>
                     </div>
                     <div style="text-align: center;">
                         <span style="color: #718096; font-size: 11px;">SECTOR 3</span><br>
-                        <span class="{ 'f1-badge-green' if s_diffs.get('sector3', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector3', 0.0):+.3f}s</span>
+                        <span class="{ 'racing-badge-green' if s_diffs.get('sector3', 0) <= 0 else 'racing-badge-red' }">{s_diffs.get('sector3', 0.0):+.3f}s</span>
                     </div>
                     <div style="border-left: 1px solid #30363D; padding-left: 20px; text-align: right;">
                         <span style="color: #718096; font-size: 11px;">GAP TOTAL</span><br>
-                        <span class="f1-metric-val" style="color: {delta_color};">{delta_str}</span>
+                        <span class="racing-metric-val" style="color: {delta_color};">{delta_str}</span>
                     </div>
                 </div>
             </div>
@@ -333,10 +333,10 @@ def main():
             st.markdown("##### 🏎️ HUD de Telemetría del Segmento")
             if active_corner:
                 st.markdown(f"""
-                <div class="f1-card" style="border-left: 4px solid #00E5FF;">
+                <div class="racing-card" style="border-left: 4px solid #00E5FF;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-size:18px; font-weight:900;">T{active_corner.corner_number} — {active_corner.corner_name}</span>
-                        <span class="{ 'f1-badge-green' if active_corner.time_delta_corner <= 0 else 'f1-badge-red' }" style="font-size:14px;">
+                        <span class="{ 'racing-badge-green' if active_corner.time_delta_corner <= 0 else 'racing-badge-red' }" style="font-size:14px;">
                             {active_corner.time_delta_corner:+.3f}s
                         </span>
                     </div>
@@ -388,7 +388,7 @@ def main():
             else:
                 # Full lap top losses
                 st.markdown("""
-                <div class="f1-card">
+                <div class="racing-card">
                     <span style="color:#718096; font-size:12px; font-weight:700; text-transform:uppercase;">Zonas con Mayor Pérdida de Tiempo</span>
                 </div>
                 """, unsafe_allow_html=True)

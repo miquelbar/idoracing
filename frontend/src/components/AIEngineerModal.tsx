@@ -59,7 +59,7 @@ export const AIEngineerModal: React.FC<AIEngineerModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Debrief del Ingeniero de Pista F1
+                Debrief del Ingeniero de Pista
                 <span className="text-[10px] font-telemetry uppercase px-2 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30">
                   {report?.model_used || 'IA Local'}
                 </span>
@@ -103,7 +103,7 @@ export const AIEngineerModal: React.FC<AIEngineerModalProps> = ({
                 onClick={() => handleGenerate(false)}
                 className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#B138FE] to-[#7928CA] hover:from-[#C084FC] hover:to-[#8B5CF6] text-white text-xs font-bold uppercase tracking-wider transition shadow-[0_0_20px_rgba(177,56,254,0.4)] cursor-pointer"
               >
-                Generar Debrief F1 con IA
+                Generar Debrief con IA
               </button>
             </div>
           )}

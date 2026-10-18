@@ -47,7 +47,7 @@ export const ActiveSessionBanner: React.FC<ActiveSessionBannerProps> = ({
 
           <div className="border-l-0 sm:border-l border-white/10 sm:pl-4">
             <div className="flex items-baseline gap-3">
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-wide font-f1-brand uppercase drop-shadow-sm">
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-wide font-brand uppercase drop-shadow-sm">
                 {trackName}
               </h1>
             </div>

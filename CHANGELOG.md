@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-10-18
 
 ### Changed
-- Rebranded project to **SimCoach**, broadening support to multiple racing simulators (Assetto Corsa Competizione, Le Mans Ultimate, iRacing).
-- Transformed interface into an interactive **Formula 1-Style Telemetry Suite**:
+- Rebranded project to **IdoRacing Analytics**, broadening support to multiple racing simulators (Assetto Corsa Competizione, Le Mans Ultimate, iRacing).
+- Transformed interface into an interactive **Motorsport Telemetry Suite**:
   - Timing Tower with micro-sectors and real-time gap badges.
   - Interactive 2D track map with continuous speed delta ($\Delta V$) color gradients and corner markers.
   - Segment selector for corner-by-corner deep dive with automatic graph zooming.

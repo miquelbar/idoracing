@@ -3,13 +3,13 @@
 
 @layer base {
   :root {
-    --f1-red: #E10600;
-    --f1-purple: #B138FE;
-    --f1-green: #00D2BE;
-    --f1-yellow: #FFD700;
-    --f1-bg-dark: #08090C;
-    --f1-surface: #12161F;
-    --f1-border: #1E2638;
+    --racing-red: #E10600;
+    --racing-purple: #B138FE;
+    --racing-green: #00D2BE;
+    --racing-yellow: #FFD700;
+    --racing-bg-dark: #08090C;
+    --racing-surface: #12161F;
+    --racing-border: #1E2638;
   }
 
   body {
@@ -24,7 +24,8 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .font-f1-brand {
+  .font-brand,
+  .font-racing-brand {
     font-family: 'Racing Sans One', 'Titillium Web', sans-serif;
     letter-spacing: -0.03em;
   }

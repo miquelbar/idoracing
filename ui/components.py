@@ -1,6 +1,6 @@
 """
-Premium Motorsport & Formula 1-Style Telemetry Visualizations for SimCoach.
-Provides interactive 2D track maps with speed delta heatmaps, synchronized F1 telemetry stacks,
+Premium Motorsport Telemetry Visualizations for IdoRacing Analytics.
+Provides interactive 2D track maps with speed delta heatmaps, synchronized telemetry stacks,
 timing towers with micro-sectors, and corner-by-corner technical breakdowns.
 """
 
@@ -36,7 +36,7 @@ def build_f1_track_map(
     selected_corner_num: Optional[int] = None,
 ) -> go.Figure:
     """
-    Generate an interactive Formula 1 track map ribbon colored by Speed Delta.
+    Generate an interactive circuit track map ribbon colored by Speed Delta.
     Green = Comparison is faster; Red = Comparison is losing time / overslowing.
     Highlights selected corner with halo, apex marker, and braking zone.
     """
@@ -213,7 +213,7 @@ def build_f1_telemetry_stack(
     dist_range: Optional[Tuple[float, float]] = None,
 ) -> go.Figure:
     """
-    Build synchronized multi-channel F1 telemetry dashboard.
+    Build synchronized multi-channel telemetry dashboard.
     Channels:
       1. Speed (km/h) with Apex Markers
       2. Time Delta (seconds) with Red/Green Filled Dynamic Area

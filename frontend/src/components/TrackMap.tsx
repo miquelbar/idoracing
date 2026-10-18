@@ -203,7 +203,7 @@ export const TrackMap: React.FC<TrackMapProps> = ({
         <svg viewBox={viewBox} className="w-full h-full max-h-[460px] select-none">
           {/* Subtle Grid Pattern */}
           <defs>
-            <pattern id="f1-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <pattern id="track-grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" strokeWidth="1" />
             </pattern>
             <filter id="glow-car" x="-50%" y="-50%" width="200%" height="200%">
@@ -217,7 +217,7 @@ export const TrackMap: React.FC<TrackMapProps> = ({
             </filter>
           </defs>
 
-          <rect width="100%" height="100%" fill="url(#f1-grid)" />
+          <rect width="100%" height="100%" fill="url(#track-grid)" />
 
           {/* Underlay glow track */}
           {pathSegments.map((seg, idx) => (

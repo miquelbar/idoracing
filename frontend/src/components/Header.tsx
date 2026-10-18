@@ -36,11 +36,11 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#E10600] via-[#C00000] to-[#121824] text-white font-bold shadow-md border border-[#E10600]/40">
-            <span className="font-f1-brand text-sm italic tracking-tighter">IR</span>
+            <span className="font-brand text-sm italic tracking-tighter">IR</span>
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="font-f1-brand text-lg tracking-wider text-white font-black italic">
+              <span className="font-brand text-lg tracking-wider text-white font-black italic">
                 IDORACING
               </span>
               <span className="text-xs font-bold text-[#00D2BE] font-telemetry tracking-widest uppercase">

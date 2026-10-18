@@ -103,7 +103,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-f1-brand text-lg font-black italic tracking-wider text-white">
+              <span className="font-brand text-lg font-black italic tracking-wider text-white">
                 IDORACING <span className="text-[#00D2BE]">ANALYTICS</span>
               </span>
               <span className="text-[10px] text-gray-500 font-telemetry uppercase tracking-widest hidden sm:inline">
@@ -277,7 +277,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         </span>
 
                         {/* Track & Car */}
-                        <h4 className="text-base font-bold text-white tracking-wide font-f1-brand">
+                        <h4 className="text-base font-bold text-white tracking-wide font-brand">
                           {sess.track}
                         </h4>
                         <p className="text-xs text-[#00D2BE] font-semibold mt-0.5">
@@ -379,7 +379,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider font-telemetry block mb-0.5">
                         CIRCUITO ACTIVO EN EL WORKSPACE
                       </span>
-                      <h3 className="text-lg font-bold text-white font-f1-brand">
+                      <h3 className="text-lg font-bold text-white font-brand">
                         {comparison?.track_name || activeSessionSummary.track}
                       </h3>
                       <p className="text-xs text-gray-300 font-medium mt-0.5">
@@ -519,7 +519,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   <Upload className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider font-f1-brand">
+                  <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand">
                     Subir Archivo de Telemetría
                   </h4>
                   <p className="text-xs text-gray-400">
@@ -559,7 +559,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     <FolderOpen className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white uppercase tracking-wider font-f1-brand">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand">
                       Detección Automática en tu PC
                     </h4>
                     <p className="text-xs text-gray-400">
@@ -628,7 +628,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
           {/* Quick Setup Guide for Amateur Simracers */}
           <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-[#0C101A] space-y-3">
-            <h4 className="text-sm font-bold text-white uppercase tracking-wider font-f1-brand flex items-center gap-2">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-[#FFD700]" />
               ¿Cómo grabar telemetría en tus simuladores para IdoRacing Analytics?
             </h4>

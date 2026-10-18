@@ -29,7 +29,7 @@ Most telemetry software falls into two extremes:
 **IdoRacing Analytics bridges the gap:**
 - **100% Free & Open Source**: Run it locally on your PC or home network.
 - **Privacy-First**: Your driving telemetry and setups never leave your machine.
-- **F1-Grade Visuals**: 2D track heatmaps, corner-by-corner racing line SVG comparisons, synchronized 50Hz traces, and live delta-T graphs.
+- **Pro-Grade Visuals**: 2D track heatmaps, corner-by-corner racing line SVG comparisons, synchronized 50Hz traces, and live delta-T graphs.
 - **Integrated AI Race Engineer**: Explains *why* you are losing time and *what* technique to apply (using local Ollama with `qwen3.8:27b-32k` or cloud LLMs like OpenAI/OpenRouter).
 
 ---
