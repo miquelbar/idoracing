@@ -9,7 +9,7 @@
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![TypeScript: 5+](https://img.shields.io/badge/typescript-5+-blue.svg)](https://www.typescriptlang.org/)
 [![Ollama: Ready](https://img.shields.io/badge/ollama-qwen3.8%3A27b--32k-orange.svg)](https://ollama.ai/)
-**IdoRacing Analytics** is a modern, high-performance, open-source motorsport telemetry suite and AI race engineer. Designed specifically for **amateur simracers** who want to understand where they are losing time, master trail braking, optimize racing lines, and find real lap time improvements—**without paying costly monthly subscriptions** (like Coach Dave Delta, VRS, or MoTeC i2 Pro complexity).
+**IdoRacing Analytics** is a modern, high-performance, open-source motorsport telemetry suite and AI race engineer. Designed specifically for simracers who want to understand where they are losing time, master trail braking, optimize racing lines, and find real, repeatable lap time improvements with an intuitive, data-driven workflow.
 
 ![IdoRacing Analytics Interactive Walkthrough](docs/screenshots/idoracing-demo.gif)
 
@@ -23,15 +23,11 @@ Supports:
 
 ## 💡 The Philosophy
 
-Most telemetry software falls into two extremes:
-1. **Enterprise engineering tools (MoTeC i2 Pro, Bosch Motorsport)**: Incredibly powerful, but steep learning curve, requires hours of manual workspace configuration, and shows raw mathematical channels without context.
-2. **Paid SaaS platforms ($10–$25/month)**: Monthly subscription fees, proprietary file formats, and data sent to third-party cloud servers.
-
-**IdoRacing Analytics bridges the gap:**
-- **100% Free & Open Source**: Run it locally on your PC or home network.
-- **Privacy-First**: Your driving telemetry and setups never leave your machine.
-- **Pro-Grade Visuals**: 2D track heatmaps, corner-by-corner racing line SVG comparisons, synchronized 50Hz traces, and live delta-T graphs.
-- **Integrated AI Race Engineer**: Explains *why* you are losing time and *what* technique to apply (using local Ollama with `qwen3.8:27b-32k` or cloud LLMs like OpenAI/OpenRouter).
+Telemetry analysis should be accessible, private, and directly actionable:
+- **100% Free & Open Source**: Run it locally on your PC or home network without paywalls.
+- **Privacy-First**: Your driving telemetry and setups stay on your machine—no cloud telemetry uploads.
+- **Actionable Insights Over Raw Numbers**: Intuitive 2D track heatmaps, corner-by-corner trajectory comparisons, synchronized 50Hz traces, and live delta-T graphs designed for drivers, not just data engineers.
+- **Integrated AI Race Engineer (Pep)**: Explains *why* you are losing time and *what* technique to apply (using local Ollama with `qwen3.8:27b-32k` or cloud LLMs like OpenAI/OpenRouter), directly grounded in your telemetry.
 
 ---
 
