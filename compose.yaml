@@ -6,8 +6,8 @@ services:
     container_name: acc-coach
     restart: unless-stopped
     ports:
-      # Bound strictly to localhost (127.0.0.1) to avoid public exposure
-      - "127.0.0.1:8501:8501"
+      # Accessible locally and from your LAN (localhost:8501)
+      - "8501:8501"
     environment:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:14b}
