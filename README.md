@@ -42,14 +42,18 @@ It runs natively on Linux (optimized for Arch Linux) and via Docker, providing d
 
 ```
 simcoach/
+├── api/                # FastAPI backend serving REST endpoints & static assets
+├── frontend/           # Modern 2026 F1 Telemetry Suite (React 19, TypeScript, Vite, Tailwind CSS)
+│   ├── src/components/ # TimingTower, TrackMap 2D, TelemetryCharts, CornerSelector, AIEngineerModal
+│   ├── src/services/   # High-performance async API service layer
+│   └── src/types/      # Strictly typed motorsport & telemetry definitions
 ├── domain/             # Pydantic v2 domain models (Session, Lap, LapComparison, CoachReport)
 ├── importers/          # Multi-sim ingestion: MoTeC .ld/.ldx, LMU XML, CSV, synthetic generator
-├── analysis/           # Distance alignment, delta time profiling, corner detection
-├── storage/            # Local SQLite database for sessions, laps, and reports
+├── analysis/           # Distance alignment, delta time profiling, corner apex detection
+├── storage/            # Local SQLite database for sessions, segmented laps, and AI reports
 ├── coach/              # Local Ollama client & technical race engineer advisor
-├── ui/                 # Streamlit F1-style suite and Plotly visualizations
-├── tests/              # Comprehensive automated pytest suite
-├── Dockerfile          # Container image with non-privileged user
+├── tests/              # Automated pytest suite (27 passing unit & integration tests)
+├── Dockerfile          # Multi-stage production container (Node 22 + Python 3.12)
 ├── compose.yaml        # Docker Compose with Linux host Ollama gateway
 └── pyproject.toml      # Build metadata and quality configuration
 ```
@@ -58,18 +62,22 @@ simcoach/
 
 ## 🚀 Quickstart
 
-### Option A: Local Python Environment (Recommended)
+### Option A: Local Python & Node Environment (Recommended)
 
 1. **Activate virtual environment & install dependencies:**
    ```bash
-   python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-2. **Launch SimCoach:**
+2. **Build modern 2026 F1 Frontend:**
    ```bash
-   streamlit run app.py
+   cd frontend && npm install && npm run build && cd ..
+   ```
+
+3. **Launch SimCoach Suite:**
+   ```bash
+   uvicorn api.server:app --host 0.0.0.0 --port 8501
    ```
    Open your browser at:
    - Local: `http://localhost:8501`
@@ -101,7 +109,7 @@ source .venv/bin/activate
 PYTHONPATH=. pytest -v
 ```
 
-All 24 unit and integration tests validate binary parsers, XML session ingestion, distance alignment, corner detection, SQLite persistence, and Ollama integration.
+All 27 unit and integration tests validate binary parsers, XML session ingestion, distance alignment, corner detection, SQLite persistence, Ollama integration, and FastAPI endpoints.
 
 ---
 

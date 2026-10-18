@@ -249,3 +249,27 @@ class Storage:
                 report.created_at.isoformat(),
             ))
             conn.commit()
+
+    def get_coach_report(self, session_id: str, ref_lap: int, comp_lap: int) -> Optional[CoachReport]:
+        """Fetch previously stored coaching report."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            SELECT * FROM coach_reports 
+            WHERE (session_id = ? OR session_id IN (SELECT id FROM sessions WHERE session_id = ?))
+              AND ref_lap = ? AND comp_lap = ?
+            ORDER BY created_at DESC LIMIT 1
+            """, (session_id, session_id, ref_lap, comp_lap))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return CoachReport(
+                facts=json.loads(row["facts"]) if row["facts"] else [],
+                metrics=json.loads(row["metrics"]) if row["metrics"] else {},
+                hypotheses=json.loads(row["hypotheses"]) if row["hypotheses"] else [],
+                exercises=json.loads(row["exercises"]) if row["exercises"] else [],
+                verification_indicator=row["verification_indicator"] or "",
+                confidence=row["confidence"] or "Alta",
+                raw_report=row["raw_report"] or "",
+                created_at=datetime.fromisoformat(row["created_at"]),
+            )

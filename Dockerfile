@@ -1,7 +1,15 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim
 
-# Avoid writing .pyc files and enable unbuffered output
+# Stage 1: Build modern 2026 React/Vite frontend
+FROM node:22-alpine AS frontend-builder
+WORKDIR /build
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python runtime with FastAPI + Uvicorn
+FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
@@ -18,19 +26,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create non-privileged user and create data directory
+# Create non-privileged user and directories
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /app/data && \
     chown -R appuser:appuser /app
 
-# Copy application code with non-privileged user ownership
+# Copy application code and built frontend
 COPY --chown=appuser:appuser . .
+COPY --from=frontend-builder --chown=appuser:appuser /build/dist ./frontend/dist
 
 USER appuser
 
 EXPOSE 8501
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD curl -f http://localhost:8501/api/health || exit 1
 
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "8501"]
