@@ -1,5 +1,5 @@
 """
-ACC Coach — Local driving coach and telemetry analysis for Assetto Corsa Competizione (ACC).
+ACC Coach — Local Formula 1-Style Driving Coach & Telemetry Suite for Assetto Corsa Competizione (ACC).
 Streamlit Application Entrypoint.
 """
 
@@ -21,18 +21,81 @@ from importers.moteclib.importer import MoTeCImporter
 from importers.synthetic import create_synthetic_session
 from storage.database import Storage
 from ui.components import (
-    build_detailed_telemetry_figure,
     build_evolution_figure,
-    build_track_map_figure,
+    build_f1_telemetry_stack,
+    build_f1_track_map,
+    format_delta,
     format_lap_time,
 )
 
 st.set_page_config(
-    page_title="ACC Coach",
+    page_title="ACC Coach — F1 Telemetry Suite",
     page_icon="🏎️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Custom Motorsport & Formula 1-Grade Dark CSS
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Titillium Web', sans-serif;
+    }
+
+    .f1-card {
+        background: linear-gradient(135deg, #161B22 0%, #0D1117 100%);
+        border: 1px solid #30363D;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .f1-badge-purple {
+        background-color: #8A2BE2;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .f1-badge-green {
+        background-color: #00D2BE;
+        color: #000;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .f1-badge-yellow {
+        background-color: #FFD700;
+        color: #000;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .f1-badge-red {
+        background-color: #FF1801;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .f1-metric-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 24px;
+        font-weight: 700;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Known Linux Steam Proton MoTeC telemetry path for ACC
 DEFAULT_ACC_MOTEC_DIR = os.path.expanduser(
@@ -61,17 +124,17 @@ advisor = CoachAdvisor(ollama_client)
 
 
 def main():
-    st.sidebar.title("🏎️ ACC Coach")
-    st.sidebar.caption("Assetto Corsa Competizione — Entrenador Local")
+    st.sidebar.markdown("## 🏎️ ACC COACH")
+    st.sidebar.caption("Assetto Corsa Competizione — F1 Telemetry Suite")
 
     page = st.sidebar.radio(
         "Navegación",
         [
-            "📊 Dashboard",
-            "📥 Importar sesión",
-            "⏱️ Vueltas",
-            "📈 Comparador",
-            "🧠 Entrenador",
+            "📊 Dashboard & Evolución",
+            "📈 Comparador F1 (Mapa & Tiempos)",
+            "🧠 Ingeniero de Pista (IA)",
+            "📥 Importar Telemetría",
+            "⏱️ Historial de Vueltas",
             "⚙️ Configuración",
         ],
     )
@@ -79,16 +142,15 @@ def main():
     st.sidebar.divider()
     ollama_ok = ollama_client.is_available()
     if ollama_ok:
-        st.sidebar.success(f"🟢 Ollama Conectado\nModelo: {st.session_state['ollama_model']}")
+        st.sidebar.markdown(f"🟢 **Ollama Activo**  \n`{st.session_state['ollama_model']}`")
     else:
-        st.sidebar.warning("🟡 Ollama no disponible\n(Modo analítico determinista activo)")
+        st.sidebar.markdown("🟡 **Modo Analítico Local**  \n*(Reglas numéricas activas)*")
 
     # -------------------------------------------------------------
-    # PAGE 1: DASHBOARD
+    # PAGE 1: DASHBOARD & EVOLUCIÓN
     # -------------------------------------------------------------
-    if page == "📊 Dashboard":
-        st.title("📊 Panel de Control y Evolución")
-        st.write("Bienvenido a **ACC Coach**, tu entrenador personal para Assetto Corsa Competizione.")
+    if page == "📊 Dashboard & Evolución":
+        st.title("📊 Panel de Control y Evolución del Piloto")
 
         sessions = storage.list_sessions()
 
@@ -99,20 +161,20 @@ def main():
         overall_best = min(all_bests) if all_bests else None
         tracks = len(set(s.track for s in sessions))
 
-        c1.metric("Sesiones Guardadas", total_sessions)
+        c1.metric("Sesiones Grabadas", total_sessions)
         c2.metric("Total de Vueltas", total_laps)
-        c3.metric("Mejor Vuelta Global", format_lap_time(overall_best))
-        c4.metric("Circuitos Registrados", tracks)
+        c3.metric("Récord Personal", format_lap_time(overall_best))
+        c4.metric("Circuitos", tracks)
 
         st.divider()
 
         if not sessions:
-            st.info("Aún no tienes sesiones importadas. Puedes cargar una sesión sintética de demostración para probar la aplicación de inmediato.")
-            if st.button("🚀 Cargar Sesión de Demostración (Valencia + Porsche 992 GT3 R)"):
-                with st.spinner("Generando datos sintéticos de alta fidelidad..."):
+            st.info("No hay sesiones importadas. Carga una sesión sintética de demostración con telemetría de competición:")
+            if st.button("🚀 Cargar Telemetría Demo (Porsche 992 GT3 R en Valencia)"):
+                with st.spinner("Generando telemetría multicanal de alta precisión..."):
                     demo_sess = create_synthetic_session()
                     storage.save_session(demo_sess)
-                    st.success("¡Sesión sintética cargada con éxito! Ya puedes explorar el Comparador y el Entrenador.")
+                    st.success("¡Sesión cargada! Explora ahora el Comparador F1.")
                     st.rerun()
         else:
             # Progression chart
@@ -120,8 +182,7 @@ def main():
             if evo_fig:
                 st.plotly_chart(evo_fig, use_container_width=True)
 
-            st.subheader("Historial Reciente de Sesiones")
-
+            st.subheader("Historial de Tandas y Sesiones")
             col_f1, col_f2 = st.columns(2)
             cars_list = sorted(list(set(s.car for s in sessions)))
             tracks_list = sorted(list(set(s.track for s in sessions)))
@@ -138,32 +199,292 @@ def main():
             table_data = []
             for s in filtered:
                 table_data.append({
-                    "ID Sesión": s.session_id,
+                    "Sesión": s.session_id,
                     "Coche": s.car,
                     "Circuito": s.track,
                     "Fecha": s.date.strftime("%d/%m/%Y %H:%M"),
                     "Vueltas": s.lap_count,
-                    "Mejor Tiempo": format_lap_time(s.best_lap_time),
-                    "Vel. Media": f"{s.average_speed:.1f} km/h" if s.average_speed > 0 else "--",
+                    "Mejor Vuelta": format_lap_time(s.best_lap_time),
+                    "Vel. Promedio": f"{s.average_speed:.1f} km/h" if s.average_speed > 0 else "--",
                 })
-
             st.dataframe(pd.DataFrame(table_data), use_container_width=True)
 
-            if st.button("➕ Añadir otra sesión sintética de demostración"):
+            if st.button("➕ Añadir otra tanda sintética para ver evolución"):
                 demo_sess = create_synthetic_session()
                 demo_sess.session_id = f"synth_{datetime.now().strftime('%H%M%S')}"
                 storage.save_session(demo_sess)
-                st.success("Sesión demo agregada.")
                 st.rerun()
 
     # -------------------------------------------------------------
-    # PAGE 2: IMPORTAR SESIÓN
+    # PAGE 2: COMPARADOR F1 (MAPA Y TIEMPOS SUPERPUESTOS)
     # -------------------------------------------------------------
-    elif page == "📥 Importar sesión":
-        st.title("📥 Importar Telemetría de Sesión")
+    elif page == "📈 Comparador F1 (Mapa & Tiempos)":
+        st.title("📈 Telemetría de Competición — F1 Overlay Suite")
+
+        sessions = storage.list_sessions()
+        if not sessions:
+            st.warning("No hay sesiones disponibles. Carga datos en el Dashboard para comenzar.")
+            return
+
+        session_opts = {f"{s.session_id} ({s.track})": s.id for s in sessions}
+        selected_sess_id = session_opts[st.selectbox("Selecciona Sesión", list(session_opts.keys()))]
+        session = storage.get_session(selected_sess_id)
+
+        if not session or len(session.laps) < 2:
+            st.warning("Se requieren al menos 2 vueltas con telemetría en la sesión.")
+            return
+
+        laps_dict = {f"Vuelta {l.lap_number} ({format_lap_time(l.lap_time)})": l for l in session.laps}
+        keys = list(laps_dict.keys())
+
+        # Lap Selector Banner
+        c_lap1, c_lap2 = st.columns(2)
+        ref_key = c_lap1.selectbox("Vuelta de Referencia (Objetivo)", keys, index=1 if len(keys) > 1 else 0)
+        comp_key = c_lap2.selectbox("Vuelta del Piloto (A Comparar)", keys, index=min(2, len(keys) - 1))
+
+        ref_lap = laps_dict[ref_key]
+        comp_lap = laps_dict[comp_key]
+
+        if ref_lap.lap_number == comp_lap.lap_number:
+            st.warning("Selecciona dos vueltas distintas para comparar.")
+            return
+
+        with st.spinner("Procesando física, alineando por distancia e integrando delta..."):
+            comparison = compare_laps(ref_lap, comp_lap)
+            aligned_data = align_laps_by_distance(ref_lap.telemetry, comp_lap.telemetry)
+
+        # ---------------------------------------------------------
+        # F1 TIMING TOWER HEADER (MICRO-SECTORES & DELTA GLOBAL)
+        # ---------------------------------------------------------
+        delta_str, delta_color = format_delta(comparison.time_difference)
+        s_diffs = comparison.sector_differences
+
+        st.markdown(f"""
+        <div class="f1-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <span style="color: #718096; font-size: 13px; font-weight: 700; text-transform: uppercase;">Comparativa de Vuelta</span><br>
+                    <span style="font-size: 20px; font-weight: 900;">V{comp_lap.lap_number} vs V{ref_lap.lap_number} (Ref)</span>
+                    <span style="margin-left: 10px; color: #00E5FF; font-weight: 700;">{session.car}</span>
+                    <span style="color: #718096;">@ {session.track}</span>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <div style="text-align: center;">
+                        <span style="color: #718096; font-size: 11px;">SECTOR 1</span><br>
+                        <span class="{ 'f1-badge-green' if s_diffs.get('sector1', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector1', 0.0):+.3f}s</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="color: #718096; font-size: 11px;">SECTOR 2</span><br>
+                        <span class="{ 'f1-badge-green' if s_diffs.get('sector2', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector2', 0.0):+.3f}s</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="color: #718096; font-size: 11px;">SECTOR 3</span><br>
+                        <span class="{ 'f1-badge-green' if s_diffs.get('sector3', 0) <= 0 else 'f1-badge-red' }">{s_diffs.get('sector3', 0.0):+.3f}s</span>
+                    </div>
+                    <div style="border-left: 1px solid #30363D; padding-left: 20px; text-align: right;">
+                        <span style="color: #718096; font-size: 11px;">GAP TOTAL</span><br>
+                        <span class="f1-metric-val" style="color: {delta_color};">{delta_str}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------------
+        # SEGMENT SELECTOR (VUELTA COMPLETA VS CADA CURVA)
+        # ---------------------------------------------------------
+        corner_options = ["🏁 Vuelta Completa (4.005 m)"] + [
+            f"T{c.corner_number} — {c.corner_name} ({c.time_delta_corner:+.3f}s)" for c in comparison.corners
+        ]
+        selected_seg_label = st.selectbox("📍 Selector de Segmento / Viraje en Pista", corner_options, index=0)
+
+        selected_corner_num = None
+        zoom_range = None
+        active_corner = None
+
+        if selected_seg_label != "🏁 Vuelta Completa (4.005 m)":
+            selected_corner_num = int(selected_seg_label.split(" — ")[0].replace("T", ""))
+            active_corner = next((c for c in comparison.corners if c.corner_number == selected_corner_num), None)
+            if active_corner:
+                # Add 120m margin before and after for proper braking and exit straight context
+                zoom_range = (
+                    max(0.0, active_corner.start_dist - 120.0),
+                    min(float(aligned_data["distance"][-1]), active_corner.end_dist + 160.0),
+                )
+
+        # ---------------------------------------------------------
+        # SIDE-BY-SIDE: MAPA 2D & HUD TÉCNICO DE CURVA
+        # ---------------------------------------------------------
+        col_map, col_hud = st.columns([1.1, 0.9])
+
+        with col_map:
+            st.markdown("##### 🗺️ Trazada y Mapa de Calor de Velocidad")
+            map_fig = build_f1_track_map(aligned_data, comparison.corners, selected_corner_num)
+            st.plotly_chart(map_fig, use_container_width=True)
+
+        with col_hud:
+            st.markdown("##### 🏎️ HUD de Telemetría del Segmento")
+            if active_corner:
+                st.markdown(f"""
+                <div class="f1-card" style="border-left: 4px solid #00E5FF;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:18px; font-weight:900;">T{active_corner.corner_number} — {active_corner.corner_name}</span>
+                        <span class="{ 'f1-badge-green' if active_corner.time_delta_corner <= 0 else 'f1-badge-red' }" style="font-size:14px;">
+                            {active_corner.time_delta_corner:+.3f}s
+                        </span>
+                    </div>
+                    <hr style="border-color:#30363D; margin:10px 0;">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                        <div>
+                            <span style="color:#718096; font-size:11px;">🛑 FRENADA</span><br>
+                            <span style="font-weight:700; font-size:15px; color:#FF9100;">
+                                { f'{active_corner.brake_delta_dist:+.1f} m' if active_corner.brake_delta_dist is not None else 'N/D' }
+                            </span><br>
+                            <span style="font-size:11px; color:#A0AEC0;">
+                                { 'Frenada anticipada' if (active_corner.brake_delta_dist and active_corner.brake_delta_dist < -5) else ('Frenada tardía' if (active_corner.brake_delta_dist and active_corner.brake_delta_dist > 5) else 'Punto similar') }
+                            </span>
+                        </div>
+                        <div>
+                            <span style="color:#718096; font-size:11px;">⚡ VEL. VÉRTICE (ÁPICE)</span><br>
+                            <span style="font-weight:700; font-size:15px; color:#00E5FF;">
+                                {active_corner.comp_min_speed:.1f} km/h
+                            </span>
+                            <span style="font-size:12px; color:{ '#FF3B30' if active_corner.speed_delta_min > 2 else '#34C759' };">
+                                ({active_corner.speed_delta_min:+.1f} km/h)
+                            </span><br>
+                            <span style="font-size:11px; color:#A0AEC0;">Ref: {active_corner.ref_min_speed:.1f} km/h</span>
+                        </div>
+                        <div>
+                            <span style="color:#718096; font-size:11px;">🚀 APLICACIÓN DE GAS</span><br>
+                            <span style="font-weight:700; font-size:15px; color:#76FF03;">
+                                { f'{active_corner.throttle_delta_dist:+.1f} m' if active_corner.throttle_delta_dist is not None else 'N/D' }
+                            </span><br>
+                            <span style="font-size:11px; color:#A0AEC0;">
+                                { 'Retraso al acelerar' if (active_corner.throttle_delta_dist and active_corner.throttle_delta_dist > 8) else 'Tracción inmediata' }
+                            </span>
+                        </div>
+                        <div>
+                            <span style="color:#718096; font-size:11px;">🏁 TRAMO CURVA</span><br>
+                            <span style="font-weight:700; font-size:15px; color:#E2E8F0;">
+                                {active_corner.start_dist:.0f}m ➔ {active_corner.end_dist:.0f}m
+                            </span><br>
+                            <span style="font-size:11px; color:#A0AEC0;">Longitud: {active_corner.end_dist - active_corner.start_dist:.0f} m</span>
+                        </div>
+                    </div>
+                    <hr style="border-color:#30363D; margin:10px 0;">
+                    <div>
+                        <span style="color:#00E5FF; font-size:11px; font-weight:700;">DICTAMEN TÉCNICO:</span><br>
+                        <span style="font-size:13px; color:#E2E8F0;">{active_corner.diagnosis}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Full lap top losses
+                st.markdown("""
+                <div class="f1-card">
+                    <span style="color:#718096; font-size:12px; font-weight:700; text-transform:uppercase;">Zonas con Mayor Pérdida de Tiempo</span>
+                </div>
+                """, unsafe_allow_html=True)
+                top_losses = sorted(comparison.corners, key=lambda c: c.time_delta_corner, reverse=True)[:4]
+                for c in top_losses:
+                    delta_c_str, delta_c_col = format_delta(c.time_delta_corner)
+                    st.markdown(f"""
+                    <div style="background:#161B22; border:1px solid #30363D; border-radius:6px; padding:10px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="font-weight:700; color:#E2E8F0;">T{c.corner_number} — {c.corner_name}</span><br>
+                            <span style="font-size:11px; color:#A0AEC0;">Vmin: {c.comp_min_speed:.1f} km/h (Ref: {c.ref_min_speed:.1f})</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-family:'JetBrains Mono'; font-weight:700; color:{delta_c_col}; font-size:16px;">{delta_c_str}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------------
+        # SYNCHRONIZED TELEMETRY STACK
+        # ---------------------------------------------------------
+        st.markdown("##### 📉 Telemetría Multicanal Sincronizada")
+        stack_fig = build_f1_telemetry_stack(
+            aligned_data,
+            ref_lap.lap_number,
+            comp_lap.lap_number,
+            comparison.corners,
+            dist_range=zoom_range,
+        )
+        st.plotly_chart(stack_fig, use_container_width=True)
+
+        # ---------------------------------------------------------
+        # FULL CORNER MATRIX TABLE
+        # ---------------------------------------------------------
+        st.subheader("Matriz Detallada de Curvas (Ordenada por Pérdida de Tiempo)")
+        sorted_corners = sorted(comparison.corners, key=lambda c: c.time_delta_corner, reverse=True)
+        matrix_data = []
+        for c in sorted_corners:
+            matrix_data.append({
+                "Curva": f"T{c.corner_number} — {c.corner_name}",
+                "Pérdida/Ganancia": f"{c.time_delta_corner:+.3f} s",
+                "Vmin Piloto (km/h)": f"{c.comp_min_speed:.1f}",
+                "Vmin Ref (km/h)": f"{c.ref_min_speed:.1f}",
+                "Δ Vértice": f"{c.speed_delta_min:+.1f} km/h",
+                "Punto de Frenada": f"{c.brake_delta_dist:+.1f} m" if c.brake_delta_dist is not None else "--",
+                "Tracción Gas": f"{c.throttle_delta_dist:+.1f} m" if c.throttle_delta_dist is not None else "--",
+                "Diagnóstico": c.diagnosis,
+            })
+        st.dataframe(pd.DataFrame(matrix_data), use_container_width=True)
+
+    # -------------------------------------------------------------
+    # PAGE 3: INGENIERO DE PISTA (IA COACH)
+    # -------------------------------------------------------------
+    elif page == "🧠 Ingeniero de Pista (IA)":
+        st.title("🧠 Ingeniero de Pista — Informe de Conducción")
+        st.write("Debriefing técnico basado en los datos de telemetría calculados.")
+
+        sessions = storage.list_sessions()
+        if not sessions:
+            st.warning("No hay sesiones disponibles. Carga datos en el Dashboard para comenzar.")
+            return
+
+        session_opts = {f"{s.session_id} ({s.track})": s.id for s in sessions}
+        selected_sess_id = session_opts[st.selectbox("Selecciona Sesión a Analizar", list(session_opts.keys()))]
+        session = storage.get_session(selected_sess_id)
+
+        if not session or len(session.laps) < 2:
+            st.warning("Se requieren al menos 2 vueltas con telemetría en la sesión.")
+            return
+
+        laps_dict = {f"Vuelta {l.lap_number} ({format_lap_time(l.lap_time)})": l for l in session.laps}
+        keys = list(laps_dict.keys())
+
+        c1, c2 = st.columns(2)
+        ref_key = c1.selectbox("Vuelta de Referencia (Objetivo)", keys, index=1 if len(keys) > 1 else 0)
+        comp_key = c2.selectbox("Vuelta del Piloto (A Mejorar)", keys, index=min(2, len(keys) - 1))
+
+        ref_lap = laps_dict[ref_key]
+        comp_lap = laps_dict[comp_key]
+
+        if st.button("🚀 Generar Debriefing Técnico del Ingeniero", type="primary"):
+            with st.spinner("Analizando telemetría y redactando recomendaciones técnicas con IA local..."):
+                comparison = compare_laps(ref_lap, comp_lap)
+                report = advisor.generate_report(comparison, car=session.car, track=session.track)
+
+                storage.save_coach_report(session.id, ref_lap.lap_number, comp_lap.lap_number, report)
+
+                st.markdown(report.raw_report)
+
+                st.download_button(
+                    label="💾 Descargar Informe en Markdown",
+                    data=report.raw_report,
+                    file_name=f"informe_ingeniero_v{comp_lap.lap_number}_vs_v{ref_lap.lap_number}.md",
+                    mime="text/markdown",
+                )
+
+    # -------------------------------------------------------------
+    # PAGE 4: IMPORTAR TELEMETRÍA
+    # -------------------------------------------------------------
+    elif page == "📥 Importar Telemetría":
+        st.title("📥 Importar Telemetría")
         st.write("Sube o escanea archivos generados por ACC o MoTeC i2 (.ld, .ldx, .csv).")
 
-        # Proton Auto-Detection Section
         acc_dir_exists = os.path.exists(DEFAULT_ACC_MOTEC_DIR)
         with st.expander("🔍 Escaneo automático de Assetto Corsa Competizione (Steam Proton)", expanded=acc_dir_exists):
             if acc_dir_exists:
@@ -185,19 +506,17 @@ def main():
                 st.warning("No se detectó la ruta por defecto de Steam Proton para ACC en este equipo.")
 
         st.divider()
-        st.subheader("Carga manual de archivos")
+        st.subheader("Carga manual de archivos (.ld, .ldx, .csv)")
         uploaded_files = st.file_uploader(
             "Selecciona archivo(s) de telemetría",
             type=["ld", "ldx", "csv"],
             accept_multiple_files=True,
-            help="Sube un archivo .ld con su .ldx opcional, o un archivo CSV con telemetría exportada.",
         )
 
-        car_input = st.text_input("Coche (opcional si viene en el archivo)", value="Porsche 911 GT3 R (992)")
-        track_input = st.text_input("Circuito (opcional si viene en el archivo)", value="Ricardo Tormo de Valencia")
+        car_input = st.text_input("Coche", value="Porsche 911 GT3 R (992)")
+        track_input = st.text_input("Circuito", value="Ricardo Tormo de Valencia")
 
         if uploaded_files:
-            # Check maximum file size for security (< 50MB per file)
             max_size_bytes = 50 * 1024 * 1024
             for f in uploaded_files:
                 if f.size > max_size_bytes:
@@ -205,7 +524,7 @@ def main():
                     return
 
             if st.button("Procesar e Importar Archivos"):
-                with st.spinner("Procesando y validando archivos..."):
+                with st.spinner("Validando telemetría..."):
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         saved_paths = []
                         for uf in uploaded_files:
@@ -236,31 +555,28 @@ def main():
                                 parsed_session.track = track_input
 
                             storage.save_session(parsed_session)
-                            st.success(f"¡Sesión '{parsed_session.session_id}' importada y guardada correctamente!")
-                            st.write(f"- **Vueltas detectadas:** {len(parsed_session.laps)}")
-                            st.write(f"- **Canales cargados:** {', '.join(parsed_session.telemetry.keys())}")
+                            st.success(f"¡Sesión '{parsed_session.session_id}' guardada!")
+                            st.write(f"- Vueltas: {len(parsed_session.laps)}")
+                            st.write(f"- Canales: {', '.join(parsed_session.telemetry.keys())}")
 
     # -------------------------------------------------------------
-    # PAGE 3: VUELTAS
+    # PAGE 5: HISTORIAL DE VUELTAS
     # -------------------------------------------------------------
-    elif page == "⏱️ Vueltas":
+    elif page == "⏱️ Historial de Vueltas":
         st.title("⏱️ Registro y Metadatos de Vueltas")
 
         sessions = storage.list_sessions()
         if not sessions:
-            st.warning("No hay sesiones disponibles. Importa una sesión o carga datos sintéticos en el Dashboard.")
+            st.warning("No hay sesiones disponibles.")
             return
 
-        session_opts = {f"{s.session_id} ({s.track} — {s.date.strftime('%d/%m/%Y %H:%M')})": s.id for s in sessions}
-        selected_label = st.selectbox("Selecciona Sesión", list(session_opts.keys()))
-        selected_sess_id = session_opts[selected_label]
-
+        session_opts = {f"{s.session_id} ({s.track})": s.id for s in sessions}
+        selected_sess_id = session_opts[st.selectbox("Selecciona Sesión", list(session_opts.keys()))]
         session = storage.get_session(selected_sess_id)
-        if not session or not session.laps:
-            st.info("Esta sesión no contiene vueltas segmentadas registradas.")
-            return
 
-        st.subheader(f"Vueltas registradas — {session.car} en {session.track}")
+        if not session or not session.laps:
+            st.info("Esta sesión no contiene vueltas registradas.")
+            return
 
         valid_times = [l.lap_time for l in session.laps if l.is_valid and l.lap_time > 0]
         best_time = min(valid_times) if valid_times else 0.0
@@ -269,147 +585,16 @@ def main():
         for lap in session.laps:
             is_best = lap.lap_time == best_time and best_time > 0
             sectors = lap.sector_times
-            s1_str = f"{sectors[0]:.3f}" if len(sectors) > 0 else "--"
-            s2_str = f"{sectors[1]:.3f}" if len(sectors) > 1 else "--"
-            s3_str = f"{sectors[2]:.3f}" if len(sectors) > 2 else "--"
-
             table_rows.append({
                 "Vuelta": f"V{lap.lap_number}",
                 "Tiempo Vuelta": format_lap_time(lap.lap_time),
-                "Sector 1 (s)": s1_str,
-                "Sector 2 (s)": s2_str,
-                "Sector 3 (s)": s3_str,
+                "Sector 1 (s)": f"{sectors[0]:.3f}" if len(sectors) > 0 else "--",
+                "Sector 2 (s)": f"{sectors[1]:.3f}" if len(sectors) > 1 else "--",
+                "Sector 3 (s)": f"{sectors[2]:.3f}" if len(sectors) > 2 else "--",
                 "Válida": "✅ Sí" if lap.is_valid else "❌ No",
                 "Destacado": "⭐ MEJOR VUELTA" if is_best else "",
             })
-
         st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
-
-    # -------------------------------------------------------------
-    # PAGE 4: COMPARADOR
-    # -------------------------------------------------------------
-    elif page == "📈 Comparador":
-        st.title("📈 Comparador de Telemetría Sincronizada")
-
-        sessions = storage.list_sessions()
-        if not sessions:
-            st.warning("No hay sesiones disponibles. Carga datos en el Dashboard para comenzar.")
-            return
-
-        session_opts = {f"{s.session_id} ({s.track})": s.id for s in sessions}
-        selected_sess_id = session_opts[st.selectbox("Selecciona Sesión", list(session_opts.keys()))]
-        session = storage.get_session(selected_sess_id)
-
-        if not session or len(session.laps) < 2:
-            st.warning("Se requieren al menos 2 vueltas con telemetría en la sesión para realizar la comparación.")
-            return
-
-        laps_dict = {f"Vuelta {l.lap_number} ({format_lap_time(l.lap_time)})": l for l in session.laps}
-        keys = list(laps_dict.keys())
-
-        c_lap1, c_lap2 = st.columns(2)
-        ref_key = c_lap1.selectbox("Vuelta de Referencia (Base)", keys, index=1 if len(keys) > 1 else 0)
-        comp_key = c_lap2.selectbox("Vuelta de Comparación (A Analizar)", keys, index=min(2, len(keys) - 1))
-
-        ref_lap = laps_dict[ref_key]
-        comp_lap = laps_dict[comp_key]
-
-        if ref_lap.lap_number == comp_lap.lap_number:
-            st.warning("Selecciona dos vueltas distintas para comparar.")
-            return
-
-        with st.spinner("Alineando telemetría por distancia y calculando deltas..."):
-            comparison = compare_laps(ref_lap, comp_lap)
-            aligned_data = align_laps_by_distance(ref_lap.telemetry, comp_lap.telemetry)
-
-        # Delta Summary KPI
-        k1, k2, k3, k4 = st.columns(4)
-        delta_color = "inverse" if comparison.time_difference > 0 else "normal"
-        k1.metric("Diferencia Total", f"{comparison.time_difference:+.3f} s", delta=f"{comparison.time_difference:+.3f}s", delta_color=delta_color)
-
-        s_diffs = comparison.sector_differences
-        k2.metric("Sector 1 Δ", f"{s_diffs.get('sector1', 0.0):+.3f} s")
-        k3.metric("Sector 2 Δ", f"{s_diffs.get('sector2', 0.0):+.3f} s")
-        k4.metric("Sector 3 Δ", f"{s_diffs.get('sector3', 0.0):+.3f} s")
-
-        st.divider()
-
-        # Visual Display: 2D Track Map & Synchronized Telemetry
-        tab_telemetry, tab_map = st.tabs(["📉 Canales de Telemetría Sincronizados", "🗺️ Mapa de Pista 2D"])
-
-        with tab_telemetry:
-            fig = build_detailed_telemetry_figure(
-                aligned_data,
-                ref_lap.lap_number,
-                comp_lap.lap_number,
-                comparison.corners,
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        with tab_map:
-            track_fig = build_track_map_figure(aligned_data, comparison.corners)
-            st.plotly_chart(track_fig, use_container_width=True)
-
-        st.subheader("Desglose Técnico por Viraje")
-        corner_data = []
-        for c in comparison.corners:
-            corner_data.append({
-                "Curva": f"T{c.corner_number} — {c.corner_name}",
-                "Vmin Ref (km/h)": c.ref_min_speed,
-                "Vmin Comp (km/h)": c.comp_min_speed,
-                "Delta Vmin (km/h)": f"{c.speed_delta_min:+.1f}",
-                "Delta Tiempo (s)": f"{c.time_delta_corner:+.3f}",
-                "Frenada (m)": f"{c.brake_delta_dist:+.1f}m" if c.brake_delta_dist is not None else "--",
-                "Diagnóstico Técnico": c.diagnosis,
-            })
-        st.dataframe(pd.DataFrame(corner_data), use_container_width=True)
-
-    # -------------------------------------------------------------
-    # PAGE 5: ENTRENADOR (AI COACH)
-    # -------------------------------------------------------------
-    elif page == "🧠 Entrenador":
-        st.title("🧠 Entrenador de Conducción — Asistente de Pista")
-        st.write("Genera recomendaciones técnicas fundamentadas exclusivamente en métricas calculadas.")
-
-        sessions = storage.list_sessions()
-        if not sessions:
-            st.warning("No hay sesiones disponibles. Carga datos en el Dashboard para comenzar.")
-            return
-
-        session_opts = {f"{s.session_id} ({s.track})": s.id for s in sessions}
-        selected_sess_id = session_opts[st.selectbox("Selecciona Sesión a Analizar", list(session_opts.keys()))]
-        session = storage.get_session(selected_sess_id)
-
-        if not session or len(session.laps) < 2:
-            st.warning("Se requieren al menos 2 vueltas con telemetría en la sesión.")
-            return
-
-        laps_dict = {f"Vuelta {l.lap_number} ({format_lap_time(l.lap_time)})": l for l in session.laps}
-        keys = list(laps_dict.keys())
-
-        c1, c2 = st.columns(2)
-        ref_key = c1.selectbox("Vuelta de Referencia (Objetivo)", keys, index=1 if len(keys) > 1 else 0)
-        comp_key = c2.selectbox("Vuelta del Piloto (A Mejorar)", keys, index=min(2, len(keys) - 1))
-
-        ref_lap = laps_dict[ref_key]
-        comp_lap = laps_dict[comp_key]
-
-        if st.button("🚀 Generar Informe de Conducción", type="primary"):
-            with st.spinner("Analizando telemetría y redactando recomendaciones técnicas..."):
-                comparison = compare_laps(ref_lap, comp_lap)
-                report = advisor.generate_report(comparison, car=session.car, track=session.track)
-
-                # Persist report
-                storage.save_coach_report(session.id, ref_lap.lap_number, comp_lap.lap_number, report)
-
-                st.markdown(report.raw_report)
-
-                st.download_button(
-                    label="💾 Descargar Informe en Markdown",
-                    data=report.raw_report,
-                    file_name=f"informe_coach_v{comp_lap.lap_number}_vs_v{ref_lap.lap_number}.md",
-                    mime="text/markdown",
-                )
 
     # -------------------------------------------------------------
     # PAGE 6: CONFIGURACIÓN
@@ -426,11 +611,11 @@ def main():
         available_models = temp_client.list_models()
 
         if available_models:
-            st.success(f"Conexión con Ollama establecida en {new_url}. {len(available_models)} modelos disponibles:")
+            st.success(f"Conectado a Ollama ({len(available_models)} modelos disponibles):")
             current_model_idx = available_models.index(st.session_state["ollama_model"]) if st.session_state["ollama_model"] in available_models else 0
-            selected_model = st.selectbox("Modelo de Ollama Seleccionado", available_models, index=current_model_idx)
+            selected_model = st.selectbox("Modelo de Ollama", available_models, index=current_model_idx)
         else:
-            st.warning("No se pudo conectar a Ollama o no hay modelos instalados. Puedes especificar el nombre manualmente:")
+            st.warning("No se pudo conectar a Ollama o no hay modelos instalados:")
             selected_model = st.text_input("Nombre del Modelo", value=st.session_state["ollama_model"])
 
         if st.button("Guardar Preferencias"):
@@ -442,15 +627,11 @@ def main():
             st.rerun()
 
         st.divider()
-        st.subheader("Entorno y Almacenamiento Local (SQLite)")
-        st.write(f"- **Ruta de la base de datos:** `{storage.db_path}`")
+        st.subheader("Entorno Local")
+        st.write(f"- **Base de datos:** `{storage.db_path}`")
         st.write(f"- **Ruta MoTeC de ACC (Steam Proton):** `{DEFAULT_ACC_MOTEC_DIR}`")
-        if os.path.exists(DEFAULT_ACC_MOTEC_DIR):
-            st.success("Carpeta de telemetría de ACC verificada y accesible.")
-        else:
-            st.info("Carpeta de telemetría de ACC no detectada en la ruta predeterminada.")
 
-        if st.button("🗑️ Purgar base de datos (Reiniciar datos)"):
+        if st.button("🗑️ Purgar base de datos"):
             if os.path.exists(storage.db_path):
                 os.remove(storage.db_path)
                 storage.init_db()
