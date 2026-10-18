@@ -1,5 +1,5 @@
 /**
- * Pure, reusable utility functions for SimCoach telemetry formatting and sim detection.
+ * Pure, reusable utility functions for IdoRacing Analytics telemetry formatting and sim detection.
  * Adheres to DRY and clean code standards across all views and components.
  */
 

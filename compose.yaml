@@ -17,9 +17,9 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - AI_ENABLED=${AI_ENABLED:-true}
-      - SIMCOACH_DB_PATH=/app/data/simcoach.db
+      - IDORACING_DB_PATH=/app/data/idoracing.db
     volumes:
-      - simcoach_data:/app/data
+      - idoracing_data:/app/data
     # Configure access to host network services (Ollama) on Linux
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -31,5 +31,5 @@ services:
       start_period: 10s
 
 volumes:
-  simcoach_data:
-    name: simcoach_data
+  idoracing_data:
+    name: idoracing_data

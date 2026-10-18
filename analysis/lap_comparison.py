@@ -1,5 +1,5 @@
 """
-Lap comparison engine for SimCoach.
+Lap comparison engine for IdoRacing Analytics.
 Computes numerical time, speed, sector, and corner differences between two laps.
 """
 

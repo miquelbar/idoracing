@@ -1,4 +1,4 @@
-"""Unit tests for SimCoach FastAPI endpoints."""
+"""Unit tests for IdoRacing Analytics FastAPI endpoints."""
 
 from fastapi.testclient import TestClient
 from api.server import app

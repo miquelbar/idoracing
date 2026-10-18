@@ -1,5 +1,5 @@
 """
-Le Mans Ultimate (LMU) and rFactor 2 session and results importer for SimCoach.
+Le Mans Ultimate (LMU) and rFactor 2 session and results importer for IdoRacing Analytics.
 Parses XML results from UserData/Log/Results with laps, sectors, and car metadata.
 """
 

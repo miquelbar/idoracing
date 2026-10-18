@@ -1,5 +1,5 @@
 """
-Synthetic telemetry generator for SimCoach.
+Synthetic telemetry generator for IdoRacing Analytics.
 Provides realistic telemetry for Porsche 911 GT3 R (992) at Circuit Ricardo Tormo (Valencia, 4005m).
 Enables instant out-of-the-box demo, validation, and reproducible automated tests without real game logs.
 """

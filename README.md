@@ -9,8 +9,9 @@
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![TypeScript: 5+](https://img.shields.io/badge/typescript-5+-blue.svg)](https://www.typescriptlang.org/)
 [![Ollama: Ready](https://img.shields.io/badge/ollama-qwen3.8%3A27b--32k-orange.svg)](https://ollama.ai/)
-
 **IdoRacing Analytics** is a modern, high-performance, open-source motorsport telemetry suite and AI race engineer. Designed specifically for **amateur simracers** who want to understand where they are losing time, master trail braking, optimize racing lines, and find real lap time improvements—**without paying costly monthly subscriptions** (like Coach Dave Delta, VRS, or MoTeC i2 Pro complexity).
+
+![IdoRacing Analytics Interactive Walkthrough](docs/screenshots/idoracing-demo.gif)
 
 Supports:
 - **Assetto Corsa Competizione (ACC)**
@@ -42,12 +43,27 @@ Most telemetry software falls into two extremes:
 - Interactive corner segmentation—click any corner on the map to jump directly into its analysis.
 - Multi-track support with pre-calibrated layouts (Circuit Ricardo Tormo Valencia, Sebring International Raceway, and universal coordinates).
 
+![IdoRacing Analytics Telemetry Dashboard](docs/screenshots/telemetry-overview.png)
+*Unified 100vh multi-channel telemetry workspace: Speed, Delta-T, Pedals with Trail Braking overlap, Gear, and interactive Circuit Map.*
+
 ### 2. 🔍 Corner-by-Corner Racing Line & Technique Inspector
-- **SVG Racing Line Comparison**: Compare your actual line vs. the optimal reference line with marked Apex, Entry, and Exit points.
-- **Trail Braking Detection**: Shaded brake-throttle overlap curves reveal brake release modulation and trail braking consistency.
-- **Handling Diagnosis**: Real-time identification of understeer, oversteer, early/late apex, and missed throttle pick-up points.
-- **Gear Recommendations**: Corner minimum speed ($V_{min}$) vs. recommended exit gear.
-- **Smooth Corner Carousel**: Navigate every corner (T1 through T14/T17+) with auto-scroll centering and mouse-wheel support.
+- **Corner Phase Breakdown Table**: Structured 4-column phase performance analysis comparing your corner entry, apex, and exit against the reference lap:
+  - `FASE DE CURVA` | `REFERENCIA` | `TU VUELTA` | `DIFERENCIA`
+  - **Braking Point Delta**: Pinpoints whether you braked too early or arrived overloaded into the corner entry.
+  - **Trail Braking Modulation**: Evaluates progressive pedal bleed-off vs. abrupt release to maintain front tire grip.
+  - **Track Position & Line**: Identifies entry tightening, understeer offsets (+1.8m wide off apex), or early apex pinching.
+  - **Minimum Speed ($V_{min}$) & Apex Gear**: Detects overslowing and incorrect downshifts upsetting chassis balance.
+  - **Throttle Onset Distance & Exit Speed**: Measures post-apex throttle commitment and corner exit momentum.
+  - **Direct Radio Feedback Loop**: One-click jump to chat with Pep about the specific corner (`[ 🎧 Consultar a Pep sobre T1 → ]`).
+
+![Corner Phase Performance Analysis](docs/screenshots/corner-phase-analysis.png)
+*Corner Phase Breakdown Table: braking point delta, trail braking modulation score, minimum apex speed, and Pep's engineering debrief.*
+
+- **High-Resolution 2D Trajectory Inspector**: Compare your driven line vs. optimal line, with marked Entry, Apex, and Exit points, curb boundaries, and speed delta shading.
+- **Segmented Mode Toggle**: Instant switching between **Trazada Óptima** (2D Trajectory) and **Diagnóstico y Fases** (Corner Phase Table) without vertical scrolling.
+
+![Corner 2D Trajectory](docs/screenshots/corner-trace-2d.png)
+*High-resolution 2D Corner Trajectory analysis with curbs, speed delta ribbon, and apex alignment.*
 
 ### 3. 📈 50Hz Synchronized Telemetry Traces
 - **Speed**: Reference vs. comparison lap with apex minimum speed markers.
@@ -105,7 +121,7 @@ Most telemetry software falls into two extremes:
 ## 🏗️ Architecture
 
 ```
-acc-coach/
+idoracing-analytics/
 ├── api/                # FastAPI backend serving REST endpoints & static assets
 │   └── server.py       # API routes, CORS, session uploads, LLM proxy
 ├── frontend/           # High-performance React 19 + TypeScript + Vite + Tailwind CSS
@@ -240,7 +256,7 @@ test_importers/test_moteclib_importer.py PASSED
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Optional endpoint (use `https://openrouter.ai/api/v1` for OpenRouter) |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Model name when using OpenAI provider |
 | `AI_ENABLED` | `true` | Enable or disable AI coaching functionality |
-| `SIMCOACH_DB_PATH` | `data/simcoach.db` | Local SQLite database file path |
+| `IDORACING_DB_PATH` | `data/idoracing.db` | Local SQLite database file path |
 
 ---
 

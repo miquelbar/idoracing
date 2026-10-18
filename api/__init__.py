@@ -1,1 +1,1 @@
-"""SimCoach API Module."""
+"""IdoRacing Analytics API Module."""

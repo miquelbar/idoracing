@@ -1,5 +1,5 @@
 """
-Ollama HTTP API client for SimCoach.
+Ollama HTTP API client for IdoRacing Analytics.
 Provides robust local communication with Ollama, model listing, health checks,
 and timeout handling.
 """

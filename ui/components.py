@@ -30,7 +30,7 @@ def format_delta(delta: float) -> Tuple[str, str]:
         return f"{delta:.3f}s", "#34C759"   # Green / faster
 
 
-def build_f1_track_map(
+def build_telemetry_track_map(
     aligned_data: Dict[str, np.ndarray],
     corners: List[CornerAnalysis],
     selected_corner_num: Optional[int] = None,
@@ -205,7 +205,7 @@ def build_f1_track_map(
     return fig
 
 
-def build_f1_telemetry_stack(
+def build_telemetry_stack(
     aligned_data: Dict[str, np.ndarray],
     ref_lap_num: int,
     comp_lap_num: int,
@@ -477,5 +477,7 @@ def build_evolution_figure(sessions: List) -> Optional[go.Figure]:
 
 
 # Backward compatibility aliases
-build_detailed_telemetry_figure = build_f1_telemetry_stack
-build_track_map_figure = build_f1_track_map
+build_detailed_telemetry_figure = build_telemetry_stack
+build_track_map_figure = build_telemetry_track_map
+build_f1_telemetry_stack = build_telemetry_stack
+build_f1_track_map = build_telemetry_track_map

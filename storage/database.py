@@ -9,9 +9,22 @@ import sqlite3
 from typing import Any, Dict, List, Optional
 from domain.session import CoachReport, Lap, Session, SessionSummary
 
+_default_db = (
+    os.path.join("data", "idoracing.db")
+    if os.path.exists(os.path.join("data", "idoracing.db"))
+    else (
+        os.path.join("data", "simcoach.db")
+        if os.path.exists(os.path.join("data", "simcoach.db"))
+        else os.path.join("data", "idoracing.db")
+    )
+)
+
 DEFAULT_DB_PATH = os.environ.get(
-    "SIMCOACH_DB_PATH",
-    os.environ.get("ACC_COACH_DB_PATH", os.path.join("data", "simcoach.db")),
+    "IDORACING_DB_PATH",
+    os.environ.get(
+        "SIMCOACH_DB_PATH",
+        os.environ.get("ACC_COACH_DB_PATH", _default_db),
+    ),
 )
 
 

@@ -1,5 +1,5 @@
 """
-Circuit track geometry models and 2D coordinate generators for SimCoach.
+Circuit track geometry models and 2D coordinate generators for IdoRacing Analytics.
 Provides authentic closed-loop layouts for Circuit Ricardo Tormo (Valencia)
 and universal coordinate projection for multi-simulator tracks.
 """

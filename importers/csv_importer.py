@@ -1,5 +1,5 @@
 """
-CSV Telemetry Importer for SimCoach.
+CSV Telemetry Importer for IdoRacing Analytics.
 Allows importing telemetry data exported from MoTeC i2, third-party apps, or synthetic logs.
 """
 

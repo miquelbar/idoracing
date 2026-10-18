@@ -1,5 +1,5 @@
 """
-Unified LLM Client for SimCoach.
+Unified LLM Client for IdoRacing Analytics.
 Supports Local Ollama (qwen3.8:27b-32k) and OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, vLLM).
 """
 

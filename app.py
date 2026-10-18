@@ -23,8 +23,8 @@ from importers.synthetic import create_synthetic_session
 from storage.database import Storage
 from ui.components import (
     build_evolution_figure,
-    build_f1_telemetry_stack,
-    build_f1_track_map,
+    build_telemetry_stack,
+    build_telemetry_track_map,
     format_delta,
     format_lap_time,
 )
@@ -326,7 +326,7 @@ def main():
 
         with col_map:
             st.markdown("##### 🗺️ Trazada y Mapa de Calor de Velocidad")
-            map_fig = build_f1_track_map(aligned_data, comparison.corners, selected_corner_num)
+            map_fig = build_telemetry_track_map(aligned_data, comparison.corners, selected_corner_num)
             st.plotly_chart(map_fig, use_container_width=True)
 
         with col_hud:
@@ -411,7 +411,7 @@ def main():
         # SYNCHRONIZED TELEMETRY STACK
         # ---------------------------------------------------------
         st.markdown("##### 📉 Telemetría Multicanal Sincronizada")
-        stack_fig = build_f1_telemetry_stack(
+        stack_fig = build_telemetry_stack(
             aligned_data,
             ref_lap.lap_number,
             comp_lap.lap_number,
