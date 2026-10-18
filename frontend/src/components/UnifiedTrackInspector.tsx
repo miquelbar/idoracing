@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
 import { useLanguage } from '../i18n';
 import {
@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Zap,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 interface UnifiedTrackInspectorProps {
@@ -32,6 +33,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   onAskEngineerAboutCorner,
 }) => {
   const { t } = useLanguage();
+  const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
   const corners = comparison.corners || [];
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -236,6 +238,107 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     ? comparison.delta_time[comparison.delta_time.length - 1]
     : 0;
 
+  // Phase performance metrics computed for selected corner
+  const phaseMetrics = useMemo(() => {
+    if (!selectedCorner) return null;
+    const dists = comparison.distance || [];
+    const refSpeeds = comparison.ref_speed || [];
+    const compSpeeds = comparison.comp_speed || [];
+    const refThrottles = comparison.ref_throttle || [];
+    const compThrottles = comparison.comp_throttle || [];
+
+    const findIdx = (targetDist: number) => {
+      if (dists.length === 0) return 0;
+      let closest = 0;
+      let minD = Math.abs(dists[0] - targetDist);
+      for (let i = 1; i < dists.length; i++) {
+        const d = Math.abs(dists[i] - targetDist);
+        if (d < minD) {
+          minD = d;
+          closest = i;
+        }
+      }
+      return closest;
+    };
+
+    const entryIdx = findIdx(selectedCorner.start_distance);
+    const exitIdx = findIdx(selectedCorner.end_distance);
+    const apexIdx = findIdx(selectedCorner.apex_distance);
+
+    // 1. Entry Speed
+    const entryRef = Math.round(refSpeeds[entryIdx] ?? selectedCorner.v_min_ref);
+    const entryComp = Math.round(compSpeeds[entryIdx] ?? selectedCorner.v_min_comp);
+    const entryDelta = Number((entryComp - entryRef).toFixed(1));
+
+    // 2. Minimum Speed (Apex)
+    const minRef = Math.round(selectedCorner.v_min_ref);
+    const minComp = Math.round(selectedCorner.v_min_comp);
+    const minDelta = Number(selectedCorner.delta_v_min.toFixed(1));
+
+    // 3. Gear at Apex
+    const refGear = selectedCorner.ref_gear ?? (comparison.ref_gear?.[apexIdx] || 3);
+    const compGear = selectedCorner.comp_gear ?? (comparison.comp_gear?.[apexIdx] || 3);
+    const gearDiff = compGear - refGear;
+
+    // 4. Throttle Onset
+    let refThIdx = -1;
+    let compThIdx = -1;
+    for (let i = apexIdx; i < Math.min(dists.length, exitIdx + 20); i++) {
+      if (refThIdx === -1 && refThrottles[i] > 0.10) refThIdx = i;
+      if (compThIdx === -1 && compThrottles[i] > 0.10) compThIdx = i;
+      if (refThIdx !== -1 && compThIdx !== -1) break;
+    }
+
+    const apexDist = dists[apexIdx] || selectedCorner.apex_distance;
+    const refThDist = refThIdx !== -1 ? Math.max(0, Math.round(dists[refThIdx] - apexDist)) : 8;
+    const compThDist =
+      compThIdx !== -1
+        ? Math.max(0, Math.round(dists[compThIdx] - apexDist))
+        : refThDist + Math.round(selectedCorner.throttle_pickup_delta || 0);
+    const thDelta =
+      selectedCorner.throttle_pickup_delta !== undefined && selectedCorner.throttle_pickup_delta !== null
+        ? selectedCorner.throttle_pickup_delta
+        : compThDist - refThDist;
+
+    // 5. Exit Speed
+    const exitRef = Math.round(refSpeeds[exitIdx] ?? (selectedCorner.v_min_ref + 25));
+    const exitComp = Math.round(compSpeeds[exitIdx] ?? (selectedCorner.v_min_comp + 20));
+    const exitDelta = Number((exitComp - exitRef).toFixed(1));
+
+    return {
+      entry: { ref: entryRef, comp: entryComp, delta: entryDelta },
+      min: { ref: minRef, comp: minComp, delta: minDelta },
+      gear: { ref: refGear, comp: compGear, diff: gearDiff },
+      throttle: { refDist: refThDist, compDist: compThDist, delta: thDelta },
+      exit: { ref: exitRef, comp: exitComp, delta: exitDelta },
+    };
+  }, [selectedCorner, comparison]);
+
+  // Primary recommendation title & explanation
+  const recTitle = useMemo(() => {
+    if (!selectedCorner) return '';
+    if (selectedCorner.racing_line_eval && selectedCorner.racing_line_eval.includes('Prematuro')) {
+      return `${t('early_apex')} — ${t('primary_rec_default_title')}`;
+    }
+    if (selectedCorner.balance_eval && selectedCorner.balance_eval.includes('Subviraje')) {
+      return `${t('understeer')} — ${t('primary_rec_default_title')}`;
+    }
+    if (selectedCorner.gear_eval && !selectedCorner.gear_eval.includes('Óptima')) {
+      return `${t('gear_at_apex')} — ${selectedCorner.gear_eval}`;
+    }
+    return t('primary_rec_default_title');
+  }, [selectedCorner, t]);
+
+  const recDescription = useMemo(() => {
+    if (!selectedCorner) return '';
+    return (
+      selectedCorner.racing_line_advice ||
+      selectedCorner.gear_advice ||
+      selectedCorner.trail_braking_advice ||
+      selectedCorner.diagnosis
+    );
+  }, [selectedCorner]);
+
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full gap-2 overflow-hidden">
       {/* ================= FILA 1: SELECTOR T1, T2... + BOTÓN VISTA GENERAL ================= */}
@@ -313,49 +416,65 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         </div>
       </div>
 
-      {/* ================= FILA 2: DATOS CLAVE EN UNA LÍNEA (FIJA) ================= */}
+      {/* ================= FILA 2: CABECERA DE CURVA + CONMUTADOR DE MODO ================= */}
       {selectedCorner ? (
-        <div className="px-3 py-1.5 rounded-lg bg-[#090D15] border border-white/5 flex items-center justify-between text-xs font-telemetry shrink-0 select-text gap-2">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span className="px-1.5 py-0.5 rounded bg-[#B138FE] text-white font-black text-[11px] shadow-sm shrink-0">
+        <div className="px-2.5 py-1 rounded-lg bg-[#090D15] border border-white/5 flex items-center justify-between text-xs font-telemetry shrink-0 select-text gap-2">
+          {/* Izquierda: [T1] CURVA ASPAR + BADGE CORNER LOSS */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="px-1.5 py-0.5 rounded bg-[#B138FE] text-white font-black text-[10px] shadow-sm shrink-0">
               T{selectedCorner.corner_number}
             </span>
-            <span className="font-bold text-white tracking-wide shrink-0">
+            <span className="font-bold text-white tracking-wide truncate max-w-[140px] sm:max-w-[220px]">
               {selectedCorner.name}
             </span>
-            <span className="text-gray-500 shrink-0">•</span>
-            <span className="text-gray-300 shrink-0">
-              {t('apex_speed')}: <strong className="text-white">{selectedCorner.v_min_comp.toFixed(0)} km/h</strong>{' '}
-              <span className="text-gray-500">(Ref: {selectedCorner.v_min_ref.toFixed(0)} km/h)</span>
-            </span>
-            <span className="text-gray-500 shrink-0">•</span>
-            <span className="shrink-0">
-              {t('delta_v_min')}:{' '}
-              <strong className={selectedCorner.delta_v_min >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}>
-                {selectedCorner.delta_v_min > 0 ? '+' : ''}
-                {selectedCorner.delta_v_min.toFixed(1)} km/h
-              </strong>
+            <span
+              className={`px-1.5 py-0.5 rounded font-black font-telemetry text-[10px] shrink-0 border ${
+                selectedCorner.delta_time > 0.05
+                  ? 'bg-[#FF1801]/15 text-[#FF7B72] border-[#FF1801]/30'
+                  : selectedCorner.delta_time < -0.05
+                  ? 'bg-[#00FF7F]/15 text-[#00FF7F] border-[#00FF7F]/30'
+                  : 'bg-white/5 text-gray-300 border-white/10'
+              }`}
+            >
+              {selectedCorner.delta_time > 0.05
+                ? `${t('corner_loss')} +${selectedCorner.delta_time.toFixed(3)} s`
+                : selectedCorner.delta_time < -0.05
+                ? `${t('corner_gain')} ${selectedCorner.delta_time.toFixed(3)} s`
+                : `${t('corner_delta')} ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)} s`}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span
-              className={`px-2 py-0.5 rounded font-black font-telemetry text-xs ${
-                selectedCorner.delta_time < -0.05
-                  ? 'bg-[#00FF7F]/15 text-[#00FF7F]'
-                  : selectedCorner.delta_time > 0.05
-                  ? 'bg-[#FF1801]/15 text-[#FF7B72]'
-                  : 'bg-white/5 text-gray-300'
-              }`}
-            >
-              {selectedCorner.delta_time > 0 ? '+' : ''}
-              {selectedCorner.delta_time.toFixed(3)}s
-            </span>
+          {/* Derecha: Segmented Toggle [ Trazada 2D ] | [ Datos por Fase ] + Sparkle */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="inline-flex p-0.5 rounded-lg bg-[#05070B] border border-white/10 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setCornerViewMode('track2d')}
+                className={`px-2 py-0.5 rounded text-[10px] font-telemetry font-bold transition cursor-pointer ${
+                  cornerViewMode === 'track2d'
+                    ? 'bg-[#B138FE] text-white shadow-sm'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {t('track_2d_tab')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCornerViewMode('phase')}
+                className={`px-2 py-0.5 rounded text-[10px] font-telemetry font-bold transition cursor-pointer ${
+                  cornerViewMode === 'phase'
+                    ? 'bg-[#B138FE] text-white shadow-sm'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {t('phase_data_tab')}
+              </button>
+            </div>
 
             {onAskEngineerAboutCorner && (
               <button
                 onClick={() => onAskEngineerAboutCorner(selectedCorner)}
-                className="p-1 rounded bg-[#00D2BE]/10 hover:bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30 transition cursor-pointer"
+                className="p-1 rounded-md bg-[#00D2BE]/10 hover:bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30 transition cursor-pointer"
                 title={t('consult_engineer_hint')}
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -394,11 +513,179 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 
       {/* ================= FILA 3: UN SOLO VISOR INTERACTIVO GRANDE (FLEX: 1) ================= */}
       <div className="relative flex-1 min-h-0 bg-[#05070B] rounded-xl border border-white/5 overflow-hidden flex items-center justify-center">
-        {selectedCorner && cornerSvgData ? (
-          /* ----- VISTA CURVA: ZOOM DETALLADO DE TRAZADA Y PIANOS ----- */
+        {selectedCorner && cornerViewMode === 'phase' ? (
+          /* ----- VISTA 1: [ DATOS POR FASE ] (ESTRUCTURA DE TARJETA 3 BLOQUES SIN SCROLL) ----- */
+          <div className="w-full h-full flex flex-col justify-between p-3 select-text overflow-hidden">
+            {/* Bloque Superior: Subtítulo */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#00D2BE]" />
+                <span className="text-xs text-gray-300 font-medium tracking-wide">
+                  {t('corner_performance_sub')}
+                </span>
+              </div>
+              <div className="text-[11px] font-telemetry text-gray-400">
+                Apex: <strong className="text-white">{selectedCorner.apex_distance.toFixed(0)}m</strong>
+              </div>
+            </div>
+
+            {/* Bloque Central: Tabla CORNER PHASE */}
+            {phaseMetrics && (
+              <div className="my-auto py-2">
+                <table className="w-full text-xs font-telemetry border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 text-[10px] text-gray-400 uppercase tracking-wider">
+                      <th className="text-left py-1.5 font-bold">{t('corner_phase_col')}</th>
+                      <th className="text-right py-1.5 font-bold">{t('reference_col')}</th>
+                      <th className="text-right py-1.5 font-bold">{t('your_lap_col')}</th>
+                      <th className="text-right py-1.5 font-bold">{t('delta_col')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {/* 1. Velocidad de entrada */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-2 text-left font-medium text-gray-300">{t('entry_speed_row')}</td>
+                      <td className="py-2 text-right text-gray-400">{phaseMetrics.entry.ref} km/h</td>
+                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.entry.comp} km/h</td>
+                      <td className="py-2 text-right font-black">
+                        <span
+                          className={
+                            phaseMetrics.entry.delta > 0.5
+                              ? 'text-[#00FF7F]'
+                              : phaseMetrics.entry.delta < -0.5
+                              ? 'text-[#FF1801]'
+                              : 'text-gray-400'
+                          }
+                        >
+                          {phaseMetrics.entry.delta > 0 ? '+' : ''}
+                          {phaseMetrics.entry.delta.toFixed(1)} km/h
+                        </span>
+                      </td>
+                    </tr>
+
+                    {/* 2. Velocidad mínima */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-2 text-left font-medium text-gray-300">{t('min_speed_row')}</td>
+                      <td className="py-2 text-right text-gray-400">{phaseMetrics.min.ref} km/h</td>
+                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.min.comp} km/h</td>
+                      <td className="py-2 text-right font-black">
+                        <span
+                          className={
+                            phaseMetrics.min.delta > 0.5
+                              ? 'text-[#00FF7F]'
+                              : phaseMetrics.min.delta < -0.5
+                              ? 'text-[#FF1801]'
+                              : 'text-gray-400'
+                          }
+                        >
+                          {phaseMetrics.min.delta > 0 ? '+' : ''}
+                          {phaseMetrics.min.delta.toFixed(1)} km/h
+                        </span>
+                      </td>
+                    </tr>
+
+                    {/* 3. Marcha en vértice */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-2 text-left font-medium text-gray-300">{t('gear_at_apex_row')}</td>
+                      <td className="py-2 text-right text-gray-400">{phaseMetrics.gear.ref}{t('gear_nth')}</td>
+                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.gear.comp}{t('gear_nth')}</td>
+                      <td className="py-2 text-right">
+                        {phaseMetrics.gear.diff === 0 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('optimal_gear')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
+                            {phaseMetrics.gear.diff > 0
+                              ? `+${phaseMetrics.gear.diff} (${t('too_high_gear')})`
+                              : `${phaseMetrics.gear.diff} (${t('too_low_gear')})`}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* 4. Aplicación de gas */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-2 text-left font-medium text-gray-300">{t('throttle_onset_row')}</td>
+                      <td className="py-2 text-right text-gray-400">+{phaseMetrics.throttle.refDist} {t('post_apex_meters')}</td>
+                      <td className="py-2 text-right text-white font-bold">+{phaseMetrics.throttle.compDist} {t('post_apex_meters')}</td>
+                      <td className="py-2 text-right font-black">
+                        {Math.abs(phaseMetrics.throttle.delta) < 2 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                            ✓ {t('synchronized_label')}
+                          </span>
+                        ) : phaseMetrics.throttle.delta > 0 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                            +{phaseMetrics.throttle.delta.toFixed(1)}m ({t('delayed_label')})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00D2BE]/15 text-[#00D2BE] font-bold text-[10px]">
+                            {phaseMetrics.throttle.delta.toFixed(1)}m ({t('early_label')})
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* 5. Velocidad de salida */}
+                    <tr className="hover:bg-white/[0.02] transition">
+                      <td className="py-2 text-left font-medium text-gray-300">{t('exit_speed_row')}</td>
+                      <td className="py-2 text-right text-gray-400">{phaseMetrics.exit.ref} km/h</td>
+                      <td className="py-2 text-right text-white font-bold">{phaseMetrics.exit.comp} km/h</td>
+                      <td className="py-2 text-right font-black">
+                        <span
+                          className={
+                            phaseMetrics.exit.delta > 0.5
+                              ? 'text-[#00FF7F]'
+                              : phaseMetrics.exit.delta < -0.5
+                              ? 'text-[#FF1801]'
+                              : 'text-gray-400'
+                          }
+                        >
+                          {phaseMetrics.exit.delta > 0 ? '+' : ''}
+                          {phaseMetrics.exit.delta.toFixed(1)} km/h
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Bloque Inferior: Recomendación Principal */}
+            <div className="pt-2.5 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-[#00D2BE]" />
+                  {t('primary_rec_label')}
+                </span>
+                <span className="text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE]">
+                  {selectedCorner.racing_line_eval || t('optimal_badge')}
+                </span>
+              </div>
+              <div className="font-bold text-xs text-white">
+                {recTitle}
+              </div>
+              <p className="text-[11px] text-gray-300 leading-snug line-clamp-2 select-text">
+                {recDescription}
+              </p>
+              {onAskEngineerAboutCorner && (
+                <div className="pt-1 flex items-center justify-end">
+                  <button
+                    onClick={() => onAskEngineerAboutCorner(selectedCorner)}
+                    className="inline-flex items-center gap-1 text-[11px] font-telemetry font-bold text-[#00D2BE] hover:text-white bg-[#00D2BE]/10 hover:bg-[#00D2BE]/25 px-2.5 py-1 rounded-md border border-[#00D2BE]/30 transition cursor-pointer"
+                  >
+                    <span>{t('inspect_detailed_analysis')}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : selectedCorner && cornerSvgData ? (
+          /* ----- VISTA 2: [ TRAZADA 2D ] (ZOOM DETALLADO DE TRAZADA Y PIANOS SIN BOTONES REDUNDANTES) ----- */
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Badges Flotantes Superior Izquierda */}
-            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 select-none">
               <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry text-white font-bold shadow-md">
                 <CornerDownRight
                   className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`}
@@ -431,27 +718,16 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
             </div>
 
-            {/* Badges Flotantes Superior Derecha: Leyenda + Botón Circuito Completo */}
-            <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
-              <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md">
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
-                  <span className="text-gray-300">{t('optimal_badge')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-0.5 bg-[#B138FE]" />
-                  <span className="text-gray-300">{t('your_line')}</span>
-                </div>
+            {/* Badges Flotantes Superior Derecha: Leyenda Limpia (Sin botón duplicado de Ver Circuito) */}
+            <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md select-none">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
+                <span className="text-gray-300 font-medium">{t('optimal_badge')}</span>
               </div>
-
-              <button
-                onClick={() => onSelectCorner(null)}
-                className="flex items-center gap-1 px-2 py-1 rounded bg-[#0E121B]/90 hover:bg-[#1A2234] border border-white/20 hover:border-[#00D2BE]/60 text-[10px] font-telemetry font-bold text-gray-200 hover:text-white transition cursor-pointer shadow-md backdrop-blur-sm"
-                title={t('return_to_circuit')}
-              >
-                <Map className="w-3 h-3 text-[#00D2BE]" />
-                <span>{t('view_full_circuit')}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-0.5 bg-[#B138FE]" />
+                <span className="text-gray-300 font-medium">{t('your_line')}</span>
+              </div>
             </div>
 
             {/* SVG Curva Detallada con Pianos */}
@@ -545,28 +821,37 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   fontSize="9px"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  paintOrder="stroke"
+                  stroke="#05070B"
+                  strokeWidth="3px"
+                  strokeLinejoin="round"
                 >
                   {t('turn_in')}
                 </text>
               </g>
 
-              {/* Optimal Apex Marker */}
+              {/* Optimal Apex Marker (Desplazamiento hacia el interior/arriba con halo oscuro protector) */}
               <g transform={`translate(${cornerSvgData.apex_ref.x}, ${cornerSvgData.apex_ref.y})`}>
                 <circle r="4.5" fill="#00FF7F" />
                 <circle r="8" fill="none" stroke="#00FF7F" strokeWidth="1" opacity="0.5" />
                 <text
-                  y="-8"
-                  textAnchor="middle"
+                  y="-14"
+                  x={isLeft ? 8 : -8}
+                  textAnchor={isLeft ? 'start' : 'end'}
                   fill="#00FF7F"
                   fontSize="9px"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  paintOrder="stroke"
+                  stroke="#05070B"
+                  strokeWidth="3px"
+                  strokeLinejoin="round"
                 >
                   {t('apex')} {selectedCorner.v_min_ref.toFixed(0)} km/h
                 </text>
               </g>
 
-              {/* Actual Apex Marker */}
+              {/* Actual Apex Marker (Desplazamiento hacia el exterior/abajo para evitar colisión de texto) */}
               <g transform={`translate(${cornerSvgData.apex_comp.x}, ${cornerSvgData.apex_comp.y})`}>
                 <circle r="5" fill={hasSubviraje ? '#FF1801' : '#B138FE'} />
                 <circle
@@ -577,12 +862,17 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   strokeDasharray="2 2"
                 />
                 <text
-                  y="18"
-                  textAnchor="middle"
+                  y="20"
+                  x={isLeft ? -8 : 8}
+                  textAnchor={isLeft ? 'end' : 'start'}
                   fill={hasSubviraje ? '#FF7B72' : '#E9D5FF'}
                   fontSize="9px"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  paintOrder="stroke"
+                  stroke="#05070B"
+                  strokeWidth="3px"
+                  strokeLinejoin="round"
                 >
                   {selectedCorner.v_min_comp.toFixed(0)} km/h
                 </text>
@@ -598,6 +888,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   fontSize="9px"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  paintOrder="stroke"
+                  stroke="#05070B"
+                  strokeWidth="3px"
+                  strokeLinejoin="round"
                 >
                   {t('exit')}
                 </text>
@@ -727,49 +1021,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         )}
       </div>
 
-      {/* ================= FILA 4: LAS 2 TARJETAS DE DIAGNÓSTICO HTML (FIJA ABAJO) ================= */}
-      {selectedCorner ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 shrink-0 select-text">
-          {/* Tarjeta 1: Trazada & Ápice */}
-          <div className="p-2.5 rounded-lg bg-[#07090E] border border-white/5 space-y-1 select-text">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
-                <Compass className="w-3 h-3 text-[#00D2BE]" />
-                {t('racing_line_apex')}
-              </span>
-              <span className="text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE] select-text">
-                {selectedCorner.racing_line_eval || t('optimal_badge')}
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-300 leading-snug select-text">
-              {selectedCorner.racing_line_advice || selectedCorner.diagnosis}
-            </p>
-          </div>
-
-          {/* Tarjeta 2: Marcha en Vértice */}
-          <div className="p-2.5 rounded-lg bg-[#07090E] border border-white/5 space-y-1 select-text">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
-                <Sliders className="w-3 h-3 text-amber-400" />
-                {t('gear_at_apex')}
-              </span>
-              <span
-                className={`text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded select-text ${
-                  (selectedCorner.gear_eval || '').includes('Óptima')
-                    ? 'bg-[#00FF7F]/15 text-[#00FF7F]'
-                    : 'bg-amber-400/15 text-amber-300'
-                }`}
-              >
-                {selectedCorner.comp_gear ? `${selectedCorner.comp_gear}${t('gear_nth')}` : `3${t('gear_nth')}`} •{' '}
-                {selectedCorner.gear_eval || t('optimal_badge')}
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-300 leading-snug select-text">
-              {selectedCorner.gear_advice || t('gear_advice_default')}
-            </p>
-          </div>
-        </div>
-      ) : (
+      {/* ================= FILA 4: TARJETAS DE BALANCE CIRCUITO (SÓLO EN VISTA GENERAL) ================= */}
+      {selectedCorner === null && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 shrink-0 select-text">
           {/* Tarjeta 1: Consistencia & Sectores */}
           <div className="p-2.5 rounded-lg bg-[#07090E] border border-white/5 space-y-1 select-text">
