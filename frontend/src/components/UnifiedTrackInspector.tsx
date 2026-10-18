@@ -320,7 +320,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     // 4. Velocidad mínima (Apex Vmin) & Marcha fusionada
     const minRef = Math.round(selectedCorner.v_min_ref);
     const minComp = Math.round(selectedCorner.v_min_comp);
-    const minDelta = Number(selectedCorner.delta_v_min.toFixed(1));
+    const minDelta = Number((minComp - minRef).toFixed(1));
     const refGear = selectedCorner.ref_gear ?? (comparison.ref_gear?.[apexIdx] || 3);
     const compGear = selectedCorner.comp_gear ?? (comparison.comp_gear?.[apexIdx] || 3);
     const gearDiff = compGear - refGear;
@@ -346,8 +346,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         : compThDist - refThDist;
 
     // 6. Velocidad de salida (Exit speed)
-    const exitRef = Math.round(refSpeeds[exitIdx] ?? (selectedCorner.v_min_ref + 25));
-    const exitComp = Math.round(compSpeeds[exitIdx] ?? (selectedCorner.v_min_comp + 20));
+    const exitRef = Math.round(selectedCorner.v_exit_ref ?? (refSpeeds[exitIdx] ?? (selectedCorner.v_min_ref + 25)));
+    const exitComp = Math.round(selectedCorner.v_exit_comp ?? (compSpeeds[exitIdx] ?? (selectedCorner.v_min_comp + 20)));
     const exitDelta = Number((exitComp - exitRef).toFixed(1));
 
     return {
@@ -897,7 +897,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                       onClick={() => onAskEngineerAboutCorner(selectedCorner)}
                       className="inline-flex items-center gap-1.5 text-[11px] font-telemetry font-bold text-[#00D2BE] hover:text-white bg-[#00D2BE]/10 hover:bg-[#00D2BE]/25 px-2.5 py-1.5 rounded-md border border-[#00D2BE]/30 transition cursor-pointer shadow-sm"
                     >
-                      <span>🤖</span>
+                      <span>🎧</span>
                       <span>
                         {t('ask_engineer_corner_action')} T{selectedCorner.corner_number} →
                       </span>

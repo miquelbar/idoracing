@@ -69,6 +69,8 @@ def test_race_engineer_response_trail_braking_and_porsche():
     assert "Trail Braking" in resp_es
     assert "15-20%" in resp_es
     assert "Porsche 911 GT3 R" in resp_es
+    # Pep greeting in Spanish without corner
+    assert resp_es.startswith("Copiado en el muro por radio.")
 
     resp_en = generate_race_engineer_response(
         query="How can I optimize trail braking technique in the Porsche 911 GT3 R (992)?",
@@ -79,3 +81,44 @@ def test_race_engineer_response_trail_braking_and_porsche():
     assert "Trail Braking" in resp_en
     assert "Apex" in resp_en or "apex" in resp_en
     assert "15-20%" in resp_en
+    assert resp_en.startswith("Pit wall radio check.")
+
+
+def test_pep_corner_context_and_strict_diagnostics():
+    from coach.advisor import generate_race_engineer_response
+    from coach.prompt import PEP_SYSTEM_PROMPT_ES, PEP_SYSTEM_PROMPT_EN
+
+    # Verify system prompts enforce zero false praise
+    assert "PROHIBIDO emitir elogios" in PEP_SYSTEM_PROMPT_ES
+    assert "FORBIDDEN to issue praise" in PEP_SYSTEM_PROMPT_EN
+    assert "Pep" in PEP_SYSTEM_PROMPT_ES
+    assert "Pep" in PEP_SYSTEM_PROMPT_EN
+
+    # Test Pep corner-specific transmission in Spanish with loss
+    corner_loss = {
+        "corner_number": 1,
+        "name": "Curva Aspar",
+        "delta_time": 0.605,
+        "v_min_ref": 142.0,
+        "v_min_comp": 126.0,
+        "delta_v_min": -16.0,
+        "comp_gear": 3,
+        "gear_eval": "Óptima",
+        "balance_eval": "Pérdida en vértice / Subviraje",
+        "trail_braking_eval": "Soltado Brusco",
+        "racing_line_eval": "Apertura Tardía",
+        "racing_line_advice": "Ábrete 1.5m más en entrada",
+    }
+    resp_corner = generate_race_engineer_response(
+        query="¿Por qué he perdido tanto tiempo en T1?",
+        car="Porsche 911 GT3 R (992)",
+        track="Ricardo Tormo de Valencia",
+        corner=corner_loss,
+        lang="es",
+    )
+    # Pep distinctive greeting with corner
+    assert resp_corner.startswith("Idò, mirando los datos de T1:")
+    # Must report performance alert with exact negative delta
+    assert "Alerta de Rendimiento" in resp_corner
+    assert "+0.605s" in resp_corner
+    assert "-16.0 km/h" in resp_corner or "16.0 km/h" in resp_corner

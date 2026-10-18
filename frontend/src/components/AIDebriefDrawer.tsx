@@ -788,7 +788,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
                         {/* Copy button on message */}
                         <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
-                          <span>{m.role === 'assistant' ? (isEn ? 'Race Engineer' : 'Ingeniero de Pista') : (isEn ? 'You' : 'Tú')}</span>
+                          <span>{m.role === 'assistant' ? (isEn ? 'Pep · Race Engineer' : 'Pep · Ingeniero de Pista') : (isEn ? 'You' : 'Tú')}</span>
                           <button
                             onClick={() => copyToClipboard(m.content, idx)}
                             className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
@@ -822,8 +822,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00D2BE]" />
                     <span>
                       {isEn
-                        ? `The engineer is inspecting telemetry channels for ${trackName}...`
-                        : `El ingeniero está consultando los canales de telemetría de ${trackName}...`}
+                        ? `Pep is inspecting telemetry channels for ${trackName}...`
+                        : `Pep está consultando los canales de telemetría de ${trackName}...`}
                     </span>
                   </div>
                 )}
@@ -845,11 +845,11 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 placeholder={
                   selectedCorner
                     ? isEn
-                      ? `Ask about Turn ${selectedCorner.corner_number} (${selectedCorner.name}) or setup...`
-                      : `Pregunta sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}) o setup...`
+                      ? `Ask Pep about Turn ${selectedCorner.corner_number} (${selectedCorner.name}), telemetry or setup...`
+                      : `Pregunta a Pep sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}), telemetría o setup...`
                     : isEn
-                    ? `Ask about ${trackName}, braking points or technique...`
-                    : `Pregunta sobre ${trackName}, puntos de frenada o técnica...`
+                    ? `Ask Pep about ${trackName}, braking points or technique...`
+                    : `Pregunta a Pep sobre ${trackName}, puntos de frenada o técnica...`
                 }
                 className="flex-1 bg-[#090D15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE] font-telemetry"
               />

@@ -122,7 +122,7 @@ export const translations = {
     phase_apex_title: '2. Vértice y Rotación:',
     phase_exit_title: '3. Salida y Tracción:',
     view_optimal_line_action: 'Ver en Trazada Óptima',
-    ask_engineer_corner_action: 'Consultar al Ingeniero sobre',
+    ask_engineer_corner_action: 'Consultar a Pep sobre',
     inspect_detailed_analysis: 'Inspeccionar análisis detallado →',
     
     // Diagnosis Cards (Row 4)
@@ -141,7 +141,7 @@ export const translations = {
     sync_telemetry_desc: 'Mueve el cursor sobre la pista o las gráficas para inspeccionar velocidad, delta y pedales en cada metro.',
     
     // Debrief & Radio Drawer
-    engineer_panel_title: 'INGENIERO DE COMPETICIÓN & RADIO',
+    engineer_panel_title: 'PEP · INGENIERO DE PISTA & RADIO',
     debrief_tab: 'Debrief Técnico',
     radio_tab: 'Radio de Equipo',
     copy: 'Copiar',
@@ -161,9 +161,9 @@ export const translations = {
     kpi_title: '6. Indicador Objetivo y KPIs de Validación',
     confidence_level: 'Nivel de confianza',
     suggested_queries: 'CONSULTAS SUGERIDAS',
-    ask_placeholder: 'Pregunta sobre curva, frenada o setup...',
+    ask_placeholder: 'Pregunta a Pep sobre curva, frenada o setup...',
     transmit: 'Transmitir',
-    radio_open_intro: 'Canal de radio abierto. He procesado la telemetría del coche. Pregúntame sobre la técnica de frenada, trail braking o setup.',
+    radio_open_intro: 'Canal de radio con Pep abierto. Telemetría procesada. Pregúntame sobre técnica de frenada, trail braking o setup.',
     radio_error: 'Error de comunicación en radio. Reintentando con el motor de ingeniería...',
     
     // Sessions & Garage View
@@ -463,7 +463,7 @@ export const translations = {
     phase_apex_title: '2. Apex & Rotation:',
     phase_exit_title: '3. Exit & Traction:',
     view_optimal_line_action: 'View in Optimal Line',
-    ask_engineer_corner_action: 'Ask Engineer about',
+    ask_engineer_corner_action: 'Ask Pep about',
     inspect_detailed_analysis: 'Inspect detailed analysis →',
     
     // Diagnosis Cards (Row 4)
@@ -482,7 +482,7 @@ export const translations = {
     sync_telemetry_desc: 'Move cursor over track or charts to inspect speed, delta and pedals at every meter.',
     
     // Debrief & Radio Drawer
-    engineer_panel_title: 'RACE ENGINEER & RADIO',
+    engineer_panel_title: 'PEP · AI RACE ENGINEER & RADIO',
     debrief_tab: 'Technical Debrief',
     radio_tab: 'Team Radio',
     copy: 'Copy',
@@ -502,9 +502,9 @@ export const translations = {
     kpi_title: '6. Validation Target & KPIs',
     confidence_level: 'Confidence Level',
     suggested_queries: 'SUGGESTED QUERIES',
-    ask_placeholder: 'Ask about corner, braking, or setup...',
+    ask_placeholder: 'Ask Pep about corner, braking, or setup...',
     transmit: 'Transmit',
-    radio_open_intro: 'Radio channel open. Telemetry processed. Ask me about braking technique, trail braking, or vehicle setup.',
+    radio_open_intro: 'Radio channel with Pep open. Telemetry processed. Ask me about braking technique, trail braking, or vehicle setup.',
     radio_error: 'Radio communication error. Reconnecting with engineering engine...',
     
     // Sessions & Garage View

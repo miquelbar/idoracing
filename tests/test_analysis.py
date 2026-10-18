@@ -41,8 +41,33 @@ def test_corner_analysis():
     t1 = next(c for c in corners if c.corner_number == 1)
     assert t1.ref_min_speed > 135.0
     assert t1.comp_min_speed < 135.0
-    assert t1.speed_delta_min > 5.0
+    # Slower comparison lap must yield negative delta (comp - ref)
+    assert t1.speed_delta_min < -5.0
+    assert t1.delta_v_min < -5.0
     assert "Frenada anticipada" in t1.diagnosis or "Exceso de reducción" in t1.diagnosis
+    assert "ΔV: -" in t1.diagnosis
+
+
+def test_strict_no_false_praise_on_time_loss():
+    ref = generate_lap_telemetry(is_reference=True)
+    comp = generate_lap_telemetry(is_reference=False)
+
+    ref_dict = {k: v.tolist() for k, v in ref.items()}
+    comp_dict = {k: v.tolist() for k, v in comp.items()}
+
+    aligned = align_laps_by_distance(ref_dict, comp_dict, step_m=2.0)
+    corners = extract_corners_analysis(aligned)
+
+    # Any corner with significant time loss or apex speed drop must NEVER give false praises
+    for c in corners:
+        if c.time_delta_corner > 0.08 or c.delta_v_min <= -3.0 or c.delta_v_exit <= -3.0:
+            assert c.balance_eval != "Equilibrio Neutro (Grip Óptimo)"
+            assert c.racing_line_eval != "Excelente aproximación"
+            assert c.trail_eval != "Trail Braking Efectivo"
+            # Diagnosis string must never show false +0.0 km/h when delta is negative
+            if c.delta_v_min <= -0.5:
+                assert "+0.0 km/h" not in c.diagnosis
+                assert f"{c.delta_v_min:+.1f} km/h" in c.diagnosis
 
 
 def test_compare_laps_full():

@@ -31,6 +31,12 @@ export interface CornerDTO {
   v_min_ref: number;
   v_min_comp: number;
   delta_v_min: number;
+  v_entry_ref?: number;
+  v_entry_comp?: number;
+  delta_v_entry?: number;
+  v_exit_ref?: number;
+  v_exit_comp?: number;
+  delta_v_exit?: number;
   delta_time: number;
   braking_point_delta: number;
   throttle_pickup_delta: number;

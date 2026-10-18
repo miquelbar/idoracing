@@ -8,25 +8,9 @@ from typing import Any, Dict, List, Optional
 from domain.session import CoachReport, LapComparison
 from coach.llm_client import LLMClient
 from coach.ollama_client import OllamaClient
+from coach.prompt import PEP_SYSTEM_PROMPT_ES, PEP_SYSTEM_PROMPT_EN
 
-
-SYSTEM_PROMPT = """Eres el ingeniero de pista y entrenador senior de SimRacing (Assetto Corsa Competizione, Le Mans Ultimate, iRacing).
-Tu labor es ayudar al piloto a mejorar sus tiempos de forma analítica, técnica y rigurosa.
-
-DIRECTRICES OBLIGATORIAS:
-1. Basa tu análisis EXCLUSIVAMENTE en las métricas numéricas proporcionadas.
-2. NO inventes tiempos, metros, telemetría ni datos que no figuren en el resumen.
-3. Evalúa con precisión la técnica de TRAIL BRAKING:
-   - Indica en qué curvas debe aplicar trail braking (desvanecer presión de 100% a 15-20% mientras gira hacia el vértice para rotar el tren delantero en curvas lentas/medias).
-   - Indica en qué curvas NO debe aplicar trail braking (curvas rápidas donde mantener freno en apoyo desestabiliza la zaga).
-   - Especifica la técnica exacta de modulación de pedales que debe realizar.
-4. El informe debe estructurarse obligatoriamente con estos 5 apartados:
-   - 1. Qué se ha observado (Hechos objetivos y telemetría de frenada/gas).
-   - 2. Datos y métricas que sustentan la conclusión.
-   - 3. Hipótesis técnica de conducción (dinámica vehicular, transferencia de pesos, trail braking).
-   - 4. Ejercicio concreto y delimitado para la siguiente tanda.
-   - 5. Indicador numérico de comprobación y nivel de confianza.
-5. Mantén un tono profesional, conciso y directo, propio de un ingeniero de competición."""
+SYSTEM_PROMPT = PEP_SYSTEM_PROMPT_ES
 
 
 class CoachAdvisor:
@@ -267,37 +251,61 @@ def generate_race_engineer_response(
 
     # 1. Corner context if available
     c_info = ""
+    c_num = ""
     if corner:
-        c_num = corner.get("corner_number", "")
+        c_num = str(corner.get("corner_number", ""))
         c_name = corner.get("name", f"Curva {c_num}")
-        d_time = corner.get("delta_time", 0.0)
+        d_time = float(corner.get("delta_time", 0.0))
         sign = "+" if d_time > 0 else ""
-        vmin_c = corner.get("v_min_comp", 0)
-        vmin_r = corner.get("v_min_ref", 0)
+        vmin_c = float(corner.get("v_min_comp", 0.0))
+        vmin_r = float(corner.get("v_min_ref", 0.0))
+        delta_vmin = round(vmin_c - vmin_r, 1) if (vmin_c and vmin_r) else float(corner.get("delta_v_min", 0.0))
+        delta_sign = "+" if delta_vmin > 0 else ""
+        delta_vmin_str = f"{delta_sign}{delta_vmin:.1f} km/h"
         gear = corner.get("comp_gear", 3)
         gear_ev = corner.get("gear_eval", "Óptima")
         bal = corner.get("balance_eval", "Equilibrio Neutro")
         trail = corner.get("trail_braking_eval", "Óptimo")
         r_advice = corner.get("racing_line_advice", "")
 
+        is_loss = d_time > 0.08 or delta_vmin <= -3.0
+
         if is_en:
+            loss_alert = (
+                f"- **Performance Alert:** Losing `{sign}{d_time:.3f}s` at T{c_num} with `{abs(delta_vmin):.1f} km/h` deficit at apex.\n"
+                if is_loss
+                else ""
+            )
             c_info = (
                 f"\n\n**Telemetry Focus — T{c_num} ({c_name}):**\n"
+                f"{loss_alert}"
                 f"- **Time Delta:** `{sign}{d_time:.3f}s`\n"
-                f"- **Apex Speed:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{corner.get('delta_v_min', 0):+.1f} km/h`)\n"
+                f"- **Apex Speed:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{delta_vmin_str}`)\n"
                 f"- **Gear:** `Gear {gear}` ({gear_ev})\n"
                 f"- **Balance & Trail:** `{bal}` • `{trail}`\n"
                 f"- **Line Advice:** {r_advice}"
             )
         else:
+            loss_alert = (
+                f"- **Alerta de Rendimiento:** Pierdes `{sign}{d_time:.3f}s` en T{c_num} con un déficit de `{abs(delta_vmin):.1f} km/h` en el vértice.\n"
+                if is_loss
+                else ""
+            )
             c_info = (
                 f"\n\n**Datos de Telemetría en T{c_num} ({c_name}):**\n"
+                f"{loss_alert}"
                 f"- **Diferencia de tiempo:** `{sign}{d_time:.3f}s`\n"
-                f"- **Velocidad en vértice:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{corner.get('delta_v_min', 0):+.1f} km/h`)\n"
+                f"- **Velocidad en vértice:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{delta_vmin_str}`)\n"
                 f"- **Marcha en vértice:** `{gear}ª Marcha` ({gear_ev})\n"
                 f"- **Balance & Trail Braking:** `{bal}` • `{trail}`\n"
                 f"- **Recomendación de trazada:** {r_advice}"
             )
+
+    # Pep radio greetings (natural and authentic)
+    if is_en:
+        ack = f"Pit wall radio check on T{c_num}. " if (corner and c_num) else "Pit wall radio check. "
+    else:
+        ack = f"Idò, mirando los datos de T{c_num}: " if (corner and c_num) else "Copiado en el muro por radio. "
 
     # 2. Topic Detection & Response Formulation
     is_porsche = "911" in car or "porsche" in car.lower()
@@ -309,7 +317,7 @@ def generate_race_engineer_response(
     if is_trail:
         if is_en:
             return (
-                f"Radio check. Optimizing **Trail Braking** in the **{car}** at **{track}**:\n\n"
+                f"{ack}Optimizing **Trail Braking** in the **{car}** at **{track}**:\n\n"
                 f"1. **Peak Braking (Straight Line):** Hit 100% initial pressure firmly with the steering centered. "
                 f"In the {car}, ABS handles the threshold, but avoid stomping excessively to keep the platform flat.\n"
                 f"2. **Decompression Phase (The Trail):** As you turn towards the apex, bleed pressure smoothly from 100% down to **15-20%**. "
@@ -320,7 +328,7 @@ def generate_race_engineer_response(
             )
         else:
             return (
-                f"Copiado por radio. Para optimizar el **Trail Braking** con el **{car}** en **{track}**:\n\n"
+                f"{ack}Para optimizar el **Trail Braking** con el **{car}** en **{track}**:\n\n"
                 f"1. **Fase Inicial (Pico de Frenada):** Aplica el 100% de presión con el coche recto antes de iniciar el viraje. "
                 f"{'El reparto trasero (~38/62) del 992 tolera mucha fuerza inicial, pero clavar de golpe satura los amortiguadores delanteros.' if is_porsche else 'Mantén la plataforma equilibrada antes de iniciar el giro.'}\n"
                 f"2. **Desvanecimiento Progresivo (El Trail):** A medida que metes volante hacia el vértice, reduce la presión suavemente del 100% al **15-20%**. "
@@ -333,14 +341,14 @@ def generate_race_engineer_response(
     elif is_gear:
         if is_en:
             return (
-                f"Copy on gearing. In the **{car}** at **{track}**:\n\n"
+                f"{ack}Copy on gearing. In the **{car}** at **{track}**:\n\n"
                 f"- **Apex Engine Speed:** You want to maintain the engine in the peak torque band (between 6,200 and 8,500 RPM in GT3).\n"
                 f"- **Gear Selection:** Dropping to too low a gear causes severe engine braking instability on corner entry and wheelspin on exit. "
                 f"In medium-speed corners, carrying one gear higher maintains chassis momentum and delivers smoother traction off the kerbs.{c_info}"
             )
         else:
             return (
-                f"Copiado sobre marchas. En el **{car}** compitiendo en **{track}**:\n\n"
+                f"{ack}Copiado sobre marchas. En el **{car}** compitiendo en **{track}**:\n\n"
                 f"- **Rango Óptimo:** El motor debe mantenerse en la meseta de par máximo (6.500 a 8.500 RPM en GT3).\n"
                 f"- **Selección en Vértice:** Bajar una marcha de más frena bruscamente el eje trasero por retención motor y provoca pérdidas de tracción al abrir gas. "
                 f"En curvas de velocidad media, mantener una marcha más larga estabiliza la plataforma y permite transferir mayor velocidad de paso.{c_info}"
@@ -349,7 +357,7 @@ def generate_race_engineer_response(
     elif is_setup:
         if is_en:
             return (
-                f"Pit wall setup advice for **{car}** at **{track}**:\n\n"
+                f"{ack}Pit wall setup advice for **{car}** at **{track}**:\n\n"
                 f"- **Brake Bias:** Set to `{54.5 if is_porsche else 54.0}%`. Move 1-2 clicks rearward if experiencing entry push; move 1 click forward if rear snaps under straight-line braking.\n"
                 f"- **Anti-Roll Bars (ARB):** Soften front ARB by 1 click to increase front lateral grip, or stiffen rear ARB to promote rotation.\n"
                 f"- **Tyre Pressures:** Target **26.8 – 27.2 psi hot** across all four tyres after 3 consecutive push laps.\n"
@@ -357,7 +365,7 @@ def generate_race_engineer_response(
             )
         else:
             return (
-                f"Recomendaciones de Setup desde el muro para el **{car}** en **{track}**:\n\n"
+                f"{ack}Recomendaciones de Setup desde el muro para el **{car}** en **{track}**:\n\n"
                 f"- **Reparto de Frenada (Brake Bias):** Ajustar en `{54.5 if is_porsche else 54.0}%`. Si notas que el morro no entra en curvas lentas, retrasa 1-2 clics hacia atrás. Si la zaga baila al frenar a más de 200 km/h, adelanta 0.5%.\n"
                 f"- **Barras Estabilizadoras (ARB):** Si persiste el subviraje en apoyo lateral, ablanda 1 clic la barra delantera o endurece 1 clic la trasera para liberar rotación.\n"
                 f"- **Presiones en Caliente:** Apunta a un rango óptimo de **26.8 a 27.2 psi** en los 4 neumáticos tras 3 vueltas de ritmo constante.\n"
@@ -367,7 +375,7 @@ def generate_race_engineer_response(
     elif is_balance:
         if is_en:
             return (
-                f"Chassis balance analysis for **{car}** at **{track}**:\n\n"
+                f"{ack}Chassis balance analysis for **{car}** at **{track}**:\n\n"
                 f"- **Entry Understeer:** Caused by releasing the brake too quickly or turning the wheel with excessive initial speed. "
                 f"Keep 15% brake pressure onto the nose until the apex.\n"
                 f"- **Mid-Corner Push:** Do not tighten steering angle if the car is sliding wide; straighten slightly to recover tyre grip and touch the apex kerb.\n"
@@ -375,7 +383,7 @@ def generate_race_engineer_response(
             )
         else:
             return (
-                f"Diagnóstico de balance dinámico para el **{car}** en **{track}**:\n\n"
+                f"{ack}Diagnóstico de balance dinámico para el **{car}** en **{track}**:\n\n"
                 f"- **Subviraje en Entrada:** Ocurre casi siempre por soltar el pedal de freno antes de tiempo o por exceso de velocidad inicial. Mantén un 15% de freno residual para clavar el morro.\n"
                 f"- **Falta de Giro en Vértice:** Si el coche se abre hacia el exterior, no fuerces más ángulo de volante: levantar 2-3% de dirección recupera adherencia lateral inmediata.\n"
                 f"- **Sobreviraje en Salida:** Espera a abrir dirección al menos un 50% antes de hundir el acelerador al 100% para no descolocar el eje trasero.{c_info}"
@@ -384,7 +392,7 @@ def generate_race_engineer_response(
     # General racing guidance
     if is_en:
         return (
-            f"Radio check loud and clear from the engineering stand at **{track}** for the **{car}**.\n\n"
+            f"{ack}Radio check loud and clear from the engineering stand at **{track}** for the **{car}**.\n\n"
             f"Looking at your overall telemetry stint:\n"
             f"- Focus on carrying rolling speed through the mid-corner apex rather than braking excessively deep.\n"
             f"- Smooth progressive trail braking will yield the highest lap time delta improvement across all sectors.\n"
@@ -392,7 +400,7 @@ def generate_race_engineer_response(
         )
     else:
         return (
-            f"Copiado alto y claro por radio desde el puesto de ingeniería en **{track}** para el **{car}**.\n\n"
+            f"{ack}Copiado alto y claro por radio desde el puesto de ingeniería en **{track}** para el **{car}**.\n\n"
             f"Revisando los datos globales de tu tanda:\n"
             f"- El mayor margen de mejora está en no sobre-frenar en entrada: retrasa 5-10m la frenada y transfiere velocidad al vértice.\n"
             f"- Modula la frenada regresiva manteniendo un 15% de presión para rotar el coche hacia el piano interior.\n"

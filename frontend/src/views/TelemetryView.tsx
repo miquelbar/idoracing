@@ -48,8 +48,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       role: 'assistant',
       content:
         lang === 'en'
-          ? `Radio channel open at **${comparison.track_name || 'track'}** with the **${comparison.car_name || 'car'}**.\n\nYou can select any corner to evaluate braking technique, trail braking and racing line, or talk to me directly over the radio.`
-          : `Canal de radio abierto en **${comparison.track_name || 'pista'}**. He procesado la telemetría del **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar tu técnica de frenada, trail braking y trazada, o preguntarme directamente por la radio.`,
+          ? `Pit wall radio check. I'm Pep, your Performance Engineering Partner at **${comparison.track_name || 'track'}** with the **${comparison.car_name || 'car'}**.\n\nSelect any corner to evaluate braking points, trail braking, and apex speeds, or ask me directly over the radio.`
+          : `Copiado en el muro por radio. Soy Pep, tu ingeniero de pista en **${comparison.track_name || 'pista'}** con el **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar puntos de frenada, trail braking y velocidades de paso, o preguntarme directamente por la radio.`,
     },
   ]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -93,6 +93,13 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
               delta_time: selectedCorner.delta_time,
               v_min_ref: selectedCorner.v_min_ref,
               v_min_comp: selectedCorner.v_min_comp,
+              delta_v_min: selectedCorner.delta_v_min,
+              v_entry_ref: selectedCorner.v_entry_ref,
+              v_entry_comp: selectedCorner.v_entry_comp,
+              delta_v_entry: selectedCorner.delta_v_entry,
+              v_exit_ref: selectedCorner.v_exit_ref,
+              v_exit_comp: selectedCorner.v_exit_comp,
+              delta_v_exit: selectedCorner.delta_v_exit,
               comp_gear: selectedCorner.comp_gear,
               gear_eval: selectedCorner.gear_eval,
               balance_eval: selectedCorner.balance_eval,

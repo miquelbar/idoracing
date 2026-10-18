@@ -23,6 +23,7 @@ from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor, generate_race_engineer_response
+from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.llm_client import LLMClient
 from domain.session import CoachReport, Lap, LapComparison, Session
 from importers.csv_importer import CSVImporter
@@ -113,6 +114,12 @@ class CornerDTO(BaseModel):
     v_min_ref: float
     v_min_comp: float
     delta_v_min: float
+    v_entry_ref: Optional[float] = None
+    v_entry_comp: Optional[float] = None
+    delta_v_entry: Optional[float] = None
+    v_exit_ref: Optional[float] = None
+    v_exit_comp: Optional[float] = None
+    delta_v_exit: Optional[float] = None
     delta_time: float
     braking_point_delta: float
     throttle_pickup_delta: float
@@ -380,7 +387,13 @@ def get_lap_comparison(
                 apex_distance=(c.start_dist + c.end_dist) / 2.0,
                 v_min_ref=round(c.ref_min_speed, 1),
                 v_min_comp=round(c.comp_min_speed, 1),
-                delta_v_min=round(c.comp_min_speed - c.ref_min_speed, 1),
+                delta_v_min=round(getattr(c, "delta_v_min", c.comp_min_speed - c.ref_min_speed), 1),
+                v_entry_ref=round(c.ref_entry_speed, 1) if getattr(c, "ref_entry_speed", None) is not None else None,
+                v_entry_comp=round(c.comp_entry_speed, 1) if getattr(c, "comp_entry_speed", None) is not None else None,
+                delta_v_entry=round(c.delta_v_entry, 1) if getattr(c, "delta_v_entry", None) is not None else None,
+                v_exit_ref=round(c.ref_exit_speed, 1) if getattr(c, "ref_exit_speed", None) is not None else None,
+                v_exit_comp=round(c.comp_exit_speed, 1) if getattr(c, "comp_exit_speed", None) is not None else None,
+                delta_v_exit=round(c.delta_v_exit, 1) if getattr(c, "delta_v_exit", None) is not None else None,
                 delta_time=round(c.time_delta_corner, 3),
                 braking_point_delta=round(c.brake_delta_dist or 0.0, 1),
                 throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
@@ -650,10 +663,10 @@ def chat_with_engineer(req: ChatRequest):
     user_query = req.messages[-1].content if req.messages else ""
 
     # Build telemetry briefing for the LLM
+    # Build telemetry briefing for the LLM
     if lang == "en":
         context_prefix = (
-            "You are the senior Race Engineer at IdoRacing Analytics. Be technical, concise, and direct like over the team radio. "
-            "Help the driver by answering their technical questions regarding racing line, braking, trail braking, gearing, and chassis balance based on telemetry.\n"
+            PEP_SYSTEM_PROMPT_EN + "\n\n"
             f"Current track: {req.track_name or 'Active Track'}. Vehicle: {req.car_name or 'Active Car'}.\n"
         )
         if req.selected_corner:
@@ -662,14 +675,30 @@ def chat_with_engineer(req: ChatRequest):
             c_name = c.get("name", f"Turn {c_num}")
             delta_t = c.get("delta_time", 0.0)
             delta_sign = "+" if delta_t > 0 else ""
+            vmin_c = float(c.get("v_min_comp") or 0.0)
+            vmin_r = float(c.get("v_min_ref") or 0.0)
+            delta_vmin = round(vmin_c - vmin_r, 1)
+            v_entry_c = c.get("v_entry_comp")
+            v_entry_r = c.get("v_entry_ref")
+            delta_ventry = round(float(v_entry_c) - float(v_entry_r), 1) if (v_entry_c is not None and v_entry_r is not None) else None
+            v_exit_c = c.get("v_exit_comp")
+            v_exit_r = c.get("v_exit_ref")
+            delta_vexit = round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+
             context_prefix += (
-                f"Selected corner in telemetry: T{c_num} ({c_name}). "
-                f"Time delta: {delta_sign}{delta_t:.3f}s. "
-                f"Comp minimum speed: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
-                f"Comp gear: {c.get('comp_gear', 3)} ({c.get('gear_eval', '')}). "
-                f"Balance: {c.get('balance_eval', 'Neutral')}. "
-                f"Trail braking: {c.get('trail_braking_eval', 'Optimal')}. "
-                f"Racing line: {c.get('racing_line_eval', 'Optimal')} — {c.get('racing_line_advice', '')}.\n"
+                f"Selected corner in telemetry: T{c_num} ({c_name}).\n"
+                f"- Time delta: {delta_sign}{delta_t:.3f}s.\n"
+                f"- Apex minimum speed: {vmin_c:.1f} km/h (Ref: {vmin_r:.1f} km/h, ΔV: {delta_vmin:+.1f} km/h).\n"
+            )
+            if delta_ventry is not None:
+                context_prefix += f"- Entry speed: {float(v_entry_c):.1f} km/h (Ref: {float(v_entry_r):.1f} km/h, ΔV: {delta_ventry:+.1f} km/h).\n"
+            if delta_vexit is not None:
+                context_prefix += f"- Exit speed: {float(v_exit_c):.1f} km/h (Ref: {float(v_exit_r):.1f} km/h, ΔV: {delta_vexit:+.1f} km/h).\n"
+            context_prefix += (
+                f"- Comp gear: {c.get('comp_gear', 3)} ({c.get('gear_eval', '')}).\n"
+                f"- Balance: {c.get('balance_eval', 'Neutral')}.\n"
+                f"- Trail braking: {c.get('trail_braking_eval', 'Optimal')}.\n"
+                f"- Racing line: {c.get('racing_line_eval', 'Optimal')} — {c.get('racing_line_advice', '')}.\n"
             )
         context_prefix += (
             "Format your answers with structured Markdown: use bold for key terms, "
@@ -677,8 +706,7 @@ def chat_with_engineer(req: ChatRequest):
         )
     else:
         context_prefix = (
-            "Eres el ingeniero de pista senior de IdoRacing Analytics. Sé técnico, conciso y directo como por la radio de equipo. "
-            "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, trail braking, marchas y balance basándote en los datos.\n"
+            PEP_SYSTEM_PROMPT_ES + "\n\n"
             f"Circuito actual: {req.track_name or 'Circuito activo'}. Vehículo: {req.car_name or 'Coche activo'}.\n"
         )
         if req.selected_corner:
@@ -687,14 +715,30 @@ def chat_with_engineer(req: ChatRequest):
             c_name = c.get("name", f"Curva {c_num}")
             delta_t = c.get("delta_time", 0.0)
             delta_sign = "+" if delta_t > 0 else ""
+            vmin_c = float(c.get("v_min_comp") or 0.0)
+            vmin_r = float(c.get("v_min_ref") or 0.0)
+            delta_vmin = round(vmin_c - vmin_r, 1)
+            v_entry_c = c.get("v_entry_comp")
+            v_entry_r = c.get("v_entry_ref")
+            delta_ventry = round(float(v_entry_c) - float(v_entry_r), 1) if (v_entry_c is not None and v_entry_r is not None) else None
+            v_exit_c = c.get("v_exit_comp")
+            v_exit_r = c.get("v_exit_ref")
+            delta_vexit = round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+
             context_prefix += (
-                f"Curva seleccionada en telemetría: T{c_num} ({c_name}). "
-                f"Diferencia de tiempo: {delta_sign}{delta_t:.3f}s. "
-                f"Velocidad mínima comp: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
-                f"Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}). "
-                f"Balance: {c.get('balance_eval', 'Neutro')}. "
-                f"Trail braking: {c.get('trail_braking_eval', 'Óptimo')}. "
-                f"Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
+                f"Curva seleccionada en telemetría: T{c_num} ({c_name}).\n"
+                f"- Diferencia de tiempo: {delta_sign}{delta_t:.3f}s.\n"
+                f"- Velocidad mínima comp: {vmin_c:.1f} km/h (Ref: {vmin_r:.1f} km/h, ΔV: {delta_vmin:+.1f} km/h).\n"
+            )
+            if delta_ventry is not None:
+                context_prefix += f"- Velocidad de entrada: {float(v_entry_c):.1f} km/h (Ref: {float(v_entry_r):.1f} km/h, ΔV: {delta_ventry:+.1f} km/h).\n"
+            if delta_vexit is not None:
+                context_prefix += f"- Velocidad de salida: {float(v_exit_c):.1f} km/h (Ref: {float(v_exit_r):.1f} km/h, ΔV: {delta_vexit:+.1f} km/h).\n"
+            context_prefix += (
+                f"- Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}).\n"
+                f"- Balance: {c.get('balance_eval', 'Neutro')}.\n"
+                f"- Trail braking: {c.get('trail_braking_eval', 'Óptimo')}.\n"
+                f"- Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
             )
         context_prefix += (
             "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, "

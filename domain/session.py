@@ -66,9 +66,16 @@ class CornerAnalysis(BaseModel):
     corner_name: str
     start_dist: float
     end_dist: float
+    ref_entry_speed: float = 0.0
+    comp_entry_speed: float = 0.0
+    delta_v_entry: float = 0.0
     ref_min_speed: float
     comp_min_speed: float
-    speed_delta_min: float
+    delta_v_min: float = 0.0
+    speed_delta_min: float = 0.0
+    ref_exit_speed: float = 0.0
+    comp_exit_speed: float = 0.0
+    delta_v_exit: float = 0.0
     time_delta_corner: float
     ref_brake_point: Optional[float] = None
     comp_brake_point: Optional[float] = None

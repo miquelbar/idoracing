@@ -57,11 +57,13 @@ Most telemetry software falls into two extremes:
 - **Gear & Engine**: Gear selection over lap distance.
 - **Synchronized Hover Scrubbing**: Move your mouse across any channel to see synchronized distance, speed, and delta values across all plots simultaneously.
 
-### 4. 🤖 Integrated AI Race Engineer
-- **Local & Private (Ollama)**: Default configuration uses `qwen3.8:27b-32k` (or `qwen3:14b`/`qwen3:8b`) with CUDA acceleration.
+### 4. 🤖 Meet "Pep" — Your AI Race Engineer & Radio Partner (PEP · Performance Engineering Partner)
+- **Identity & Persona**: Pep is your dedicated pit-wall Performance Engineering Partner (a nod to IdoRacing's origins in Mallorca). Pep communicates like a real race engineer: direct, technical, 100% grounded in telemetry data, with zero generic fluff.
+- **Mathematical Rigor & Zero False Praise**: Strictly derives feedback from real telemetry deltas ($\Delta V$, $\Delta t$, braking points). Pep never offers unwarranted congratulations if time is lost or apex speed drops.
+- **Interactive Team Radio & Contextual Queries**: Chat directly with Pep over team radio (`[ 🎧 Consultar a Pep sobre T1 → ]`) to diagnose trail braking modulation, entry understeer, chassis balance, and car setup adjustments.
+- **Local & Private (Ollama)**: Default configuration runs locally with `qwen3.8:27b-32k` (or `qwen3:14b`/`qwen3:8b`) with CUDA acceleration.
 - **Cloud-Compatible (OpenAI / OpenRouter)**: Easily plug in GPT-4o, Claude 3.5, or DeepSeek via standard OpenAI-compatible API keys.
-- **Fact-Grounded Analysis**: Prompts feed calculated telemetry metrics (apex speed deltas, brake distance deltas, throttle pick-up distance, trail braking score) to avoid AI hallucinations.
-- **Deterministic Fallback Engine**: If Ollama or the internet is offline, an analytical rule-based engineering engine generates instant structured debriefs.
+- **Deterministic Engineering Engine**: If Ollama or cloud APIs are unavailable, a deterministic rule-based telemetry engine generates instant structured debriefs and authentic pit-wall responses.
 
 ### 5. 🗄️ Unified Session Hub & Car Setup History
 - Switch tracks, cars, and sessions seamlessly from a single hub.
