@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acc-coach"
+version = "0.1.0"
+description = "Local telemetry and AI driving coach for Assetto Corsa Competizione (ACC)"
+authors = [
+    { name = "miquelbar" }
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "streamlit>=1.30.0",
+    "plotly>=5.15.0",
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+    "python-dotenv>=1.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "test_importers"]
+python_files = ["test_*.py"]

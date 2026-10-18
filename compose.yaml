@@ -1,0 +1,31 @@
+services:
+  acc-coach:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: acc-coach
+    restart: unless-stopped
+    ports:
+      # Bound strictly to localhost (127.0.0.1) to avoid public exposure
+      - "127.0.0.1:8501:8501"
+    environment:
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:14b}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-60.0}
+      - AI_ENABLED=${AI_ENABLED:-true}
+      - ACC_COACH_DB_PATH=/app/data/acc_coach.db
+    volumes:
+      - acc_coach_data:/app/data
+    # Configure access to host network services (Ollama) on Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  acc_coach_data:
+    name: acc_coach_data
