@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { ActiveSessionBanner } from './components/ActiveSessionBanner';
 import { Header, type NavTab } from './components/Header';
 import { TelemetryHeaderBar } from './components/TelemetryHeaderBar';
 import {
@@ -285,32 +284,25 @@ export const App: React.FC = () => {
         status={status}
       />
 
-      {/* 2. Compact Consolidated Context + Timing Bar (Telemetry) OR Full Hero (Other Tabs) */}
-      {currentTab === 'telemetry' && comparison ? (
-        <TelemetryHeaderBar
-          comparison={comparison}
-          gameName={activeGame}
-          trackName={activeTrack}
-          carName={activeCar}
-          lapCount={currentSession?.lap_count}
-          refLapNumber={refLapNumber}
-          compLapNumber={compLapNumber}
-          onNavigateToSessions={() => handleNavigateTab('sessions')}
-          onOpenDebrief={() => setIsDebriefOpen(true)}
-          reportAvailable={!!coachReport}
-        />
-      ) : (
-        <ActiveSessionBanner
-          trackName={activeTrack}
-          carName={activeCar}
-          gameName={activeGame}
-          lapCount={currentSession?.lap_count}
-          bestLapTime={currentSession?.best_lap_time}
-          refLapNumber={refLapNumber}
-          compLapNumber={compLapNumber}
-          onNavigateToSessions={() => handleNavigateTab('sessions')}
-        />
-      )}
+      {/* 2. Sub-topbar unificado en todas las vistas (Telemetría, Sesiones, Setup, Ingeniero, Ajustes) */}
+      <TelemetryHeaderBar
+        comparison={comparison}
+        gameName={activeGame}
+        trackName={activeTrack}
+        carName={activeCar}
+        lapCount={currentSession?.lap_count}
+        bestLapTime={currentSession?.best_lap_time}
+        refLapNumber={refLapNumber}
+        compLapNumber={compLapNumber}
+        onNavigateToSessions={() => handleNavigateTab('sessions')}
+        onOpenDebrief={() => {
+          setIsDebriefOpen(true);
+          if (currentTab !== 'telemetry') {
+            handleNavigateTab('telemetry');
+          }
+        }}
+        reportAvailable={!!coachReport}
+      />
 
       {/* Main Viewport */}
       <main

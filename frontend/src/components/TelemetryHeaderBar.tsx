@@ -5,15 +5,16 @@ import { formatLapTime } from '../utils/formatters';
 import { useLanguage } from '../i18n';
 
 interface TelemetryHeaderBarProps {
-  comparison: ComparisonResponse;
+  comparison?: ComparisonResponse | null;
   gameName: string;
   trackName: string;
   carName: string;
   lapCount?: number;
-  refLapNumber: number;
-  compLapNumber: number;
+  bestLapTime?: number;
+  refLapNumber?: number;
+  compLapNumber?: number;
   onNavigateToSessions: () => void;
-  onOpenDebrief: () => void;
+  onOpenDebrief?: () => void;
   reportAvailable?: boolean;
 }
 
@@ -29,8 +30,9 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   trackName,
   carName,
   lapCount,
-  refLapNumber,
-  compLapNumber,
+  bestLapTime,
+  refLapNumber = 1,
+  compLapNumber = 2,
   onNavigateToSessions,
   onOpenDebrief,
   reportAvailable = false,
@@ -39,13 +41,13 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   const isLMU = gameName.toLowerCase().includes('le mans');
   const isiRacing = gameName.toLowerCase().includes('iracing');
 
-  const refS1 = comparison.ref_sectors?.['S1'] ?? 0;
-  const refS2 = comparison.ref_sectors?.['S2'] ?? 0;
-  const refS3 = comparison.ref_sectors?.['S3'] ?? 0;
+  const refS1 = comparison?.ref_sectors?.['S1'] ?? 0;
+  const refS2 = comparison?.ref_sectors?.['S2'] ?? 0;
+  const refS3 = comparison?.ref_sectors?.['S3'] ?? 0;
 
-  const compS1 = comparison.comp_sectors?.['S1'] ?? 0;
-  const compS2 = comparison.comp_sectors?.['S2'] ?? 0;
-  const compS3 = comparison.comp_sectors?.['S3'] ?? 0;
+  const compS1 = comparison?.comp_sectors?.['S1'] ?? 0;
+  const compS2 = comparison?.comp_sectors?.['S2'] ?? 0;
+  const compS3 = comparison?.comp_sectors?.['S3'] ?? 0;
 
   const deltaS1 = compS1 && refS1 ? compS1 - refS1 : 0;
   const deltaS2 = compS2 && refS2 ? compS2 - refS2 : 0;
@@ -100,73 +102,95 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
       {/* Right: Timing & AI Action Strip */}
       <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
         {/* Lap Times */}
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
-              P1 V{refLapNumber}
-            </span>
-            <span className="text-white font-bold tracking-tight">
-              {formatLapTime(comparison.ref_lap_time)}
-            </span>
+        {comparison ? (
+          <>
+            <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
+                  P1 V{refLapNumber}
+                </span>
+                <span className="text-white font-bold tracking-tight">
+                  {formatLapTime(comparison.ref_lap_time)}
+                </span>
+              </div>
+
+              <span className="text-gray-600 text-[10px]">vs</span>
+
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] font-bold text-[10px] border border-[#B138FE]/30">
+                  P2 V{compLapNumber}
+                </span>
+                <span className="text-white font-bold tracking-tight">
+                  {formatLapTime(comparison.comp_lap_time)}
+                </span>
+              </div>
+
+              {/* GAP Pill */}
+              <span
+                className={`px-2 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
+                  comparison.delta_time_total > 0
+                    ? 'bg-[#E10600]/20 text-[#FF453A] border border-[#E10600]/40'
+                    : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
+                }`}
+              >
+                {t('gap')} {formatDelta(comparison.delta_time_total)}
+              </span>
+            </div>
+
+            {/* Micro-Sectors */}
+            <div className="hidden xl:flex items-center gap-2 text-[11px] border-l border-white/10 pl-3">
+              <span className="text-gray-400">
+                S1:{' '}
+                <strong className={deltaS1 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                  {formatDelta(deltaS1)}
+                </strong>
+              </span>
+              <span className="text-gray-600">•</span>
+              <span className="text-gray-400">
+                S2:{' '}
+                <strong className={deltaS2 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                  {formatDelta(deltaS2)}
+                </strong>
+              </span>
+              <span className="text-gray-600">•</span>
+              <span className="text-gray-400">
+                S3:{' '}
+                <strong className={deltaS3 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                  {formatDelta(deltaS3)}
+                </strong>
+              </span>
+            </div>
+          </>
+        ) : bestLapTime && bestLapTime > 0 ? (
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
+                {t('best_lap')}
+              </span>
+              <span className="text-white font-bold tracking-tight">
+                {formatLapTime(bestLapTime)}
+              </span>
+            </div>
+            {refLapNumber && compLapNumber && (
+              <span className="text-gray-400 text-[11px] pl-2 border-l border-white/10 hidden sm:inline">
+                P1: V{refLapNumber} vs P2: V{compLapNumber}
+              </span>
+            )}
           </div>
-
-          <span className="text-gray-600 text-[10px]">vs</span>
-
-          <div className="flex items-center gap-1.5">
-            <span className="px-1.5 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] font-bold text-[10px] border border-[#B138FE]/30">
-              P2 V{compLapNumber}
-            </span>
-            <span className="text-white font-bold tracking-tight">
-              {formatLapTime(comparison.comp_lap_time)}
-            </span>
-          </div>
-
-          {/* GAP Pill */}
-          <span
-            className={`px-2 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
-              comparison.delta_time_total > 0
-                ? 'bg-[#E10600]/20 text-[#FF453A] border border-[#E10600]/40'
-                : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
-            }`}
-          >
-            {t('gap')} {formatDelta(comparison.delta_time_total)}
-          </span>
-        </div>
-
-        {/* Micro-Sectors */}
-        <div className="hidden xl:flex items-center gap-2 text-[11px] border-l border-white/10 pl-3">
-          <span className="text-gray-400">
-            S1:{' '}
-            <strong className={deltaS1 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
-              {formatDelta(deltaS1)}
-            </strong>
-          </span>
-          <span className="text-gray-600">•</span>
-          <span className="text-gray-400">
-            S2:{' '}
-            <strong className={deltaS2 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
-              {formatDelta(deltaS2)}
-            </strong>
-          </span>
-          <span className="text-gray-600">•</span>
-          <span className="text-gray-400">
-            S3:{' '}
-            <strong className={deltaS3 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
-              {formatDelta(deltaS3)}
-            </strong>
-          </span>
-        </div>
+        ) : null}
 
         {/* Debrief & Radio Trigger Button */}
-        <button
-          onClick={onOpenDebrief}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#00D2BE]/20 hover:bg-[#00D2BE] text-[#00D2BE] hover:text-black border border-[#00D2BE]/40 hover:border-[#00D2BE] text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
-          title={t('open_debrief_hint')}
-        >
-          <Bot className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{t('debrief_radio')}</span>
-          {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />}
-        </button>
+        {onOpenDebrief && (
+          <button
+            onClick={onOpenDebrief}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#00D2BE]/20 hover:bg-[#00D2BE] text-[#00D2BE] hover:text-black border border-[#00D2BE]/40 hover:border-[#00D2BE] text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
+            title={t('open_debrief_hint')}
+          >
+            <Bot className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t('debrief_radio')}</span>
+            {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />}
+          </button>
+        )}
       </div>
     </div>
   );
