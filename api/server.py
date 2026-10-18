@@ -173,6 +173,9 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     ref_lap_id: Optional[str] = None
     comp_lap_id: Optional[str] = None
+    track_name: Optional[str] = None
+    car_name: Optional[str] = None
+    selected_corner: Optional[Dict[str, Any]] = None
 
 
 class LocalImportRequest(BaseModel):
@@ -644,8 +647,28 @@ def chat_with_engineer(req: ChatRequest):
     """Interactive conversational chat with Race Engineer with full telemetry context."""
     # Build telemetry briefing for the LLM
     context_prefix = (
-        "Eres el ingeniero de pista senior del equipo. Sé técnico, conciso y directo como por la radio del equipo. "
-        "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, marchas y setup basándote en los datos.\n"
+        "Eres el ingeniero de pista senior de IdoRacing Analytics. Sé técnico, conciso y directo como por la radio de equipo. "
+        "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, trail braking, marchas y balance basándote en los datos.\n"
+        f"Circuito actual: {req.track_name or 'Circuito activo'}. Vehículo: {req.car_name or 'Coche activo'}.\n"
+    )
+    if req.selected_corner:
+        c = req.selected_corner
+        c_num = c.get("corner_number", "")
+        c_name = c.get("name", f"Curva {c_num}")
+        delta_t = c.get("delta_time", 0.0)
+        delta_sign = "+" if delta_t > 0 else ""
+        context_prefix += (
+            f"Curva seleccionada en telemetría: T{c_num} ({c_name}). "
+            f"Diferencia de tiempo: {delta_sign}{delta_t:.3f}s. "
+            f"Velocidad mínima comp: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
+            f"Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}). "
+            f"Balance: {c.get('balance_eval', 'Neutro')}. "
+            f"Trail braking: {c.get('trail_braking_eval', 'Óptimo')}. "
+            f"Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
+        )
+    context_prefix += (
+        "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, "
+        "listas cortas con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato.\n"
     )
 
     messages = [{"role": "system", "content": context_prefix}]

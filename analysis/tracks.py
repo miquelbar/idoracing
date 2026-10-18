@@ -169,7 +169,14 @@ def generate_track_coordinates(
     For Sebring International Raceway, uses verified 836-point aerial-surveyed centerline geometry.
     """
     if telemetry and "x" in telemetry and "y" in telemetry:
-        return telemetry["x"].tolist(), telemetry["y"].tolist()
+        raw_x = np.array(telemetry["x"], dtype=np.float64)
+        raw_y = np.array(telemetry["y"], dtype=np.float64)
+        if len(raw_x) > 10 and (float(np.var(raw_x)) > 1.0 or float(np.var(raw_y)) > 1.0):
+            x_out = raw_x.tolist()
+            y_out = raw_y.tolist()
+            x_out[-1] = x_out[0]
+            y_out[-1] = y_out[0]
+            return x_out, y_out
 
     t_norm = (track_name or "").lower()
     total_dist = float(distance[-1]) if len(distance) > 0 else 4005.0

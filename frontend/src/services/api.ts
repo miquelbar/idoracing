@@ -86,7 +86,10 @@ export async function fetchCoachReport(
 export async function sendChatMessage(
   messages: ChatMessage[],
   refLapId?: string,
-  compLapId?: string
+  compLapId?: string,
+  trackName?: string,
+  carName?: string,
+  selectedCorner?: any
 ): Promise<{ role: string; content: string; model: string }> {
   const res = await fetch(`${API_BASE}/coach/chat`, {
     method: 'POST',
@@ -95,6 +98,9 @@ export async function sendChatMessage(
       messages,
       ref_lap_id: refLapId,
       comp_lap_id: compLapId,
+      track_name: trackName,
+      car_name: carName,
+      selected_corner: selectedCorner,
     }),
   });
   if (!res.ok) throw new Error('Failed to communicate with Race Engineer');

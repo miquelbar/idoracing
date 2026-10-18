@@ -23,31 +23,52 @@ export const RacingLineVisualizer: React.FC<RacingLineVisualizerProps> = ({ corn
   const isOptimal = (corner.racing_line_eval || '').includes('Óptima');
 
   return (
-    <div className="bg-[#07090E]/80 rounded-xl p-2.5 border border-white/5 flex flex-col space-y-1.5 shrink-0">
-      {/* Header with Badges */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CornerDownRight className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`} />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white">
-            Trazada {isLeft ? 'Viraje a Izquierdas' : 'Viraje a Derechas'}
-          </span>
+    <div className="bg-[#07090E]/80 rounded-xl p-1.5 border border-white/5 flex flex-col shrink-0 relative overflow-hidden">
+      {/* SVG Canvas with Overlaid Floating Badges */}
+      <div className="relative w-full h-[125px] sm:h-[135px] bg-[#05070B] rounded-lg border border-white/5 overflow-hidden flex items-center justify-center">
+        {/* Floating Top-Left: Turn Direction & Dynamic Evaluation */}
+        <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1.5">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry text-white font-bold">
+            <CornerDownRight className={`w-3 h-3 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`} />
+            <span>{isLeft ? 'Viraje Izq' : 'Viraje Der'}</span>
+          </div>
+
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry">
+            {hasSubviraje ? (
+              <>
+                <AlertTriangle className="w-2.5 h-2.5 text-[#FF1801]" />
+                <span className="text-[#FF7B72] font-bold">Subviraje (+1.8m)</span>
+              </>
+            ) : isEarlyApex ? (
+              <>
+                <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                <span className="text-amber-300 font-bold">Vértice Anticipado</span>
+              </>
+            ) : isOptimal ? (
+              <>
+                <CheckCircle2 className="w-2.5 h-2.5 text-[#00FF7F]" />
+                <span className="text-[#00FF7F] font-bold">Trazada Óptima</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-2.5 h-2.5 text-[#00D2BE]" />
+                <span className="text-[#00D2BE] font-bold">Vértice Neutro</span>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-2.5 text-[9px] font-telemetry">
+        {/* Floating Top-Right: Legend */}
+        <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry">
           <div className="flex items-center gap-1">
             <span className="w-2 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
-            <span className="text-gray-300">Trazada Óptima</span>
+            <span className="text-gray-300">Óptima</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-2 h-0.5 bg-[#B138FE]" />
             <span className="text-gray-300">Tu Trazada</span>
           </div>
         </div>
-      </div>
-
-      {/* SVG Canvas */}
-      <div className="relative w-full h-[125px] sm:h-[135px] bg-[#05070B] rounded-lg border border-white/5 overflow-hidden flex items-center justify-center">
         <svg viewBox="0 0 440 230" className="w-full h-full select-none">
           <defs>
             {/* Kerb Pattern Red/White */}
@@ -192,31 +213,6 @@ export const RacingLineVisualizer: React.FC<RacingLineVisualizerProps> = ({ corn
             </text>
           </g>
         </svg>
-
-        {/* Floating Mini Dynamic Badge */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry">
-          {hasSubviraje ? (
-            <>
-              <AlertTriangle className="w-3 h-3 text-[#FF1801]" />
-              <span className="text-[#FF7B72] font-bold">Subviraje en Vértice (+1.8m)</span>
-            </>
-          ) : isEarlyApex ? (
-            <>
-              <AlertTriangle className="w-3 h-3 text-amber-400" />
-              <span className="text-amber-300 font-bold">Vértice Anticipado</span>
-            </>
-          ) : isOptimal ? (
-            <>
-              <CheckCircle2 className="w-3 h-3 text-[#00FF7F]" />
-              <span className="text-[#00FF7F] font-bold">Trazada Óptima</span>
-            </>
-          ) : (
-            <>
-              <Zap className="w-3 h-3 text-[#00D2BE]" />
-              <span className="text-[#00D2BE] font-bold">Vértice Neutro</span>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

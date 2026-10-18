@@ -40,7 +40,7 @@ def align_laps_by_distance(
 
     aligned: Dict[str, np.ndarray] = {"distance": common_dist}
 
-    channels_to_align = ["speed", "throttle", "brake", "gear", "steer_angle", "lat_accel", "long_accel", "rpm"]
+    channels_to_align = ["speed", "throttle", "brake", "gear", "steer_angle", "lat_accel", "long_accel", "rpm", "x", "y"]
     for ch in channels_to_align:
         if ch in ref_telemetry and len(ref_telemetry[ch]) == len(ref_dist):
             aligned[f"ref_{ch}"] = np.interp(common_dist, ref_dist, ref_telemetry[ch])
@@ -51,6 +51,14 @@ def align_laps_by_distance(
             aligned[f"comp_{ch}"] = np.interp(common_dist, comp_dist, comp_telemetry[ch])
         else:
             aligned[f"comp_{ch}"] = np.zeros_like(common_dist)
+
+    # Expose primary spatial coordinates if available
+    if np.any(aligned.get("ref_x", 0) != 0) or np.any(aligned.get("ref_y", 0) != 0):
+        aligned["x"] = aligned["ref_x"]
+        aligned["y"] = aligned["ref_y"]
+    elif np.any(aligned.get("comp_x", 0) != 0) or np.any(aligned.get("comp_y", 0) != 0):
+        aligned["x"] = aligned["comp_x"]
+        aligned["y"] = aligned["comp_y"]
 
     # Speed Delta (km/h): Positive means reference is faster
     aligned["speed_delta"] = aligned["ref_speed"] - aligned["comp_speed"]

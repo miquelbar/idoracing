@@ -1,0 +1,170 @@
+import { Bot, ChevronRight } from 'lucide-react';
+import type { ComparisonResponse } from '../types/telemetry';
+import { formatLapTime } from '../utils/formatters';
+
+interface TelemetryHeaderBarProps {
+  comparison: ComparisonResponse;
+  gameName: string;
+  trackName: string;
+  carName: string;
+  lapCount?: number;
+  refLapNumber: number;
+  compLapNumber: number;
+  onNavigateToSessions: () => void;
+  onOpenDebrief: () => void;
+  reportAvailable?: boolean;
+}
+
+function formatDelta(seconds: number): string {
+  if (isNaN(seconds)) return '+0.000s';
+  const sign = seconds > 0 ? '+' : '';
+  return `${sign}${seconds.toFixed(3)}s`;
+}
+
+export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
+  comparison,
+  gameName,
+  trackName,
+  carName,
+  lapCount,
+  refLapNumber,
+  compLapNumber,
+  onNavigateToSessions,
+  onOpenDebrief,
+  reportAvailable = false,
+}) => {
+  const isLMU = gameName.toLowerCase().includes('le mans');
+  const isiRacing = gameName.toLowerCase().includes('iracing');
+
+  const refS1 = comparison.ref_sectors?.['S1'] ?? 0;
+  const refS2 = comparison.ref_sectors?.['S2'] ?? 0;
+  const refS3 = comparison.ref_sectors?.['S3'] ?? 0;
+
+  const compS1 = comparison.comp_sectors?.['S1'] ?? 0;
+  const compS2 = comparison.comp_sectors?.['S2'] ?? 0;
+  const compS3 = comparison.comp_sectors?.['S3'] ?? 0;
+
+  const deltaS1 = compS1 && refS1 ? compS1 - refS1 : 0;
+  const deltaS2 = compS2 && refS2 ? compS2 - refS2 : 0;
+  const deltaS3 = compS3 && refS3 ? compS3 - refS3 : 0;
+
+  return (
+    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm z-30 select-none">
+      {/* Left: Context Ribbon ([Badge ACC] Track · Car | Vueltas | [Cambiar Pista]) */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Game Pill */}
+        <span
+          className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 border ${
+            isLMU
+              ? 'bg-blue-950/70 border-blue-500/40 text-blue-300'
+              : isiRacing
+              ? 'bg-red-950/70 border-red-500/40 text-red-300'
+              : 'bg-red-950/60 border-[#E10600]/40 text-[#FF4D4D]'
+          }`}
+        >
+          {isLMU ? 'LMU' : isiRacing ? 'iRacing' : 'ACC'}
+        </span>
+
+        {/* Track & Car */}
+        <div className="flex items-baseline gap-1.5 min-w-0 truncate">
+          <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide truncate">
+            {trackName}
+          </span>
+          <span className="text-gray-500 hidden md:inline">·</span>
+          <span className="text-[#00D2BE] font-bold text-xs truncate hidden md:inline">
+            {carName}
+          </span>
+        </div>
+
+        {/* Lap Count Pill */}
+        {lapCount !== undefined && lapCount > 0 && (
+          <span className="text-gray-400 text-[11px] hidden lg:inline whitespace-nowrap pl-2 border-l border-white/10">
+            {lapCount} vueltas
+          </span>
+        )}
+
+        {/* Switch Track Button */}
+        <button
+          onClick={onNavigateToSessions}
+          className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-gray-300 hover:text-white text-[11px] font-semibold transition cursor-pointer shrink-0 hidden sm:flex items-center gap-1"
+          title="Cambiar circuito o cargar otra sesión"
+        >
+          <span>Sesiones</span>
+          <ChevronRight className="w-3 h-3 opacity-60" />
+        </button>
+      </div>
+
+      {/* Right: Timing & AI Action Strip */}
+      <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+        {/* Lap Times */}
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
+              P1 V{refLapNumber}
+            </span>
+            <span className="text-white font-bold tracking-tight">
+              {formatLapTime(comparison.ref_lap_time)}
+            </span>
+          </div>
+
+          <span className="text-gray-600 text-[10px]">vs</span>
+
+          <div className="flex items-center gap-1.5">
+            <span className="px-1.5 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] font-bold text-[10px] border border-[#B138FE]/30">
+              P2 V{compLapNumber}
+            </span>
+            <span className="text-white font-bold tracking-tight">
+              {formatLapTime(comparison.comp_lap_time)}
+            </span>
+          </div>
+
+          {/* GAP Pill */}
+          <span
+            className={`px-2 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
+              comparison.delta_time_total > 0
+                ? 'bg-[#E10600]/20 text-[#FF453A] border border-[#E10600]/40'
+                : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
+            }`}
+          >
+            GAP {formatDelta(comparison.delta_time_total)}
+          </span>
+        </div>
+
+        {/* Micro-Sectors */}
+        <div className="hidden xl:flex items-center gap-2 text-[11px] border-l border-white/10 pl-3">
+          <span className="text-gray-400">
+            S1:{' '}
+            <strong className={deltaS1 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS1)}
+            </strong>
+          </span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-400">
+            S2:{' '}
+            <strong className={deltaS2 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS2)}
+            </strong>
+          </span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-400">
+            S3:{' '}
+            <strong className={deltaS3 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS3)}
+            </strong>
+          </span>
+        </div>
+
+        {/* Debrief & Radio Trigger Button */}
+        <button
+          onClick={onOpenDebrief}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#00D2BE]/20 hover:bg-[#00D2BE] text-[#00D2BE] hover:text-black border border-[#00D2BE]/40 hover:border-[#00D2BE] text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
+          title="Abrir debrief integral y radio con el ingeniero"
+        >
+          <Bot className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Debrief & Radio</span>
+          {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />}
+        </button>
+      </div>
+    </div>
+  );
+};

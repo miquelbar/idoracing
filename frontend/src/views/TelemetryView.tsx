@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { AIDebriefDrawer } from '../components/AIDebriefDrawer';
 import { CornerInspector } from '../components/CornerInspector';
 import { TelemetryCharts } from '../components/TelemetryCharts';
-import { TimingTower } from '../components/TimingTower';
 import { TrackMap } from '../components/TrackMap';
 import { fetchCoachReport, sendChatMessage } from '../services/api';
 import type {
@@ -21,6 +20,9 @@ interface TelemetryViewProps {
   report: CoachReport | null;
   onReportGenerated: (r: CoachReport) => void;
   activeModel: string;
+  isDebriefOpen: boolean;
+  onOpenDebrief: () => void;
+  onCloseDebrief: () => void;
 }
 
 export const TelemetryView: React.FC<TelemetryViewProps> = ({
@@ -32,17 +34,18 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   report,
   onReportGenerated,
   activeModel,
+  isDebriefOpen,
+  onOpenDebrief,
+  onCloseDebrief,
 }) => {
-  const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
-  // Live Team Radio Chat Messages
+  // Live Team Radio Chat Messages contextualized to current track and car
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content:
-        'Canal de radio abierto. He procesado la telemetría de tus vueltas. Selecciona cualquier curva para ver la trazada y el análisis técnico o pregúntame directamente.',
+      content: `Canal de radio abierto en **${comparison.track_name || 'pista'}**. He procesado la telemetría del **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar tu técnica de frenada, trail braking y trazada, o preguntarme directamente por la radio.`,
     },
   ]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -73,7 +76,28 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
     setChatLoading(true);
 
     try {
-      const res = await sendChatMessage(newMsgs, comparison.ref_lap_id, comparison.comp_lap_id);
+      const res = await sendChatMessage(
+        newMsgs,
+        comparison.ref_lap_id,
+        comparison.comp_lap_id,
+        comparison.track_name,
+        comparison.car_name,
+        selectedCorner
+          ? {
+              corner_number: selectedCorner.corner_number,
+              name: selectedCorner.name,
+              delta_time: selectedCorner.delta_time,
+              v_min_ref: selectedCorner.v_min_ref,
+              v_min_comp: selectedCorner.v_min_comp,
+              comp_gear: selectedCorner.comp_gear,
+              gear_eval: selectedCorner.gear_eval,
+              balance_eval: selectedCorner.balance_eval,
+              trail_braking_eval: selectedCorner.trail_braking_eval,
+              racing_line_eval: selectedCorner.racing_line_eval,
+              racing_line_advice: selectedCorner.racing_line_advice,
+            }
+          : undefined
+      );
       setChatMessages((prev) => [...prev, { role: 'assistant', content: res.content }]);
     } catch (err: any) {
       setChatMessages((prev) => [
@@ -89,48 +113,42 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   };
 
   const handleAskAboutCorner = (corner: CornerDTO) => {
-    const question = `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${corner.delta_time > 0 ? '+' : ''}${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
-    setIsDebriefOpen(true);
+    const question = `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${
+      corner.delta_time > 0 ? '+' : ''
+    }${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
+    onOpenDebrief();
     handleSendChatMessage(question);
   };
 
   return (
-    <div className="flex flex-col h-full gap-2.5 min-h-0 select-none">
-      {/* 1. Timing Tower (Compact ribbon: ~44px) */}
-      <TimingTower
-        comparison={comparison}
-        compact={true}
-        onOpenDebrief={() => setIsDebriefOpen(true)}
-        reportAvailable={!!report}
-      />
-
-      {/* 2. Compact Track Map Panel (~175px on laptop, aspect ratio preserved) */}
-      <div className="h-[175px] sm:h-[185px] w-full shrink-0">
-        <TrackMap
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full min-h-0 overflow-hidden select-none">
+      {/* 1. Left Column (~58% = 7 cols): Canales de Telemetría Sincronizados de arriba a abajo */}
+      <div className="lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden">
+        <TelemetryCharts
           comparison={comparison}
           hoverDistance={hoverDistance}
           onHoverDistance={onHoverDistance}
           selectedCorner={selectedCorner}
-          onSelectCorner={onSelectCorner}
-          compact={true}
+          onResetZoom={() => onSelectCorner(null)}
         />
       </div>
 
-      {/* 3. Lower 50/50 Split Deck: Synchronized Telemetry Channels (Left) & Corner/Trazada Inspector (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0 items-stretch">
-        {/* Left Column (6 cols): Canales de Telemetría Sincronizados */}
-        <div className="lg:col-span-6 flex flex-col h-full min-h-0 overflow-hidden">
-          <TelemetryCharts
+      {/* 2. Right Column (~42% = 5 cols): Mapa 2D general (arriba) y Análisis Curva a Curva (abajo) */}
+      <div className="lg:col-span-5 flex flex-col h-full min-h-0 gap-2 overflow-hidden">
+        {/* Right Top (~36%): Mapa 2D general con aspect ratio exacto */}
+        <div className="h-[36%] min-h-[160px] max-h-[230px] shrink-0">
+          <TrackMap
             comparison={comparison}
             hoverDistance={hoverDistance}
             onHoverDistance={onHoverDistance}
             selectedCorner={selectedCorner}
-            onResetZoom={() => onSelectCorner(null)}
+            onSelectCorner={onSelectCorner}
+            compact={true}
           />
         </div>
 
-        {/* Right Column (6 cols): Inspector de Curva, Trazada Real vs Óptima SVG, y Diagnóstico IA */}
-        <div className="lg:col-span-6 flex flex-col h-full min-h-0 overflow-hidden">
+        {/* Right Bottom (remaining ~64%): Análisis Curva a Curva & Trazada */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           <CornerInspector
             corners={comparison.corners}
             selectedCorner={selectedCorner}
@@ -140,10 +158,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Slide-over AI Debrief & Live Team Radio Drawer */}
+      {/* 3. Slide-over AI Debrief & Live Team Radio Drawer */}
       <AIDebriefDrawer
         isOpen={isDebriefOpen}
-        onClose={() => setIsDebriefOpen(false)}
+        onClose={onCloseDebrief}
         report={report}
         loadingReport={loadingReport}
         reportError={reportError}
@@ -153,6 +171,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         chatLoading={chatLoading}
         onSendMessage={handleSendChatMessage}
         selectedCorner={selectedCorner}
+        trackName={comparison.track_name}
+        carName={comparison.car_name}
       />
     </div>
   );

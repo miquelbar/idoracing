@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertCircle,
   Bot,
+  Check,
   CheckCircle,
+  Copy,
   FileText,
   Lightbulb,
   MessageSquare,
@@ -28,6 +30,8 @@ interface AIDebriefDrawerProps {
   chatLoading: boolean;
   onSendMessage: (msgText?: string) => void;
   selectedCorner?: CornerDTO | null;
+  trackName?: string;
+  carName?: string;
 }
 
 function formatMetricKey(key: string): string {
@@ -63,6 +67,129 @@ function formatMetricValue(val: any): string {
   return String(val);
 }
 
+/**
+ * Format markdown text with bolding, lists, code pills, and paragraph breaks
+ */
+function renderFormattedMarkdown(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Split into paragraphs by double newlines or single newlines
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentList: { type: 'ul' | 'ol'; items: React.ReactNode[] } | null = null;
+
+  const flushList = () => {
+    if (currentList) {
+      if (currentList.type === 'ul') {
+        elements.push(
+          <ul key={`ul-${elements.length}`} className="space-y-1.5 my-2">
+            {currentList.items.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-[#00D2BE] font-bold mt-0.5">•</span>
+                <span className="flex-1">{item}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      } else {
+        elements.push(
+          <ol key={`ol-${elements.length}`} className="space-y-1.5 my-2">
+            {currentList.items.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold font-telemetry text-xs mt-0.5">{idx + 1}.</span>
+                <span className="flex-1">{item}</span>
+              </li>
+            ))}
+          </ol>
+        );
+      }
+      currentList = null;
+    }
+  };
+
+  const formatInline = (str: string): React.ReactNode[] => {
+    // Parse `code`, **bold**, *italic*
+    const parts: React.ReactNode[] = [];
+    const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(str)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(str.substring(lastIdx, match.index));
+      }
+      const token = match[0];
+      if (token.startsWith('**') && token.endsWith('**')) {
+        parts.push(
+          <strong key={match.index} className="text-white font-bold font-sans">
+            {token.slice(2, -2)}
+          </strong>
+        );
+      } else if (token.startsWith('`') && token.endsWith('`')) {
+        parts.push(
+          <code
+            key={match.index}
+            className="font-mono text-[#00D2BE] bg-white/10 px-1 py-0.5 rounded text-[11px]"
+          >
+            {token.slice(1, -1)}
+          </code>
+        );
+      } else if (token.startsWith('*') && token.endsWith('*')) {
+        parts.push(
+          <em key={match.index} className="text-gray-200 italic">
+            {token.slice(1, -1)}
+          </em>
+        );
+      }
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < str.length) {
+      parts.push(str.substring(lastIdx));
+    }
+    return parts;
+  };
+
+  lines.forEach((line, lineIdx) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    // Check for bullet list item: * or -
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (!currentList || currentList.type !== 'ul') {
+        flushList();
+        currentList = { type: 'ul', items: [] };
+      }
+      currentList.items.push(formatInline(trimmed.substring(2)));
+      return;
+    }
+
+    // Check for numbered list item: 1. 2. etc
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (numMatch) {
+      if (!currentList || currentList.type !== 'ol') {
+        flushList();
+        currentList = { type: 'ol', items: [] };
+      }
+      currentList.items.push(formatInline(numMatch[2]));
+      return;
+    }
+
+    // Regular paragraph line
+    flushList();
+    elements.push(
+      <p key={`p-${lineIdx}`} className="leading-relaxed my-1">
+        {formatInline(trimmed)}
+      </p>
+    );
+  });
+
+  flushList();
+  return <div className="space-y-1">{elements}</div>;
+}
+
 export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   isOpen,
   onClose,
@@ -75,9 +202,13 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   chatLoading,
   onSendMessage,
   selectedCorner,
+  trackName = 'Circuito',
+  carName = 'GT3',
 }) => {
   const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>('debrief');
   const [inputMessage, setInputMessage] = useState('');
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [reportCopied, setReportCopied] = useState(false);
   const chatBottomRef = React.useRef<HTMLDivElement>(null);
 
   // Close on Escape key
@@ -107,13 +238,51 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
     setInputMessage('');
   };
 
-  const quickPrompts = [
-    '¿Dónde pierdo más tiempo en la vuelta?',
-    '¿Cómo puedo mejorar mi trail braking?',
-    selectedCorner
-      ? `¿Cómo mejorar la Curva ${selectedCorner.corner_number} (${selectedCorner.name})?`
-      : '¿Qué curva debería priorizar para ganar más tiempo?',
-  ];
+  const copyToClipboard = (text: string, idx?: number) => {
+    navigator.clipboard.writeText(text);
+    if (idx !== undefined) {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    } else {
+      setReportCopied(true);
+      setTimeout(() => setReportCopied(false), 2000);
+    }
+  };
+
+  const copyFullReport = () => {
+    if (!report) return;
+    const text = [
+      `=== DEBRIEF TÉCNICO IDORACING: ${trackName} ===`,
+      `Vehículo: ${carName}`,
+      '',
+      '--- HECHOS OBSERVADOS EN DATOS ---',
+      ...(report.facts || []).map((f) => `• ${f}`),
+      '',
+      '--- DIAGNÓSTICO TÉCNICO DE CONDUCCIÓN ---',
+      ...(report.hypotheses || []).map((h) => `• ${h}`),
+      '',
+      '--- PLAN DE EJERCICIOS ---',
+      ...(report.exercises || []).map((e, i) => `${i + 1}. ${e}`),
+      '',
+      `INDICADOR DE MEJORA: ${report.verification_indicator || 'N/A'}`,
+    ].join('\n');
+    copyToClipboard(text);
+  };
+
+  // Dynamic quick prompts oriented to the active circuit and selected corner
+  const quickPrompts = selectedCorner
+    ? [
+        `¿Cómo mejorar la trazada en T${selectedCorner.corner_number} (${selectedCorner.name})?`,
+        `¿Por qué pierdo ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)}s en T${selectedCorner.corner_number}?`,
+        `¿La marcha ${selectedCorner.comp_gear || 3}ª es adecuada para la salida de T${selectedCorner.corner_number}?`,
+        `¿Cómo modular el freno y trail braking en T${selectedCorner.corner_number}?`,
+      ]
+    : [
+        `¿En qué sector pierdo más tiempo en ${trackName}?`,
+        `¿Cómo puedo optimizar la técnica de trail braking con el ${carName}?`,
+        '¿Qué curvas debería priorizar para ganar más tiempo?',
+        '¿Cómo evalúas la consistencia de frenada en esta tanda?',
+      ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -126,8 +295,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
       {/* Drawer Panel */}
       <div className="relative w-full max-w-2xl bg-[#090C14] border-l border-white/10 h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
-        <div className="p-4 border-b border-white/10 bg-[#0E121E] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="p-3.5 border-b border-white/10 bg-[#0E121E] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE]">
               <Bot className="w-4 h-4" />
             </div>
@@ -136,12 +305,32 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 Ingeniero de Competición & Radio
               </h2>
               <p className="text-[11px] text-gray-400 font-telemetry">
-                Modelo Activo: <strong className="text-[#00D2BE]">{activeModel}</strong>
+                {trackName} • <strong className="text-[#00D2BE]">{activeModel}</strong>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {activeTab === 'debrief' && report && (
+              <button
+                onClick={copyFullReport}
+                className="flex items-center gap-1 px-2.5 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white text-xs font-telemetry transition cursor-pointer"
+                title="Copiar informe completo al portapapeles"
+              >
+                {reportCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-[#00D2BE]" />
+                    <span className="text-[#00D2BE] font-bold">Copiado</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => onGenerateDebrief(true)}
               disabled={loadingReport}
@@ -175,28 +364,26 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
         <div className="flex border-b border-white/10 bg-[#07090F] px-4 shrink-0 text-xs font-telemetry font-bold">
           <button
             onClick={() => setActiveTab('debrief')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
+            className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'debrief'
                 ? 'border-[#00D2BE] text-[#00D2BE]'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Debrief Técnico Integral</span>
-            {report && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE]" />
-            )}
+            <span>Debrief Técnico</span>
+            {report && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE]" />}
           </button>
           <button
             onClick={() => setActiveTab('radio')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
+            className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
               activeTab === 'radio'
                 ? 'border-[#B138FE] text-[#D8B4FE]'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Canal de Radio ({chatMessages.length})</span>
+            <span>Radio de Equipo ({chatMessages.length})</span>
           </button>
         </div>
 
@@ -327,10 +514,31 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
           {activeTab === 'radio' && (
             <div className="flex flex-col h-full space-y-3">
-              {/* Quick Prompts */}
+              {/* Circuit & Corner Awareness Banner */}
+              <div className="px-3 py-1.5 rounded-lg bg-[#0E131E] border border-white/5 flex items-center justify-between text-xs font-telemetry">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="text-gray-400">Pista:</span>
+                  <span className="text-white font-bold truncate">{trackName}</span>
+                  <span className="text-gray-600">·</span>
+                  <span className="text-[#00D2BE] font-semibold truncate">{carName}</span>
+                </div>
+                {selectedCorner && (
+                  <div className="flex items-center gap-1.5 shrink-0 pl-2 border-l border-white/10">
+                    <span className="w-2 h-2 rounded-full bg-[#B138FE] animate-pulse" />
+                    <span className="text-[#D8B4FE] font-bold">
+                      T{selectedCorner.corner_number}: {selectedCorner.name}
+                    </span>
+                    <span className={`text-[10px] font-bold ${selectedCorner.delta_time > 0 ? 'text-[#FF4D4D]' : 'text-[#00FF7F]'}`}>
+                      ({selectedCorner.delta_time > 0 ? '+' : ''}{selectedCorner.delta_time.toFixed(3)}s)
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Dynamic Quick Prompts */}
               <div className="space-y-1.5 shrink-0">
                 <span className="text-[10px] text-gray-500 uppercase font-telemetry font-bold">
-                  Sugerencias Rápidas
+                  Consultas Sugeridas {selectedCorner ? `(Curva ${selectedCorner.corner_number})` : ''}
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {quickPrompts.map((q, idx) => (
@@ -346,40 +554,69 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Chat Message List */}
+              {/* Chat Message List with Rich Markdown Rendering */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                 {chatMessages.map((m, idx) => (
                   <div
                     key={idx}
-                    className={`flex gap-2.5 text-xs ${
-                      m.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
+                    className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group`}
                   >
-                    {m.role === 'assistant' && (
-                      <div className="w-6 h-6 rounded-md bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE] shrink-0 mt-0.5">
-                        <Bot className="w-3.5 h-3.5" />
-                      </div>
-                    )}
                     <div
-                      className={`p-3 rounded-xl max-w-[85%] leading-relaxed ${
-                        m.role === 'user'
-                          ? 'bg-[#B138FE]/20 border border-[#B138FE]/40 text-purple-100 font-sans'
-                          : 'bg-[#0E131E] border border-white/5 text-gray-300 font-sans'
+                      className={`flex gap-2.5 text-xs max-w-[90%] ${
+                        m.role === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
-                      {m.content}
-                    </div>
-                    {m.role === 'user' && (
-                      <div className="w-6 h-6 rounded-md bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center text-[#B138FE] shrink-0 mt-0.5">
-                        <User className="w-3.5 h-3.5" />
+                      {m.role === 'assistant' && (
+                        <div className="w-6 h-6 rounded-md bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE] shrink-0 mt-0.5">
+                          <Bot className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+
+                      <div
+                        className={`p-3 rounded-xl leading-relaxed text-xs relative ${
+                          m.role === 'user'
+                            ? 'bg-[#B138FE]/20 border border-[#B138FE]/40 text-purple-100 font-sans'
+                            : 'bg-[#0E131E] border border-white/5 text-gray-300 font-sans'
+                        }`}
+                      >
+                        {/* Markdown Formatter */}
+                        {renderFormattedMarkdown(m.content)}
+
+                        {/* Copy button on message */}
+                        <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
+                          <span>{m.role === 'assistant' ? 'Ingeniero de Pista' : 'Tú'}</span>
+                          <button
+                            onClick={() => copyToClipboard(m.content, idx)}
+                            className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
+                            title="Copiar mensaje"
+                          >
+                            {copiedIdx === idx ? (
+                              <>
+                                <Check className="w-3 h-3 text-[#00D2BE]" />
+                                <span className="text-[#00D2BE]">Copiado</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copiar</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    )}
+
+                      {m.role === 'user' && (
+                        <div className="w-6 h-6 rounded-md bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center text-[#B138FE] shrink-0 mt-0.5">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {chatLoading && (
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-[#0E131E]/60 border border-white/5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00D2BE]" />
-                    <span>El ingeniero está consultando los canales de telemetría...</span>
+                    <span>El ingeniero está consultando los canales de telemetría de {trackName}...</span>
                   </div>
                 )}
                 <div ref={chatBottomRef} />
@@ -397,7 +634,11 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ej: ¿Dónde pierdo más tiempo? ¿Cómo mejoro la frenada en T7?"
+                placeholder={
+                  selectedCorner
+                    ? `Pregunta sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}) o setup...`
+                    : `Pregunta sobre ${trackName}, puntos de frenada o técnica...`
+                }
                 className="flex-1 bg-[#090D15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE] font-telemetry"
               />
               <button

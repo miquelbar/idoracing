@@ -48,11 +48,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     };
   }, [comparison, selectedCorner]);
 
-  // SVG Chart Geometry (Compact laptop-first layout)
+  // SVG Chart Geometry (Expanded full-height telemetry panel)
   const width = 850;
-  const hSpeed = 120;
-  const hDelta = 60;
-  const hPedals = 85;
+  const hSpeed = 160;
+  const hDelta = 65;
+  const hPedals = 130;
   const hGear = 45;
   const padLeft = 45;
   const padRight = 20;
@@ -256,104 +256,94 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full relative overflow-hidden" ref={containerRef}>
-      {/* Header Controls */}
-      <div className="flex items-center justify-between mb-1.5 shrink-0">
-        <div className="flex items-center gap-3">
-          <Activity className="w-4 h-4 text-[#00D2BE]" />
-          <h3 className="font-bold text-sm text-white tracking-wide uppercase">
-            Canales de Telemetría Sincronizados
-          </h3>
+      {/* Header with Title, Inline Live Telemetry Values, and Legend */}
+      <div className="flex items-center justify-between gap-3 mb-2 shrink-0 pb-2 border-b border-white/5">
+        {/* Left: Title + Inline Live Values */}
+        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Activity className="w-4 h-4 text-[#00D2BE]" />
+            <h3 className="font-bold text-xs sm:text-sm text-white tracking-wide uppercase font-sans">
+              Telemetría
+            </h3>
+          </div>
+
           {selectedCorner && (
-            <span className="px-2 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] border border-[#B138FE]/40 text-xs font-telemetry">
-              Enfoque: Curva {selectedCorner.corner_number} ({selectedCorner.name})
+            <span className="px-2 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] border border-[#B138FE]/40 text-[10px] font-telemetry shrink-0">
+              T{selectedCorner.corner_number}: {selectedCorner.name}
             </span>
           )}
+
+          {/* Inline Live Values (Replaces separate 45px box) */}
+          <div className="flex items-center gap-2.5 text-[11px] font-telemetry text-gray-300 border-l border-white/10 pl-2.5">
+            {hoverData ? (
+              <>
+                <span className="text-gray-400">
+                  Dist: <strong className="text-white">{Math.round(hoverData.distance)}m</strong>
+                </span>
+                <span>
+                  Vel: <strong className="text-[#00D2BE]">{Math.round(hoverData.refSpeed)}</strong> /{' '}
+                  <strong className="text-[#B138FE]">{Math.round(hoverData.compSpeed)}</strong>{' '}
+                  <span className={`text-[10px] font-bold ${hoverData.deltaSpeed >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}`}>
+                    ({hoverData.deltaSpeed >= 0 ? '+' : ''}{Math.round(hoverData.deltaSpeed)})
+                  </span>
+                </span>
+                <span>
+                  Δt:{' '}
+                  <strong className={hoverData.deltaTime > 0 ? 'text-[#FF1801]' : 'text-[#00FF7F]'}>
+                    {hoverData.deltaTime > 0 ? '+' : ''}{hoverData.deltaTime.toFixed(3)}s
+                  </strong>
+                </span>
+                <span className="hidden sm:inline">
+                  Gas: <strong className="text-[#00FF7F]">{Math.round(hoverData.compThr)}%</strong>
+                </span>
+                <span className="hidden sm:inline">
+                  Freno: <strong className="text-[#FF1801]">{Math.round(hoverData.compBrk)}%</strong>
+                </span>
+                <span className="hidden sm:inline">
+                  G: <strong className="text-white">{hoverData.compGear}</strong>
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-500 text-[10px] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+                Mueve el cursor para inspeccionar valores en punto
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Zoom Reset */}
+        {/* Right: Legend and Reset Zoom */}
+        <div className="flex items-center gap-3 text-[10px] font-telemetry shrink-0">
           {selectedCorner && (
             <button
               onClick={onResetZoom}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#18202F] hover:bg-[#222E42] border border-[#2D3A52] text-xs text-gray-300 transition cursor-pointer"
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#18202F] hover:bg-[#222E42] border border-[#2D3A52] text-[10px] text-gray-300 transition cursor-pointer"
+              title="Restablecer zoom a vuelta completa"
             >
               <RotateCcw className="w-3 h-3 text-[#00D2BE]" />
-              Vuelta Completa
+              <span>Vuelta</span>
             </button>
           )}
 
-          {/* Trace & Pedal Legend */}
-          <div className="flex items-center gap-3 text-[10px] font-telemetry">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <span className="w-2.5 h-1 bg-[#00D2BE] rounded" />
-              <span className="text-[#00D2BE] font-bold">P1 (Ref)</span>
+              <span className="w-2 h-1 bg-[#00D2BE] rounded" />
+              <span className="text-[#00D2BE] font-bold">P1</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-2.5 h-1 bg-[#B138FE] rounded" />
-              <span className="text-[#B138FE] font-bold">P2 (Comp)</span>
+              <span className="w-2 h-1 bg-[#B138FE] rounded" />
+              <span className="text-[#B138FE] font-bold">P2</span>
             </div>
-            <div className="flex items-center gap-1 pl-2 border-l border-white/10">
-              <span className="w-2 h-2 rounded-full bg-[#FF1801]" />
-              <span className="text-[#FF1801] font-semibold">Freno</span>
+            <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF1801]" />
+              <span className="text-[#FF1801]">Freno</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#00FF7F]" />
-              <span className="text-[#00FF7F] font-semibold">Gas</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00FF7F]" />
+              <span className="text-[#00FF7F]">Gas</span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Synchronized Hover HUD Bar (Fixed height to prevent layout shifts) */}
-      <div className="mb-1.5 px-3 py-1 bg-[#0A0D14]/90 border border-white/10 rounded-lg flex items-center justify-between text-xs font-telemetry shadow-md min-h-[32px] shrink-0">
-        {hoverData ? (
-          <>
-            <div className="flex items-center gap-4">
-              <span className="text-gray-400">
-                Dist: <strong className="text-white">{Math.round(hoverData.distance)}m</strong>
-              </span>
-              <span>
-                Vel Ref: <strong className="text-[#00D2BE]">{Math.round(hoverData.refSpeed)} km/h</strong> | Comp:{' '}
-                <strong className="text-[#B138FE]">{Math.round(hoverData.compSpeed)} km/h</strong> (
-                <span className={hoverData.deltaSpeed >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}>
-                  {hoverData.deltaSpeed >= 0 ? '+' : ''}
-                  {Math.round(hoverData.deltaSpeed)} km/h
-                </span>
-                )
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span>
-                Δt:{' '}
-                <strong className={hoverData.deltaTime > 0 ? 'text-[#FF1801]' : 'text-[#00FF7F]'}>
-                  {hoverData.deltaTime > 0 ? '+' : ''}
-                  {hoverData.deltaTime.toFixed(3)}s
-                </strong>
-              </span>
-              <span>
-                Gas: <strong className="text-[#00FF7F]">{Math.round(hoverData.compThr)}%</strong> (Ref: <span className="text-[#10B981]">{Math.round(hoverData.refThr)}%</span>) | Freno:{' '}
-                <strong className="text-[#FF1801]">{Math.round(hoverData.compBrk)}%</strong> (Ref: <span className="text-[#00D2BE]">{Math.round(hoverData.refBrk)}%</span>)
-              </span>
-              <span>
-                Marcha: <strong className="text-white">G{hoverData.compGear}</strong> (Ref: G{hoverData.refGear})
-              </span>
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-between w-full text-gray-500 text-[11px]">
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
-              <span className="text-gray-300 font-medium">Telemetría Sincronizada</span>
-              <span className="hidden sm:inline text-gray-500">• Mueve el cursor sobre las gráficas para inspeccionar telemetría métrica</span>
-            </div>
-            <div className="flex items-center gap-3 font-telemetry text-gray-500 text-[10px]">
-              <span>Dist: --- m</span>
-              <span>Vel: --- km/h</span>
-              <span>Δt: --- s</span>
-              <span>Gas/Freno: --- %</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* SVG Stack Chart Canvas */}

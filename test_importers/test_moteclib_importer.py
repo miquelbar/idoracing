@@ -65,3 +65,35 @@ class TestMoTeCImporter(unittest.TestCase):
         self.assertGreaterEqual(comparison.throttle_differences["sector1"], 0)
         self.assertGreaterEqual(comparison.brake_differences["sector1"], 0)
         self.assertGreaterEqual(comparison.gear_changes["sector1"], 0)
+
+    def test_gps_and_position_channel_extraction(self):
+        importer = MoTeCImporter(self.mock_file_path)
+
+        class MockChan:
+            def __init__(self, data):
+                self.data = data
+
+        # Test 1: GPS Lat/Long detection & projection
+        gps_channels = {
+            "GPS_Lat": MockChan([39.485, 39.486, 39.487]),
+            "GPS_Long": MockChan([-0.625, -0.624, -0.623]),
+        }
+        x_gps, y_gps = importer._extract_spatial_coordinates(gps_channels)
+        self.assertIsNotNone(x_gps)
+        self.assertIsNotNone(y_gps)
+        self.assertEqual(len(x_gps), 3)
+        self.assertEqual(len(y_gps), 3)
+
+        # Test 2: Cartesian Position with elevation (X, Y elevation, Z ground)
+        cart_channels = {
+            "Position X": MockChan([100.0, 110.0, 120.0]),
+            "Position Y": MockChan([12.0, 12.1, 12.0]),     # low variance: elevation
+            "Position Z": MockChan([500.0, 520.0, 540.0]),   # high variance: ground plane
+        }
+        x_cart, y_cart = importer._extract_spatial_coordinates(cart_channels)
+        self.assertIsNotNone(x_cart)
+        self.assertIsNotNone(y_cart)
+        self.assertEqual(len(x_cart), 3)
+        # Ground plane should use Position Z centered
+        self.assertAlmostEqual(x_cart[1], 0.0)
+        self.assertAlmostEqual(y_cart[1], 0.0)

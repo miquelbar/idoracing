@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ActiveSessionBanner } from './components/ActiveSessionBanner';
 import { Header, type NavTab } from './components/Header';
+import { TelemetryHeaderBar } from './components/TelemetryHeaderBar';
 import {
   autodiscoverSims,
   fetchComparison,
@@ -49,6 +50,7 @@ export const App: React.FC = () => {
 
   const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
   const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
+  const [isDebriefOpen, setIsDebriefOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -283,23 +285,38 @@ export const App: React.FC = () => {
         status={status}
       />
 
-      {/* 2. Prominent Active Session Banner (Outside Top Bar) */}
-      <ActiveSessionBanner
-        trackName={activeTrack}
-        carName={activeCar}
-        gameName={activeGame}
-        lapCount={currentSession?.lap_count}
-        bestLapTime={currentSession?.best_lap_time}
-        refLapNumber={refLapNumber}
-        compLapNumber={compLapNumber}
-        onNavigateToSessions={() => handleNavigateTab('sessions')}
-      />
+      {/* 2. Compact Consolidated Context + Timing Bar (Telemetry) OR Full Hero (Other Tabs) */}
+      {currentTab === 'telemetry' && comparison ? (
+        <TelemetryHeaderBar
+          comparison={comparison}
+          gameName={activeGame}
+          trackName={activeTrack}
+          carName={activeCar}
+          lapCount={currentSession?.lap_count}
+          refLapNumber={refLapNumber}
+          compLapNumber={compLapNumber}
+          onNavigateToSessions={() => handleNavigateTab('sessions')}
+          onOpenDebrief={() => setIsDebriefOpen(true)}
+          reportAvailable={!!coachReport}
+        />
+      ) : (
+        <ActiveSessionBanner
+          trackName={activeTrack}
+          carName={activeCar}
+          gameName={activeGame}
+          lapCount={currentSession?.lap_count}
+          bestLapTime={currentSession?.best_lap_time}
+          refLapNumber={refLapNumber}
+          compLapNumber={compLapNumber}
+          onNavigateToSessions={() => handleNavigateTab('sessions')}
+        />
+      )}
 
       {/* Main Viewport */}
       <main
-        className={`max-w-[1720px] mx-auto w-full ${
+        className={`max-w-[1920px] mx-auto w-full ${
           currentTab === 'telemetry'
-            ? 'flex-1 px-3 py-2 md:px-4 md:py-2.5 flex flex-col min-h-0 overflow-hidden'
+            ? 'flex-1 p-2 flex flex-col min-h-0 overflow-hidden'
             : 'flex-1 p-4 md:p-6'
         }`}
       >
@@ -347,6 +364,9 @@ export const App: React.FC = () => {
                 report={coachReport}
                 onReportGenerated={setCoachReport}
                 activeModel={status?.active_model || 'qwen3.8:27b-32k'}
+                isDebriefOpen={isDebriefOpen}
+                onOpenDebrief={() => setIsDebriefOpen(true)}
+                onCloseDebrief={() => setIsDebriefOpen(false)}
               />
             )}
 
@@ -398,27 +418,29 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Clean Status Footer */}
-      <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-4">
-          <span>
-            IDORACING ANALYTICS v{status?.version || '2026.2'} • {activeGame}
-          </span>
-          <span className="hidden md:inline text-gray-700">|</span>
-          <span className="hidden md:inline text-gray-400">
-            Motor IA: {status?.active_model || 'qwen3.8:27b-32k'} ({status?.provider || 'ollama'})
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-gray-400">
-            {activeTrack} • {activeCar}
-          </span>
-          <span className="text-[#00D2BE] font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
-            ACTIVO
-          </span>
-        </div>
-      </footer>
+      {/* Clean Status Footer (Hidden on telemetry view to maximize dashboard height) */}
+      {currentTab !== 'telemetry' && (
+        <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-4">
+            <span>
+              IDORACING ANALYTICS v{status?.version || '2026.2'} • {activeGame}
+            </span>
+            <span className="hidden md:inline text-gray-700">|</span>
+            <span className="hidden md:inline text-gray-400">
+              Motor IA: {status?.active_model || 'qwen3.8:27b-32k'} ({status?.provider || 'ollama'})
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400">
+              {activeTrack} • {activeCar}
+            </span>
+            <span className="text-[#00D2BE] font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+              ACTIVO
+            </span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
