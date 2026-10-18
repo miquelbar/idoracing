@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { fetchCarSetup, fetchLapHistory } from '../services/api';
 import type { CarSetupData, LapHistoryData } from '../types/telemetry';
+import { useLanguage } from '../i18n';
 
 interface SetupHistoryViewProps {
   selectedSessionId: string | null;
@@ -24,6 +25,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
   carName,
   onGoToTelemetry,
 }) => {
+  const { t } = useLanguage();
   const [historyData, setHistoryData] = useState<LapHistoryData | null>(null);
   const [setupData, setSetupData] = useState<CarSetupData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <RefreshCw className="w-8 h-8 text-[#00D2BE] animate-spin mb-3" />
-        <p className="text-sm text-gray-400">Cargando historial de vueltas y setup del coche...</p>
+        <p className="text-sm text-gray-400">{t('loading_history_setup')}</p>
       </div>
     );
   }
@@ -67,13 +69,13 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
   if (error || !historyData) {
     return (
       <div className="p-6 rounded-xl bg-red-950/40 border border-red-800 text-red-200 text-sm">
-        <p className="font-bold mb-1">No se pudieron cargar los datos</p>
-        <p className="text-xs text-gray-400">{error || 'Historial no disponible'}</p>
+        <p className="font-bold mb-1">{t('could_not_load_data')}</p>
+        <p className="text-xs text-gray-400">{error || t('history_not_available')}</p>
         <button
           onClick={() => loadData()}
-          className="mt-3 px-3 py-1.5 rounded bg-white/10 hover:bg-white/15 text-xs text-white"
+          className="mt-3 px-3 py-1.5 rounded bg-white/10 hover:bg-white/15 text-xs text-white cursor-pointer"
         >
-          Reintentar
+          {t('retry')}
         </button>
       </div>
     );
@@ -91,11 +93,11 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           <div className="flex items-center gap-2 mb-1">
             <Trophy className="w-4 h-4 text-[#FFD700]" />
             <h3 className="text-lg font-black text-white uppercase tracking-wide">
-              Comparativa de Mejor Vuelta Personal (PB) vs Histórico
+              {t('pb_vs_history_title')}
             </h3>
           </div>
           <p className="text-xs text-gray-400">
-            {trackName} • {carName} • Analiza cómo evolucionó tu rendimiento frente a tandas o sesiones anteriores.
+            {trackName} • {carName} • {t('pb_vs_history_desc')}
           </p>
         </div>
 
@@ -103,7 +105,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           onClick={onGoToTelemetry}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md self-start md:self-auto"
         >
-          <span>Abrir en Telemetría & Trazada</span>
+          <span>{t('open_in_telemetry')}</span>
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
@@ -115,9 +117,9 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           <div className="flex items-center justify-between mb-3">
             <span className="px-2 py-0.5 rounded bg-[#FFD700]/20 text-[#FFD700] font-telemetry font-bold text-[10px] tracking-wider uppercase border border-[#FFD700]/30 flex items-center gap-1">
               <Trophy className="w-3 h-3" />
-              Mejor Tiempo Personal (PB)
+              {t('pb_title')}
             </span>
-            <span className="text-[11px] text-gray-400 font-telemetry">Vuelta #{pb.lap_number}</span>
+            <span className="text-[11px] text-gray-400 font-telemetry">{t('lap_word')} #{pb.lap_number}</span>
           </div>
 
           <div className="text-3xl font-black font-telemetry text-white mb-2 drop-shadow-md">
@@ -140,8 +142,8 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-gray-400 font-telemetry mt-3 pt-2 border-t border-white/5">
-            <span>V-Max: <strong className="text-white">{pb.v_max} km/h</strong></span>
-            <span>Fecha: {pb.date}</span>
+            <span>{t('vmax_label')}: <strong className="text-white">{pb.v_max} km/h</strong></span>
+            <span>{t('date_col')}: {pb.date}</span>
           </div>
         </div>
 
@@ -150,9 +152,9 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           <div className="flex items-center justify-between mb-3">
             <span className="px-2 py-0.5 rounded bg-[#B138FE]/20 text-[#B138FE] font-telemetry font-bold text-[10px] tracking-wider uppercase border border-[#B138FE]/30 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Vuelta Comparada
+              {t('comp_lap_title')}
             </span>
-            <span className="text-[11px] text-gray-400 font-telemetry">Vuelta #{comp.lap_number}</span>
+            <span className="text-[11px] text-gray-400 font-telemetry">{t('lap_word')} #{comp.lap_number}</span>
           </div>
 
           <div className="text-3xl font-black font-telemetry text-white mb-2 drop-shadow-md">
@@ -175,8 +177,8 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-gray-400 font-telemetry mt-3 pt-2 border-t border-white/5">
-            <span>V-Max: <strong className="text-white">{comp.v_max} km/h</strong></span>
-            <span>Fecha: {comp.date}</span>
+            <span>{t('vmax_label')}: <strong className="text-white">{comp.v_max} km/h</strong></span>
+            <span>{t('date_col')}: {comp.date}</span>
           </div>
         </div>
 
@@ -184,7 +186,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
         <div className="md:col-span-4 p-5 rounded-xl bg-[#0C0F17] border border-white/10 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-              Diferencia Frente a Tu PB
+              {t('diff_vs_pb')}
             </span>
             <div className="flex items-baseline gap-2">
               <span
@@ -199,7 +201,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                 {isSelf ? '0.000s' : `${historyData.delta_total > 0 ? '+' : ''}${historyData.delta_total.toFixed(3)}s`}
               </span>
               <span className="text-xs text-gray-400 font-telemetry">
-                {isSelf ? '(Misma Vuelta)' : historyData.delta_total > 0 ? 'más lenta que PB' : 'más rápida'}
+                {isSelf ? t('same_lap') : historyData.delta_total > 0 ? t('slower_than_pb') : t('faster_than_pb')}
               </span>
             </div>
           </div>
@@ -232,7 +234,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
       <div className="glass-panel rounded-xl p-4 overflow-hidden">
         <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5 text-[#00D2BE]" />
-          Historial de Vueltas Registradas en este Circuito (Elige para Comparar)
+          {t('laps_history_title')}
         </h4>
 
         <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
@@ -273,7 +275,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                       <span>S1: {lap.sector_times[0]?.toFixed(3) || '--'}s</span>
                       <span>S2: {lap.sector_times[1]?.toFixed(3) || '--'}s</span>
                       <span>S3: {lap.sector_times[2]?.toFixed(3) || '--'}s</span>
-                      <span>• V-Max: {lap.v_max} km/h</span>
+                      <span>• {t('vmax_label')}: {lap.v_max} km/h</span>
                     </div>
                   </div>
                 </div>
@@ -287,7 +289,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                       isSelected ? 'bg-[#B138FE] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
                     }`}
                   >
-                    {isSelected ? '✓ Comparando' : 'Comparar'}
+                    {isSelected ? t('comparing_btn') : t('compare_btn')}
                   </button>
                 </div>
               </div>
@@ -306,10 +308,10 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Hoja de Reglajes & Setup del Coche ({setupData.setup_name})
+                  {t('setup_sheet_title')} ({setupData.setup_name})
                 </h4>
                 <p className="text-xs text-gray-400 font-telemetry">
-                  {setupData.car_name} • {setupData.track_name} • Competición GT3 / LMGT3
+                  {setupData.car_name} • {setupData.track_name} • {t('competition_gt3')}
                 </p>
               </div>
             </div>
@@ -322,7 +324,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   setupCategory === 'tyres' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Neumáticos
+                {t('setup_tyres')}
               </button>
               <button
                 onClick={() => setSetupCategory('electronics')}
@@ -330,7 +332,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   setupCategory === 'electronics' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Electrónica
+                {t('setup_electronics')}
               </button>
               <button
                 onClick={() => setSetupCategory('brakes')}
@@ -338,7 +340,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   setupCategory === 'brakes' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Frenos
+                {t('setup_brakes')}
               </button>
               <button
                 onClick={() => setSetupCategory('aero')}
@@ -346,7 +348,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   setupCategory === 'aero' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Aerodinámica
+                {t('setup_aero')}
               </button>
               <button
                 onClick={() => setSetupCategory('suspension')}
@@ -354,7 +356,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   setupCategory === 'suspension' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                Chasis
+                {t('tab_chassis')}
               </button>
             </div>
           </div>
@@ -364,28 +366,28 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
                 <h5 className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider mb-3">
-                  Presiones en Caliente (Hot Pressures)
+                  {t('hot_pressures_title')}
                 </h5>
                 <div className="grid grid-cols-2 gap-3 font-telemetry">
                   <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">Delantero Izq (FL)</span>
+                    <span className="text-[10px] text-gray-400 block">{t('fl_tyre')}</span>
                     <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.FL} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">Caída: {setupData.tyres.camber_deg.FL}°</span>
+                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.FL}°</span>
                   </div>
                   <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">Delantero Der (FR)</span>
+                    <span className="text-[10px] text-gray-400 block">{t('fr_tyre')}</span>
                     <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.FR} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">Caída: {setupData.tyres.camber_deg.FR}°</span>
+                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.FR}°</span>
                   </div>
                   <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">Trasero Izq (RL)</span>
+                    <span className="text-[10px] text-gray-400 block">{t('rl_tyre')}</span>
                     <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.RL} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">Caída: {setupData.tyres.camber_deg.RL}°</span>
+                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.RL}°</span>
                   </div>
                   <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">Trasero Der (RR)</span>
+                    <span className="text-[10px] text-gray-400 block">{t('rr_tyre')}</span>
                     <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.RR} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">Caída: {setupData.tyres.camber_deg.RR}°</span>
+                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.RR}°</span>
                   </div>
                 </div>
               </div>
@@ -393,24 +395,24 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 flex flex-col justify-between">
                 <div>
                   <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-                    Compuesto & Alineación
+                    {t('compound_alignment')}
                   </h5>
                   <p className="text-xs text-gray-300 font-telemetry mb-3">
-                    Compuesto activo: <strong className="text-[#00D2BE]">{setupData.tyres.compound}</strong>
+                    {t('active_compound')}: <strong className="text-[#00D2BE]">{setupData.tyres.compound}</strong>
                   </p>
                   <div className="space-y-2 text-xs font-telemetry text-gray-400">
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span>Convergencia Delantera (Toe FL/FR):</span>
+                      <span>{t('toe_front')}:</span>
                       <span className="text-white font-bold">{setupData.tyres.toe_deg.FL}°</span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-white/5">
-                      <span>Convergencia Trasera (Toe RL/RR):</span>
+                      <span>{t('toe_rear')}:</span>
                       <span className="text-white font-bold">{setupData.tyres.toe_deg.RL}°</span>
                     </div>
                   </div>
                 </div>
                 <div className="mt-3 p-2.5 rounded bg-blue-950/40 border border-blue-500/20 text-[11px] text-blue-200">
-                  💡 Ventana de presión óptima recomendada para GT3: 26.5 – 27.2 PSI en caliente.
+                  {t('tyre_tip')}
                 </div>
               </div>
             </div>
@@ -419,24 +421,24 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           {setupCategory === 'electronics' && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-telemetry">
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">Control Tracción 1 (TC1)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('tc1_title')}</span>
                 <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.electronics.tc1}</span>
-                <span className="text-[10px] text-gray-500">Corte de deslizamiento</span>
+                <span className="text-[10px] text-gray-500">{t('tc1_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">Control Tracción 2 (TC2)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('tc2_title')}</span>
                 <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.electronics.tc2}</span>
-                <span className="text-[10px] text-gray-500">Amplitud de corrección</span>
+                <span className="text-[10px] text-gray-500">{t('tc2_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">Antibloqueo (ABS)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('abs_title')}</span>
                 <span className="text-2xl font-black text-[#00FF7F] my-1 block">{setupData.electronics.abs}</span>
-                <span className="text-[10px] text-gray-500">Sensibilidad de frenada</span>
+                <span className="text-[10px] text-gray-500">{t('abs_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">Mapa Motor (ECU Map)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('ecu_title')}</span>
                 <span className="text-2xl font-black text-[#FFD700] my-1 block">{setupData.electronics.ecu_map}</span>
-                <span className="text-[10px] text-gray-500">Mapa seco competitivo</span>
+                <span className="text-[10px] text-gray-500">{t('ecu_desc')}</span>
               </div>
             </div>
           )}
@@ -444,21 +446,21 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           {setupCategory === 'brakes' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Reparto de Frenada (Brake Bias)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('bias_title')}</span>
                 <span className="text-2xl font-black text-[#FF1801] my-1 block">{setupData.brakes.bias_pct}%</span>
-                <span className="text-[10px] text-gray-400">Reparto hacia el eje delantero</span>
+                <span className="text-[10px] text-gray-400">{t('bias_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Compuesto de Pastillas</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('pads_title')}</span>
                 <span className="text-base font-bold text-white my-1 block">{setupData.brakes.pad_type}</span>
-                <span className="text-[10px] text-gray-400">Máxima mordida inicial</span>
+                <span className="text-[10px] text-gray-400">{t('pads_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Conductos de Freno (Ducts)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('ducts_title')}</span>
                 <span className="text-base font-bold text-white my-1 block">
-                  Delanteros: {setupData.brakes.ducts.front} • Traseros: {setupData.brakes.ducts.rear}
+                  {t('front_label')}: {setupData.brakes.ducts.front} • {t('rear_label')}: {setupData.brakes.ducts.rear}
                 </span>
-                <span className="text-[10px] text-gray-400">Refrigeración equilibrada</span>
+                <span className="text-[10px] text-gray-400">{t('ducts_desc')}</span>
               </div>
             </div>
           )}
@@ -466,21 +468,21 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           {setupCategory === 'aero' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Alerón Trasero (Rear Wing)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('wing_title')}</span>
                 <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.aerodynamics.rear_wing}</span>
-                <span className="text-[10px] text-gray-400">Carga media-alta para virajes</span>
+                <span className="text-[10px] text-gray-400">{t('wing_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Altura de Carrocería</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('height_title')}</span>
                 <span className="text-base font-bold text-white my-1 block">
-                  Del: {setupData.aerodynamics.ride_height_mm.front} mm • Tras: {setupData.aerodynamics.ride_height_mm.rear} mm
+                  {t('front_label')}: {setupData.aerodynamics.ride_height_mm.front} mm • {t('rear_label')}: {setupData.aerodynamics.ride_height_mm.rear} mm
                 </span>
-                <span className="text-[10px] text-gray-400">Rake aerodinámico: +{setupData.aerodynamics.rake_mm} mm</span>
+                <span className="text-[10px] text-gray-400">{t('rake_desc')}: +{setupData.aerodynamics.rake_mm} mm</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Splitter Delantero</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('splitter_title')}</span>
                 <span className="text-base font-bold text-white my-1 block">{setupData.aerodynamics.front_splitter}</span>
-                <span className="text-[10px] text-gray-400">Agarre en entrada de curva</span>
+                <span className="text-[10px] text-gray-400">{t('splitter_desc')}</span>
               </div>
             </div>
           )}
@@ -488,19 +490,19 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           {setupCategory === 'suspension' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Barra Estabilizadora Del. (ARB)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('farb_title')}</span>
                 <span className="text-2xl font-black text-white my-1 block">{setupData.suspension.front_arb}</span>
-                <span className="text-[10px] text-gray-400">Soporte en frenada fuerte</span>
+                <span className="text-[10px] text-gray-400">{t('farb_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Barra Estabilizadora Tras. (ARB)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('rarb_title')}</span>
                 <span className="text-2xl font-black text-white my-1 block">{setupData.suspension.rear_arb}</span>
-                <span className="text-[10px] text-gray-400">Tracción mecánica a la salida</span>
+                <span className="text-[10px] text-gray-400">{t('rarb_desc')}</span>
               </div>
               <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">Precarga Diferencial (Preload)</span>
+                <span className="text-[10px] text-gray-400 block uppercase">{t('preload_title')}</span>
                 <span className="text-2xl font-black text-[#FFD700] my-1 block">{setupData.suspension.diff_preload_nm} Nm</span>
-                <span className="text-[10px] text-gray-400">Bloqueo en deceleración</span>
+                <span className="text-[10px] text-gray-400">{t('preload_desc')}</span>
               </div>
             </div>
           )}
@@ -509,7 +511,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           <div className="p-3.5 rounded-xl bg-[#0A0E17] border border-white/5">
             <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#00D2BE]" />
-              Notas del Ingeniero de Pista sobre este Reglaje
+              {t('engineer_notes_title')}
             </h5>
             <ul className="space-y-1.5 text-xs text-gray-300">
               {setupData.notes.map((n, idx) => (

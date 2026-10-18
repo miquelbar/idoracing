@@ -1,6 +1,8 @@
+import React from 'react';
 import { Bot, ChevronRight } from 'lucide-react';
 import type { ComparisonResponse } from '../types/telemetry';
 import { formatLapTime } from '../utils/formatters';
+import { useLanguage } from '../i18n';
 
 interface TelemetryHeaderBarProps {
   comparison: ComparisonResponse;
@@ -33,6 +35,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   onOpenDebrief,
   reportAvailable = false,
 }) => {
+  const { t } = useLanguage();
   const isLMU = gameName.toLowerCase().includes('le mans');
   const isiRacing = gameName.toLowerCase().includes('iracing');
 
@@ -79,7 +82,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         {/* Lap Count Pill */}
         {lapCount !== undefined && lapCount > 0 && (
           <span className="text-gray-400 text-[11px] hidden lg:inline whitespace-nowrap pl-2 border-l border-white/10">
-            {lapCount} vueltas
+            {lapCount} {t('laps_label')}
           </span>
         )}
 
@@ -87,9 +90,9 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         <button
           onClick={onNavigateToSessions}
           className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-gray-300 hover:text-white text-[11px] font-semibold transition cursor-pointer shrink-0 hidden sm:flex items-center gap-1"
-          title="Cambiar circuito o cargar otra sesión"
+          title={t('change_track_hint')}
         >
-          <span>Sesiones</span>
+          <span>{t('sessions_btn')}</span>
           <ChevronRight className="w-3 h-3 opacity-60" />
         </button>
       </div>
@@ -126,7 +129,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                 : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
             }`}
           >
-            GAP {formatDelta(comparison.delta_time_total)}
+            {t('gap')} {formatDelta(comparison.delta_time_total)}
           </span>
         </div>
 
@@ -158,10 +161,10 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         <button
           onClick={onOpenDebrief}
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#00D2BE]/20 hover:bg-[#00D2BE] text-[#00D2BE] hover:text-black border border-[#00D2BE]/40 hover:border-[#00D2BE] text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
-          title="Abrir debrief integral y radio con el ingeniero"
+          title={t('open_debrief_hint')}
         >
           <Bot className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Debrief & Radio</span>
+          <span className="hidden sm:inline">{t('debrief_radio')}</span>
           {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />}
         </button>
       </div>

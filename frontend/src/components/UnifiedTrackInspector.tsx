@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
+import { useLanguage } from '../i18n';
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,6 +31,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   onHoverDistance,
   onAskEngineerAboutCorner,
 }) => {
+  const { t } = useLanguage();
   const corners = comparison.corners || [];
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -246,10 +248,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               ? 'bg-[#00D2BE] text-[#07090E] shadow-[0_0_12px_rgba(0,210,190,0.4)] ring-1 ring-white/20'
               : 'bg-[#0E121B] hover:bg-[#151B27] text-gray-300 hover:text-white border border-white/5'
           }`}
-          title="Ver trazada y mapa completo del circuito"
+          title={t('view_full_circuit')}
         >
           <Map className="w-3.5 h-3.5" />
-          <span>Vista General</span>
+          <span>{t('overview_btn')}</span>
         </button>
 
         <span className="text-gray-600 font-thin">|</span>
@@ -260,7 +262,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             onClick={scrollLeft}
             type="button"
             className="w-5 h-6 rounded bg-black/60 hover:bg-[#B138FE] text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 mr-1"
-            title="Desplazar a la izquierda"
+            title={t('scroll_left_hint')}
           >
             <ChevronLeft className="w-3 h-3" />
           </button>
@@ -304,7 +306,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             onClick={scrollRight}
             type="button"
             className="w-5 h-6 rounded bg-black/60 hover:bg-[#B138FE] text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 ml-1"
-            title="Desplazar a la derecha"
+            title={t('scroll_right_hint')}
           >
             <ChevronRight className="w-3 h-3" />
           </button>
@@ -323,12 +325,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             </span>
             <span className="text-gray-500 shrink-0">•</span>
             <span className="text-gray-300 shrink-0">
-              V. Vértice: <strong className="text-white">{selectedCorner.v_min_comp.toFixed(0)} km/h</strong>{' '}
+              {t('apex_speed')}: <strong className="text-white">{selectedCorner.v_min_comp.toFixed(0)} km/h</strong>{' '}
               <span className="text-gray-500">(Ref: {selectedCorner.v_min_ref.toFixed(0)} km/h)</span>
             </span>
             <span className="text-gray-500 shrink-0">•</span>
             <span className="shrink-0">
-              ΔV min:{' '}
+              {t('delta_v_min')}:{' '}
               <strong className={selectedCorner.delta_v_min >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}>
                 {selectedCorner.delta_v_min > 0 ? '+' : ''}
                 {selectedCorner.delta_v_min.toFixed(1)} km/h
@@ -354,7 +356,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               <button
                 onClick={() => onAskEngineerAboutCorner(selectedCorner)}
                 className="p-1 rounded bg-[#00D2BE]/10 hover:bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30 transition cursor-pointer"
-                title="Consultar al Ingeniero IA sobre esta curva"
+                title={t('consult_engineer_hint')}
               >
                 <Sparkles className="w-3.5 h-3.5" />
               </button>
@@ -365,19 +367,19 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         <div className="px-3 py-1.5 rounded-lg bg-[#090D15] border border-white/5 flex items-center justify-between text-xs font-telemetry shrink-0 select-text">
           <div className="flex items-center gap-2.5">
             <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] tracking-wider uppercase">
-              {comparison.game_name || 'CIRCUITO'}
+              {comparison.game_name || t('circuit_label')}
             </span>
-            <strong className="text-white">{comparison.track_name || 'Circuito'}</strong>
+            <strong className="text-white">{comparison.track_name || t('circuit_label')}</strong>
             <span className="text-gray-500">•</span>
             <span className="text-gray-400">
               {((comparison.distance?.[comparison.distance.length - 1] || 4000) / 1000).toFixed(3)} km
             </span>
             <span className="text-gray-500">•</span>
-            <span className="text-gray-400">{corners.length} curvas identificadas</span>
+            <span className="text-gray-400">{corners.length} {t('corners_identified')}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-gray-400 uppercase">Delta Vuelta:</span>
+            <span className="text-[10px] text-gray-400 uppercase">{t('total_delta')}:</span>
             <span
               className={`font-black font-telemetry px-2 py-0.5 rounded text-xs ${
                 totalGap < 0 ? 'bg-[#00FF7F]/15 text-[#00FF7F]' : 'bg-[#FF1801]/15 text-[#FF7B72]'
@@ -401,29 +403,29 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                 <CornerDownRight
                   className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`}
                 />
-                <span>{isLeft ? 'Viraje Izq' : 'Viraje Der'}</span>
+                <span>{isLeft ? t('turn_left') : t('turn_right')}</span>
               </div>
 
               <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
                 {hasSubviraje ? (
                   <>
                     <AlertTriangle className="w-3 h-3 text-[#FF1801]" />
-                    <span className="text-[#FF7B72] font-bold">Subviraje (+1.8m)</span>
+                    <span className="text-[#FF7B72] font-bold">{t('understeer')}</span>
                   </>
                 ) : isEarlyApex ? (
                   <>
                     <AlertTriangle className="w-3 h-3 text-amber-400" />
-                    <span className="text-amber-300 font-bold">Vértice Anticipado</span>
+                    <span className="text-amber-300 font-bold">{t('early_apex')}</span>
                   </>
                 ) : isOptimal ? (
                   <>
                     <CheckCircle2 className="w-3 h-3 text-[#00FF7F]" />
-                    <span className="text-[#00FF7F] font-bold">Trazada Óptima</span>
+                    <span className="text-[#00FF7F] font-bold">{t('optimal_line')}</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-3 h-3 text-[#00D2BE]" />
-                    <span className="text-[#00D2BE] font-bold">Vértice Neutro</span>
+                    <span className="text-[#00D2BE] font-bold">{t('neutral_apex')}</span>
                   </>
                 )}
               </div>
@@ -434,21 +436,21 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               <div className="flex items-center gap-2 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md">
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
-                  <span className="text-gray-300">Óptima</span>
+                  <span className="text-gray-300">{t('optimal_badge')}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-0.5 bg-[#B138FE]" />
-                  <span className="text-gray-300">Tu Trazada</span>
+                  <span className="text-gray-300">{t('your_line')}</span>
                 </div>
               </div>
 
               <button
                 onClick={() => onSelectCorner(null)}
                 className="flex items-center gap-1 px-2 py-1 rounded bg-[#0E121B]/90 hover:bg-[#1A2234] border border-white/20 hover:border-[#00D2BE]/60 text-[10px] font-telemetry font-bold text-gray-200 hover:text-white transition cursor-pointer shadow-md backdrop-blur-sm"
-                title="Volver a la vista general del circuito"
+                title={t('return_to_circuit')}
               >
                 <Map className="w-3 h-3 text-[#00D2BE]" />
-                <span>Ver Circuito Completo</span>
+                <span>{t('view_full_circuit')}</span>
               </button>
             </div>
 
@@ -544,7 +546,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   fontFamily="monospace"
                   fontWeight="bold"
                 >
-                  Giro
+                  {t('turn_in')}
                 </text>
               </g>
 
@@ -560,7 +562,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   fontFamily="monospace"
                   fontWeight="bold"
                 >
-                  Ápice {selectedCorner.v_min_ref.toFixed(0)} km/h
+                  {t('apex')} {selectedCorner.v_min_ref.toFixed(0)} km/h
                 </text>
               </g>
 
@@ -597,7 +599,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   fontFamily="monospace"
                   fontWeight="bold"
                 >
-                  Salida
+                  {t('exit')}
                 </text>
               </g>
             </svg>
@@ -607,12 +609,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               <button
                 onClick={() => onSelectCorner(null)}
                 className="absolute bottom-2 right-2 z-10 w-28 h-20 bg-[#090D15]/90 hover:bg-[#0E131F] border border-white/15 hover:border-[#00D2BE]/60 rounded-lg p-1.5 cursor-pointer transition shadow-xl group backdrop-blur-md flex flex-col justify-between"
-                title="Clic para volver al Circuito Completo"
+                title={t('return_to_circuit')}
               >
                 <div className="flex items-center justify-between w-full text-[8px] font-telemetry text-gray-400 group-hover:text-[#00D2BE] px-0.5">
-                  <span className="font-bold">CIRCUITO</span>
+                  <span className="font-bold">{t('circuit_label')}</span>
                   <span className="text-[7px] text-[#00D2BE] opacity-0 group-hover:opacity-100 transition-opacity">
-                    VER TODO ↗
+                    {t('view_all')}
                   </span>
                 </div>
                 <div className="w-full h-12 flex items-center justify-center">
@@ -649,17 +651,17 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             <div className="absolute top-2 right-2 z-10 flex items-center gap-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#00FF7F]" />
-                <span className="text-gray-300">+V (Rápido)</span>
+                <span className="text-gray-300">{t('fast')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#FF1801]" />
-                <span className="text-gray-300">-V (Lento)</span>
+                <span className="text-gray-300">{t('slow')}</span>
               </div>
             </div>
 
             {/* Hint Flotante Inferior Izquierda */}
             <div className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/5 text-[9px] font-telemetry text-gray-400">
-              💡 Haz clic en cualquier curva para zoom de trazada y pianos
+              {t('click_hint')}
             </div>
 
             <svg
@@ -721,7 +723,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             </svg>
           </div>
         ) : (
-          <div className="text-gray-500 text-xs font-telemetry">Cargando datos de circuito...</div>
+          <div className="text-gray-500 text-xs font-telemetry">...</div>
         )}
       </div>
 
@@ -733,10 +735,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
                 <Compass className="w-3 h-3 text-[#00D2BE]" />
-                Trazada & Ápice
+                {t('racing_line_apex')}
               </span>
               <span className="text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE] select-text">
-                {selectedCorner.racing_line_eval || 'Óptima'}
+                {selectedCorner.racing_line_eval || t('optimal_badge')}
               </span>
             </div>
             <p className="text-[11px] text-gray-300 leading-snug select-text">
@@ -749,7 +751,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
                 <Sliders className="w-3 h-3 text-amber-400" />
-                Marcha en Vértice
+                {t('gear_at_apex')}
               </span>
               <span
                 className={`text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded select-text ${
@@ -758,13 +760,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     : 'bg-amber-400/15 text-amber-300'
                 }`}
               >
-                {selectedCorner.comp_gear ? `${selectedCorner.comp_gear}ª Marcha` : '3ª Marcha'} •{' '}
-                {selectedCorner.gear_eval || 'Óptima'}
+                {selectedCorner.comp_gear ? `${selectedCorner.comp_gear}${t('gear_nth')}` : `3${t('gear_nth')}`} •{' '}
+                {selectedCorner.gear_eval || t('optimal_badge')}
               </span>
             </div>
             <p className="text-[11px] text-gray-300 leading-snug select-text">
-              {selectedCorner.gear_advice ||
-                `Marcha ${selectedCorner.comp_gear || 3}ª recomendada para entrega óptima de par en salida.`}
+              {selectedCorner.gear_advice || t('gear_advice_default')}
             </p>
           </div>
         </div>
@@ -775,14 +776,14 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
                 <Compass className="w-3 h-3 text-[#00D2BE]" />
-                Balance General de Vuelta
+                {t('overall_balance')}
               </span>
               <span className="text-[10px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE] select-text">
-                {totalGap < 0.2 ? 'Ritmo Competitivo' : 'Mejora Progresiva'}
+                {totalGap < 0.2 ? t('competitive_pace') : t('progressive_improvement')}
               </span>
             </div>
             <p className="text-[11px] text-gray-300 leading-snug select-text">
-              Vuelta trazada con {corners.length} puntos de evaluación. Selecciona cualquier curva en la barra superior o en el mapa para analizar el vértice y los pianos.
+              {t('balance_card_desc')}
             </p>
           </div>
 
@@ -792,7 +793,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1 select-text">
                   <AlertTriangle className="w-3 h-3 text-[#FF1801]" />
-                  Punto Crítico de Mejora
+                  {t('critical_point')}
                 </span>
                 <button
                   onClick={() => onSelectCorner(worstCorner)}
@@ -802,16 +803,16 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                 </button>
               </div>
               <p className="text-[11px] text-gray-300 leading-snug select-text">
-                {worstCorner.name}: mayor pérdida acumulada de la vuelta. Pulsa para inspeccionar la trazada y recomendaciones de pilotaje.
+                {worstCorner.name}: {t('worst_corner_desc')}
               </p>
             </div>
           ) : (
             <div className="p-2.5 rounded-lg bg-[#07090E] border border-white/5 space-y-1 select-text">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider select-text">
-                Telemetría Sincronizada
+                {t('sync_telemetry')}
               </span>
               <p className="text-[11px] text-gray-300 leading-snug select-text">
-                Mueve el cursor sobre la pista o las gráficas para inspeccionar velocidad, delta y pedales en cada metro.
+                {t('sync_telemetry_desc')}
               </p>
             </div>
           )}

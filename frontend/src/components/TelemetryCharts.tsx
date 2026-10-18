@@ -1,6 +1,7 @@
-import { useMemo, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Activity, RotateCcw } from 'lucide-react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
+import { useLanguage } from '../i18n';
 
 interface TelemetryChartsProps {
   comparison: ComparisonResponse;
@@ -17,6 +18,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   selectedCorner,
   onResetZoom,
 }) => {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Filter or slice distance window based on selected corner
@@ -296,7 +298,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             <Activity className="w-4 h-4 text-[#00D2BE]" />
             <h3 className="font-bold text-xs sm:text-sm text-white tracking-wide uppercase font-sans">
-              Telemetría
+              {t('telemetry_header')}
             </h3>
           </div>
 
@@ -311,10 +313,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {hoverData ? (
               <>
                 <span className="text-gray-400">
-                  Dist: <strong className="text-white">{Math.round(hoverData.distance)}m</strong>
+                  {t('dist')}: <strong className="text-white">{Math.round(hoverData.distance)}m</strong>
                 </span>
                 <span>
-                  Vel: <strong className="text-[#00D2BE]">{Math.round(hoverData.refSpeed)}</strong> /{' '}
+                  {t('vel')}: <strong className="text-[#00D2BE]">{Math.round(hoverData.refSpeed)}</strong> /{' '}
                   <strong className="text-[#B138FE]">{Math.round(hoverData.compSpeed)}</strong>{' '}
                   <span className={`text-[10px] font-bold ${hoverData.deltaSpeed >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}`}>
                     ({hoverData.deltaSpeed >= 0 ? '+' : ''}{Math.round(hoverData.deltaSpeed)})
@@ -327,19 +329,19 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   </strong>
                 </span>
                 <span className="hidden sm:inline">
-                  Gas: <strong className="text-[#00FF7F]">{Math.round(hoverData.compThr)}%</strong>
+                  {t('throttle')}: <strong className="text-[#00FF7F]">{Math.round(hoverData.compThr)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
-                  Freno: <strong className="text-[#FF1801]">{Math.round(hoverData.compBrk)}%</strong>
+                  {t('brake')}: <strong className="text-[#FF1801]">{Math.round(hoverData.compBrk)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
-                  G: <strong className="text-white">{hoverData.compGear}</strong>
+                  {t('gear_label')}: <strong className="text-white">{hoverData.compGear}</strong>
                 </span>
               </>
             ) : (
               <span className="text-gray-500 text-[10px] flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
-                Mueve el cursor para inspeccionar valores en punto
+                {t('hover_hint')}
               </span>
             )}
           </div>
@@ -351,10 +353,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <button
               onClick={onResetZoom}
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#18202F] hover:bg-[#222E42] border border-[#2D3A52] text-[10px] text-gray-300 transition cursor-pointer"
-              title="Restablecer zoom a vuelta completa"
+              title={t('reset_lap_title')}
             >
               <RotateCcw className="w-3 h-3 text-[#00D2BE]" />
-              <span>Vuelta</span>
+              <span>{t('reset_lap')}</span>
             </button>
           )}
 
@@ -369,11 +371,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             </div>
             <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FF1801]" />
-              <span className="text-[#FF1801]">Freno</span>
+              <span className="text-[#FF1801]">{t('brake')}</span>
             </div>
             <div className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00FF7F]" />
-              <span className="text-[#00FF7F]">Gas</span>
+              <span className="text-[#00FF7F]">{t('throttle')}</span>
             </div>
           </div>
         </div>
@@ -435,7 +437,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={hSpeed - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
             <text x={padLeft + 8} y={16} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              VELOCIDAD (KM/H)
+              {t('speed_ch')}
             </text>
 
             <path d={speedRefPath} fill="none" stroke="#00D2BE" strokeWidth="2" strokeOpacity="0.85" />
@@ -454,7 +456,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={hDelta - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
 
             <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              TIEMPO DELTA Δt (S)
+              {t('delta_ch')}
             </text>
 
             {/* Delta Area Fill */}
@@ -475,7 +477,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={hPedals - 5} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
 
             <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              PEDALES • TRAIL BRAKING (GAS VERDE / FRENO ROJO)
+              {t('pedals_ch')}
             </text>
 
             {/* Brake translucent fill under comp braking curve */}
@@ -500,7 +502,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={hGear - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
 
             <text x={padLeft + 8} y={14} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              MARCHA (1 - 7)
+              {t('gear_ch')}
             </text>
 
             <path d={gearRefPath} fill="none" stroke="#00D2BE" strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />

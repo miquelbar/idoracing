@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { fetchSettings, saveSettings } from '../services/api';
 import type { SystemStatus } from '../types/telemetry';
+import { useLanguage } from '../i18n';
 
 interface SettingsViewProps {
   status: SystemStatus | null;
@@ -17,6 +18,7 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSaved }) => {
+  const { t } = useLanguage();
   const [provider, setProvider] = useState<'ollama' | 'openai'>('ollama');
   const [ollamaModel, setOllamaModel] = useState('qwen3.8:27b-32k');
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
@@ -75,17 +77,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
       <div>
         <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
           <Cpu className="w-5 h-5 text-[#00D2BE]" />
-          Configuración del Motor de Inteligencia Artificial
+          {t('ai_engine_title')}
         </h3>
         <p className="text-xs text-gray-400">
-          Elige entre inferencia 100% local con Ollama o conexión con APIs compatibles con OpenAI (ChatGPT, OpenRouter, Groq, etc.)
+          {t('ai_engine_subtitle')}
         </p>
       </div>
 
       {savedSuccess && (
         <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700 text-emerald-200 text-xs flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Configuración guardada y activada correctamente.</span>
+          <span>{t('settings_saved_alert')}</span>
         </div>
       )}
 
@@ -105,16 +107,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-sm text-white flex items-center gap-2">
                   <Server className="w-4 h-4 text-[#00D2BE]" />
-                  Ollama (Local / GPU)
+                  {t('ollama_local_title')}
                 </span>
-                {provider === 'ollama' && <span className="text-[10px] text-[#00D2BE] font-bold">ACTIVO</span>}
+                {provider === 'ollama' && <span className="text-[10px] text-[#00D2BE] font-bold">{t('ollama_active_badge')}</span>}
               </div>
               <p className="text-xs text-gray-400">
-                100% privado y sin enviar telemetría a la nube. Ejecuta directamente en tu equipo con CUDA.
+                {t('ollama_desc')}
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-telemetry text-gray-400">
-              Modelo recomendado: <strong className="text-white">qwen3.8:27b-32k</strong>
+              {t('ollama_recommended')}: <strong className="text-white">qwen3.8:27b-32k</strong>
             </div>
           </div>
 
@@ -131,16 +133,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-sm text-white flex items-center gap-2">
                   <Globe className="w-4 h-4 text-[#B138FE]" />
-                  OpenAI / OpenRouter / Groq
+                  {t('openai_compatible_title')}
                 </span>
-                {provider === 'openai' && <span className="text-[10px] text-[#B138FE] font-bold">ACTIVO</span>}
+                {provider === 'openai' && <span className="text-[10px] text-[#B138FE] font-bold">{t('ollama_active_badge')}</span>}
               </div>
               <p className="text-xs text-gray-400">
-                Usa tu propia API Key para hablar con ChatGPT, Claude, DeepSeek o cualquier endpoint compatible.
+                {t('openai_desc')}
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-telemetry text-gray-400">
-              Endpoints compatibles: <strong className="text-white">OpenRouter, OpenAI, vLLM</strong>
+              {t('compatible_endpoints')}: <strong className="text-white">OpenRouter, OpenAI, vLLM</strong>
             </div>
           </div>
         </div>
@@ -149,11 +151,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
         {provider === 'ollama' && (
           <div className="glass-panel rounded-xl p-5 space-y-4">
             <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-              Parámetros de Ollama Local
+              {t('ollama_params_title')}
             </h4>
 
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 block">Modelo Ollama:</label>
+              <label className="text-xs text-gray-400 block">{t('ollama_model_label')}</label>
               {status?.ollama_models && status.ollama_models.length > 0 ? (
                 <select
                   value={ollamaModel}
@@ -178,7 +180,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 block">Dirección Base de Ollama:</label>
+              <label className="text-xs text-gray-400 block">{t('ollama_base_url_label')}</label>
               <input
                 type="text"
                 value={ollamaBaseUrl}
@@ -193,11 +195,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
         {provider === 'openai' && (
           <div className="glass-panel rounded-xl p-5 space-y-4">
             <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-              Parámetros de API OpenAI / OpenRouter
+              {t('openai_params_title')}
             </h4>
 
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 block">API Key:</label>
+              <label className="text-xs text-gray-400 block">{t('api_key_label')}</label>
               <div className="relative">
                 <input
                   type={showKey ? 'text' : 'password'}
@@ -217,7 +219,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 block">Base URL del Endpoint:</label>
+              <label className="text-xs text-gray-400 block">{t('base_url_label')}</label>
               <input
                 type="text"
                 value={openaiBaseUrl}
@@ -228,7 +230,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 block">Nombre del Modelo:</label>
+              <label className="text-xs text-gray-400 block">{t('model_name_label')}</label>
               <input
                 type="text"
                 value={openaiModel}
@@ -246,7 +248,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
           className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          <span>{saving ? 'Guardando...' : 'Guardar Configuración'}</span>
+          <span>{saving ? t('saving_btn') : t('save_config_btn')}</span>
         </button>
       </form>
     </div>

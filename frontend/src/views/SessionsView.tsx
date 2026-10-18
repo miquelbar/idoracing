@@ -17,6 +17,7 @@ import {
 import { uploadTelemetryFile } from '../services/api';
 import type { AutoDiscoverData, ComparisonResponse, SessionSummary } from '../types/telemetry';
 import { detectSimGame, formatDate, formatLapTime } from '../utils/formatters';
+import { useLanguage } from '../i18n';
 
 interface SessionsViewProps {
   sessions: SessionSummary[];
@@ -53,6 +54,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   loading,
   comparison,
 }) => {
+  const { t } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'import'>('sessions');
   const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing'>('all');
   const [uploading, setUploading] = useState(false);
@@ -107,14 +109,14 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 IDORACING <span className="text-[#00D2BE]">ANALYTICS</span>
               </span>
               <span className="text-[10px] text-gray-500 font-telemetry uppercase tracking-widest hidden sm:inline">
-                • Sesiones & Garaje
+                • {t('sessions_view_title')}
               </span>
             </div>
             <h2 className="text-xl font-bold text-white tracking-wide mt-1">
-              Every lap tells a story. Multi-sim telemetry analysis.
+              {t('every_lap_vision')}
             </h2>
             <p className="text-xs text-gray-400 font-telemetry mt-0.5">
-              Optimizado para pilotos de simracing amateur que buscan recortar décimas y entender su técnica sin suscripciones costosas ni complicaciones.
+              {t('amateur_tagline')}
             </p>
           </div>
 
@@ -125,7 +127,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10 transition cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#00D2BE]" />
-              <span>Cargar Demo Valencia</span>
+              <span>{t('load_valencia_demo')}</span>
             </button>
           </div>
         </div>
@@ -142,7 +144,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               }`}
             >
               <Trophy className="w-4 h-4" />
-              <span>Sesiones & Vueltas ({sessions.length})</span>
+              <span>{t('sessions_and_laps')} ({sessions.length})</span>
             </button>
 
             <button
@@ -154,7 +156,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               }`}
             >
               <FolderOpen className="w-4 h-4" />
-              <span>Subir Archivos & Simuladores</span>
+              <span>{t('upload_files_sims')}</span>
             </button>
           </div>
 
@@ -168,7 +170,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                Todos ({sessions.length})
+                {t('all_filter')} ({sessions.length})
               </button>
               <button
                 onClick={() => setFilterGame('acc')}
@@ -223,9 +225,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           </div>
           <button
             onClick={() => setStatusMsg(null)}
-            className="text-xs underline hover:no-underline opacity-80 hover:opacity-100"
+            className="text-xs underline hover:no-underline opacity-80 hover:opacity-100 cursor-pointer"
           >
-            Cerrar
+            {t('close_btn')}
           </button>
         </div>
       )}
@@ -238,10 +240,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider font-telemetry flex items-center gap-2">
                 <Flag className="w-4 h-4 text-[#00D2BE]" />
-                Sesiones Disponibles ({filteredSessions.length})
+                {t('available_sessions')} ({filteredSessions.length})
               </h3>
               <span className="text-[11px] text-gray-500 font-telemetry">
-                Click en "Cargar en Workspace" para cambiar
+                {t('click_to_load_workspace')}
               </span>
             </div>
 
@@ -290,11 +292,11 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         {isActive ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00D2BE]/20 border border-[#00D2BE]/60 text-[#00D2BE] text-[11px] font-bold tracking-wider uppercase font-telemetry animate-pulse">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>ACTIVA EN WORKSPACE</span>
+                            <span>{t('active_in_workspace')}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-[10px] font-medium tracking-wider uppercase font-telemetry">
-                            <span>DISPONIBLE</span>
+                            <span>{t('available_status')}</span>
                           </span>
                         )}
                       </div>
@@ -303,19 +305,19 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     {/* Metrics Row */}
                     <div className="grid grid-cols-3 gap-3 my-3 pt-3 border-t border-white/5 font-telemetry text-xs">
                       <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">Mejor Vuelta</span>
+                        <span className="text-[10px] text-gray-400 block uppercase">{t('best_lap')}</span>
                         <span className="text-white font-bold text-sm">
                           {formatLapTime(sess.best_lap_time)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">Vueltas Totales</span>
+                        <span className="text-[10px] text-gray-400 block uppercase">{t('total_laps')}</span>
                         <span className="text-gray-200 font-bold text-sm">
                           {sess.lap_count}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">Fecha</span>
+                        <span className="text-[10px] text-gray-400 block uppercase">{t('date_col')}</span>
                         <span className="text-gray-300 font-semibold text-xs flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3 text-gray-500" />
                           {formatDate(sess.date)}
@@ -336,7 +338,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
                           >
                             <Zap className="w-3.5 h-3.5" />
-                            <span>Ver Telemetría →</span>
+                            <span>{t('view_telemetry_arrow')}</span>
                           </button>
                         </div>
                       ) : (
@@ -346,7 +348,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                           className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-[#00D2BE] text-white hover:text-black border border-white/10 hover:border-[#00D2BE] text-xs font-bold tracking-wide transition cursor-pointer"
                         >
                           <Zap className="w-3.5 h-3.5 text-[#00D2BE] group-hover:text-black" />
-                          <span>Cargar en Workspace</span>
+                          <span>{t('load_in_workspace')}</span>
                         </button>
                       )}
                     </div>
@@ -356,12 +358,12 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
               {filteredSessions.length === 0 && (
                 <div className="text-center py-12 p-6 rounded-2xl bg-[#0E121B] border border-white/5">
-                  <p className="text-xs text-gray-400 mb-3">No hay sesiones para este filtro.</p>
+                  <p className="text-xs text-gray-400 mb-3">{t('no_sessions_for_filter')}</p>
                   <button
                     onClick={() => setFilterGame('all')}
                     className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-xs font-bold rounded-lg cursor-pointer"
                   >
-                    Mostrar Todas
+                    {t('show_all')}
                   </button>
                 </div>
               )}
@@ -377,13 +379,13 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider font-telemetry block mb-0.5">
-                        CIRCUITO ACTIVO EN EL WORKSPACE
+                        {t('active_track_workspace')}
                       </span>
                       <h3 className="text-lg font-bold text-white font-brand">
                         {comparison?.track_name || activeSessionSummary.track}
                       </h3>
                       <p className="text-xs text-gray-300 font-medium mt-0.5">
-                        Vehículo: <strong className="text-white">{comparison?.car_name || activeSessionSummary.car}</strong>
+                        {t('car_label')}: <strong className="text-white">{comparison?.car_name || activeSessionSummary.car}</strong>
                       </p>
                     </div>
 
@@ -391,7 +393,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       onClick={onGoToTelemetry}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg self-start sm:self-auto"
                     >
-                      <span>Analizar Telemetría</span>
+                      <span>{t('analyze_telemetry')}</span>
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -401,13 +403,13 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-[#00D2BE]" />
                       <span className="text-gray-300">
-                        Vuelta Referencia (P1): <strong>Vuelta {refLapNumber}</strong>
+                        {t('ref_lap_header')}: <strong>{t('lap_word')} {refLapNumber}</strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-[#B138FE]" />
                       <span className="text-gray-300">
-                        Vuelta Comparada (P2): <strong>Vuelta {compLapNumber}</strong>
+                        {t('comp_lap_header')}: <strong>{t('lap_word')} {compLapNumber}</strong>
                       </span>
                     </div>
                   </div>
@@ -417,10 +419,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 <div className="glass-panel rounded-2xl p-5 bg-[#0C101A] border border-white/5">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider font-telemetry">
-                      Vueltas Registradas ({lapsToDisplay.length})
+                      {t('registered_laps')} ({lapsToDisplay.length})
                     </h4>
                     <span className="text-[10px] text-gray-400 font-telemetry">
-                      Selecciona qué vueltas comparar
+                      {t('select_laps_hint')}
                     </span>
                   </div>
 
@@ -476,7 +478,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
                               }`}
                             >
-                              {isRef ? '✓ Ref (P1)' : 'Elegir Ref'}
+                              {isRef ? t('ref_btn_active') : t('ref_btn_choose')}
                             </button>
                             <button
                               onClick={() => onSelectCompLap(lap.lap_number)}
@@ -486,7 +488,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
                               }`}
                             >
-                              {isComp ? '✓ Comp (P2)' : 'Elegir Comp'}
+                              {isComp ? t('comp_btn_active') : t('comp_btn_choose')}
                             </button>
                           </div>
                         </div>
@@ -496,7 +498,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     {lapsToDisplay.length === 0 && (
                       <div className="text-center py-10 px-4 rounded-xl bg-black/30 border border-white/5">
                         <p className="text-xs text-gray-400">
-                          Cargando vueltas de la sesión activa...
+                          {t('loading_active_laps')}
                         </p>
                       </div>
                     )}
@@ -520,10 +522,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand">
-                    Subir Archivo de Telemetría
+                    {t('upload_telemetry_title')}
                   </h4>
                   <p className="text-xs text-gray-400">
-                    Soporta MoTeC (.ld), Le Mans Ultimate (.xml) y formatos tabulares (.csv)
+                    {t('upload_formats_desc')}
                   </p>
                 </div>
               </div>
@@ -538,14 +540,14 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 />
                 <Upload className="w-8 h-8 text-gray-400 group-hover:text-[#00D2BE] mx-auto mb-2 transition" />
                 <p className="text-sm font-bold text-white mb-1">
-                  Arrastra tu archivo aquí o haz clic para seleccionarlo
+                  {t('drag_drop_click')}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Archivos .ld de MoTeC i2 Pro, .xml de resultados de LMU o telemetría .csv
+                  {t('upload_types_note')}
                 </p>
                 {uploading && (
                   <p className="text-xs text-[#00D2BE] font-bold mt-3 animate-pulse">
-                    Procesando e importando telemetría...
+                    {t('processing_telemetry')}
                   </p>
                 )}
               </div>
@@ -560,10 +562,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand">
-                      Detección Automática en tu PC
+                      {t('auto_detect_pc')}
                     </h4>
                     <p className="text-xs text-gray-400">
-                      Escaneo de carpetas Steam / UserData de simuladores
+                      {t('steam_scan_desc')}
                     </p>
                   </div>
                 </div>
@@ -572,7 +574,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   <button
                     onClick={onRefreshAutoData}
                     className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer"
-                    title="Volver a escanear"
+                    title={t('refresh_scanner')}
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
@@ -589,7 +591,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         Le Mans Ultimate
                       </span>
                       <span className="text-[10px] text-gray-400 font-telemetry">
-                        {autoData.lmu_files.length} sesiones encontradas
+                        {autoData.lmu_files.length} {t('sessions_found')}
                       </span>
                     </div>
 
@@ -604,7 +606,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                             onClick={() => onImportLocal(f.path)}
                             className="px-2 py-0.5 rounded bg-[#00D2BE] text-black font-bold text-[10px] hover:bg-[#00E5CF] cursor-pointer"
                           >
-                            Cargar
+                            {t('load_action')}
                           </button>
                         </div>
                       ))}
@@ -618,7 +620,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       Assetto Corsa Competizione
                     </span>
                     <span className="text-gray-400 font-telemetry">
-                      {autoData.acc_found} archivos .ld encontrados
+                      {autoData.acc_found} {t('ld_files_found')}
                     </span>
                   </div>
                 </div>
@@ -630,7 +632,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-[#0C101A] space-y-3">
             <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-[#FFD700]" />
-              ¿Cómo grabar telemetría en tus simuladores para IdoRacing Analytics?
+              {t('how_to_record_title')}
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs text-gray-300">
