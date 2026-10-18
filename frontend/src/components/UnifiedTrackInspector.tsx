@@ -43,10 +43,21 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 }) => {
   const { lang, t } = useLanguage();
   const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
+  const [hoveredCornerNum, setHoveredCornerNum] = useState<number | null>(null);
   const corners = comparison.corners || [];
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pillRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
+
+  const hoveredCorner = useMemo(() => {
+    if (hoveredCornerNum === null) return null;
+    return corners.find((c) => c.corner_number === hoveredCornerNum) || null;
+  }, [hoveredCornerNum, corners]);
+
+  const handleOpenCornerDirectly = (corner: CornerDTO) => {
+    setCornerViewMode('track2d');
+    onSelectCorner(corner);
+  };
 
   // Autoscroll carousel when selectedCorner changes
   useEffect(() => {
@@ -156,6 +167,27 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       };
     });
 
+    // Precompute interactive corner arcs along the track
+    const cornerArcs = corners.map((c) => {
+      const pts = svgPts.filter((p) => {
+        if (c.start_distance <= c.end_distance) {
+          return p.dist >= c.start_distance && p.dist <= c.end_distance;
+        } else {
+          return p.dist >= c.start_distance || p.dist <= c.end_distance;
+        }
+      });
+      let pathD = '';
+      if (pts.length > 0) {
+        pathD =
+          `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)} ` +
+          pts.slice(1).map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      }
+      return {
+        ...c,
+        pathD,
+      };
+    });
+
     // Full continuous outline for mini-map
     let fullOutline = '';
     if (svgPts.length > 0) {
@@ -172,6 +204,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       svgPts,
       segments,
       cornerPoints,
+      cornerArcs,
       fullOutline,
     };
   }, [comparison.track_x, comparison.track_y, comparison.distance, comparison.delta_speed, corners]);
@@ -198,15 +231,35 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     return staticTrack.svgPts[idx] || null;
   }, [hoverDistance, staticTrack, comparison.distance]);
 
-  // Track map scrubber
+  const getSvgCoords = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+    try {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const ctm = svg.getScreenCTM();
+      if (ctm) {
+        const p = pt.matrixTransform(ctm.inverse());
+        return { x: p.x, y: p.y };
+      }
+    } catch {
+      // fallback
+    }
+    const rect = svg.getBoundingClientRect();
+    const scaleX = (staticTrack?.width || 600) / (rect.width || 1);
+    const scaleY = (staticTrack?.height || 260) / (rect.height || 1);
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  // Track map scrubber and corner proximity detection
   const handleTrackMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onHoverDistance || !staticTrack || !svgRef.current) return;
+    if (!staticTrack || !svgRef.current) return;
 
-    const rect = svgRef.current.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * staticTrack.width;
-    const mouseY = ((e.clientY - rect.top) / rect.height) * staticTrack.height;
+    const { x: mouseX, y: mouseY } = getSvgCoords(svgRef.current, e.clientX, e.clientY);
 
-    let minSqDist = 40 * 40;
+    let minSqDist = 45 * 45;
     let nearestDist: number | null = null;
 
     for (let i = 0; i < staticTrack.svgPts.length; i += 3) {
@@ -221,12 +274,82 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     }
 
     if (nearestDist !== null) {
-      onHoverDistance(nearestDist);
+      if (onHoverDistance) onHoverDistance(nearestDist);
+
+      const matched = corners.find((c) => {
+        if (c.start_distance <= c.end_distance) {
+          return nearestDist! >= c.start_distance - 20 && nearestDist! <= c.end_distance + 20;
+        } else {
+          return nearestDist! >= c.start_distance - 20 || nearestDist! <= c.end_distance + 20;
+        }
+      });
+      setHoveredCornerNum(matched ? matched.corner_number : null);
+    } else {
+      setHoveredCornerNum(null);
     }
   };
 
   const handleTrackMouseLeave = () => {
     if (onHoverDistance) onHoverDistance(null);
+    setHoveredCornerNum(null);
+  };
+
+  const handleTrackSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!staticTrack || !svgRef.current) return;
+    const { x: clickX, y: clickY } = getSvgCoords(svgRef.current, e.clientX, e.clientY);
+
+    // 1. Proximity to corner badge
+    let bestCorner: CornerDTO | null = null;
+    let minCornerDist = 36;
+    for (const cp of staticTrack.cornerPoints) {
+      const dx = cp.svgX - clickX;
+      const dy = cp.svgY - clickY;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < minCornerDist) {
+        minCornerDist = d;
+        bestCorner = cp;
+      }
+    }
+
+    // 2. Proximity to track points
+    if (!bestCorner) {
+      let minTrackDist = 45;
+      let closestTrackPt: { dist: number } | null = null;
+      for (const p of staticTrack.svgPts) {
+        const dx = p.x - clickX;
+        const dy = p.y - clickY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < minTrackDist) {
+          minTrackDist = d;
+          closestTrackPt = p;
+        }
+      }
+      if (closestTrackPt) {
+        const matched = corners.find((c) => {
+          if (c.start_distance <= c.end_distance) {
+            return closestTrackPt!.dist >= c.start_distance - 30 && closestTrackPt!.dist <= c.end_distance + 30;
+          } else {
+            return closestTrackPt!.dist >= c.start_distance - 30 || closestTrackPt!.dist <= c.end_distance + 30;
+          }
+        });
+        if (matched) {
+          bestCorner = matched;
+        } else {
+          let minApexDiff = 90;
+          for (const c of corners) {
+            const diff = Math.abs(closestTrackPt.dist - c.apex_distance);
+            if (diff < minApexDiff) {
+              minApexDiff = diff;
+              bestCorner = c;
+            }
+          }
+        }
+      }
+    }
+
+    if (bestCorner) {
+      handleOpenCornerDirectly(bestCorner);
+    }
   };
 
   // Identify corner with worst time loss for overview card
@@ -1181,16 +1304,26 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 
             {/* Hint Flotante Inferior Izquierda */}
             <div className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/5 text-[9px] font-telemetry text-gray-400">
-              {t('click_hint')}
+              {hoveredCorner ? (
+                <span className="text-[#00D2BE] font-bold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+                  T{hoveredCorner.corner_number}: {hoveredCorner.name} • {t('click_to_open_corner')}
+                </span>
+              ) : (
+                t('click_hint')
+              )}
             </div>
 
             <svg
               ref={svgRef}
               viewBox={staticTrack.viewBox}
               preserveAspectRatio="xMidYMid meet"
-              className="w-full h-full select-none cursor-crosshair"
+              className={`w-full h-full select-none ${
+                hoveredCornerNum !== null ? 'cursor-pointer' : 'cursor-crosshair'
+              }`}
               onMouseMove={handleTrackMouseMove}
               onMouseLeave={handleTrackMouseLeave}
+              onClick={handleTrackSvgClick}
             >
               {/* Colored Heatmap Ribbon */}
               {staticTrack.segments.map((seg, i) => (
@@ -1205,25 +1338,86 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                 />
               ))}
 
+              {/* Interactive Corner Track Hit Areas (Wide Ribbons & Hover Glow) */}
+              {staticTrack.cornerArcs.map((c) => {
+                if (!c.pathD) return null;
+                const isHovered = hoveredCornerNum === c.corner_number;
+                return (
+                  <g
+                    key={`corner-arc-${c.corner_number}`}
+                    className="cursor-pointer group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenCornerDirectly(c);
+                    }}
+                    onMouseEnter={() => setHoveredCornerNum(c.corner_number)}
+                    onMouseLeave={() => setHoveredCornerNum(null)}
+                  >
+                    {/* Visual Hover Glow on the Curve */}
+                    {isHovered && (
+                      <path
+                        d={c.pathD}
+                        fill="none"
+                        stroke="#B138FE"
+                        strokeWidth="11"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.55"
+                        className="transition-all duration-150"
+                      />
+                    )}
+                    {/* Invisible Wide Hit Target along entire curve */}
+                    <path
+                      d={c.pathD}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth="28"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </g>
+                );
+              })}
+
               {/* Clickable Corner Badges on Track */}
               {staticTrack.cornerPoints.map((c) => {
                 const lost = c.delta_time > 0.05;
                 const gained = c.delta_time < -0.05;
                 const badgeColor = gained ? '#00FF7F' : lost ? '#FF1801' : '#94A3B8';
+                const isHovered = hoveredCornerNum === c.corner_number;
 
                 return (
                   <g
                     key={`corner-mark-${c.corner_number}`}
                     transform={`translate(${c.svgX}, ${c.svgY})`}
                     className="cursor-pointer group"
-                    onClick={() => onSelectCorner(c)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenCornerDirectly(c);
+                    }}
+                    onMouseEnter={() => setHoveredCornerNum(c.corner_number)}
+                    onMouseLeave={() => setHoveredCornerNum(null)}
                   >
-                    <circle r="7" fill="#090D15" stroke={badgeColor} strokeWidth="1.5" />
+                    {/* Invisible Generous Hit Area (Diameter 44px) */}
+                    <circle r="22" fill="transparent" />
+
+                    {/* Hover Pulse Ring */}
+                    {isHovered && (
+                      <circle r="13" fill="#B138FE" opacity="0.35" className="animate-ping" />
+                    )}
+
+                    <circle
+                      r={isHovered ? 9 : 7}
+                      fill="#090D15"
+                      stroke={isHovered ? '#B138FE' : badgeColor}
+                      strokeWidth={isHovered ? 2.5 : 1.5}
+                      className="transition-all duration-150"
+                    />
                     <text
                       y="3"
                       textAnchor="middle"
                       fill="#FFFFFF"
-                      fontSize="7px"
+                      fontSize={isHovered ? '8px' : '7px'}
                       fontFamily="'JetBrains Mono', monospace"
                       fontWeight="bold"
                     >
