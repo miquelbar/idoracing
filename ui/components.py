@@ -283,3 +283,106 @@ def build_detailed_telemetry_figure(
     fig.update_yaxes(title_text="Marcha", dtick=1, row=4, col=1)
 
     return fig
+
+
+def build_evolution_figure(sessions: List) -> Optional[go.Figure]:
+    """Build line chart tracking driver best lap times and progression over sessions."""
+    valid_sessions = [s for s in sessions if s.best_lap_time > 0]
+    if not valid_sessions:
+        return None
+    # Sort chronologically
+    sorted_sess = sorted(valid_sessions, key=lambda s: s.date)
+    dates = [s.date.strftime("%d/%m %H:%M") for s in sorted_sess]
+    best_laps = [s.best_lap_time for s in sorted_sess]
+    labels = [f"{s.track} ({s.car})<br>Mejor: {format_lap_time(s.best_lap_time)}" for s in sorted_sess]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=dates,
+            y=best_laps,
+            mode="lines+markers",
+            name="Mejor Vuelta",
+            line=dict(color="#00CC96", width=2.5),
+            marker=dict(size=8, color="#00CC96"),
+            text=labels,
+            hovertemplate="<b>%{x}</b><br>%{text}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        title="Evolución de Tiempos por Sesión",
+        xaxis_title="Fecha / Sesión",
+        yaxis_title="Tiempo (segundos)",
+        template="plotly_dark",
+        height=320,
+        margin=dict(l=50, r=30, t=50, b=40),
+    )
+    return fig
+
+
+def build_track_map_figure(aligned_data: Dict[str, np.ndarray], corners: List[CornerAnalysis]) -> go.Figure:
+    """Generate 2D track map with corner annotations and speed delta heatmap."""
+    dist = aligned_data["distance"]
+    ref_sp = aligned_data["ref_speed"]
+    delta_sp = aligned_data["speed_delta"]
+
+    # Calculate track layout from lateral acceleration or steering angle
+    v = np.maximum(ref_sp / 3.6, 2.0)
+    lat_acc = aligned_data.get("ref_lat_accel", np.zeros_like(v)) * 9.81
+
+    ds = np.diff(dist, prepend=dist[0])
+    dt = ds / v
+    yaw_rate = lat_acc / v
+    heading = np.cumsum(yaw_rate * dt)
+
+    dx = v * np.cos(heading) * dt
+    dy = v * np.sin(heading) * dt
+    x = np.cumsum(dx)
+    y = np.cumsum(dy)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=y,
+            mode="lines+markers",
+            name="Trazada",
+            line=dict(color="#444444", width=3),
+            marker=dict(
+                color=delta_sp,
+                colorscale="RdYlGn",
+                size=5,
+                colorbar=dict(title="Δ Vel (km/h)", len=0.8),
+            ),
+            text=[f"Dist: {d:.0f}m<br>V_ref: {sp:.1f} km/h<br>ΔV: {dsp:+.1f} km/h" for d, sp, dsp in zip(dist, ref_sp, delta_sp)],
+            hovertemplate="%{text}<extra></extra>",
+        )
+    )
+
+    for c in corners:
+        mid_d = (c.start_dist + c.end_dist) / 2.0
+        idx = int(np.argmin(np.abs(dist - mid_d)))
+        fig.add_trace(
+            go.Scatter(
+                x=[x[idx]],
+                y=[y[idx]],
+                mode="markers+text",
+                name=f"T{c.corner_number}",
+                marker=dict(size=9, color="#FF8A00"),
+                text=[f"T{c.corner_number}"],
+                textposition="top center",
+                hovertemplate=f"<b>T{c.corner_number} — {c.corner_name}</b><br>Vmin Ref: {c.ref_min_speed} km/h<br>Vmin Comp: {c.comp_min_speed} km/h<br>Δt: {c.time_delta_corner:+.3f}s<extra></extra>",
+                showlegend=False,
+            )
+        )
+
+    fig.update_layout(
+        title="Mapa de Pista 2D — Trazada y Diferencia de Velocidad",
+        template="plotly_dark",
+        height=450,
+        margin=dict(l=30, r=30, t=50, b=30),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, scaleanchor="x", scaleratio=1),
+    )
+    return fig
+

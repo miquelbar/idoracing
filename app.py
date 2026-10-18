@@ -4,6 +4,7 @@ Streamlit Application Entrypoint.
 """
 
 from datetime import datetime
+import glob
 import os
 import tempfile
 import pandas as pd
@@ -19,13 +20,23 @@ from importers.csv_importer import CSVImporter
 from importers.moteclib.importer import MoTeCImporter
 from importers.synthetic import create_synthetic_session
 from storage.database import Storage
-from ui.components import build_detailed_telemetry_figure, format_lap_time
+from ui.components import (
+    build_detailed_telemetry_figure,
+    build_evolution_figure,
+    build_track_map_figure,
+    format_lap_time,
+)
 
 st.set_page_config(
     page_title="ACC Coach",
     page_icon="🏎️",
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+# Known Linux Steam Proton MoTeC telemetry path for ACC
+DEFAULT_ACC_MOTEC_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC"
 )
 
 # Initialize Storage & Session State
@@ -70,7 +81,7 @@ def main():
     if ollama_ok:
         st.sidebar.success(f"🟢 Ollama Conectado\nModelo: {st.session_state['ollama_model']}")
     else:
-        st.sidebar.warning("🟡 Ollama no disponible\n(Usando motor analítico)")
+        st.sidebar.warning("🟡 Ollama no disponible\n(Modo analítico determinista activo)")
 
     # -------------------------------------------------------------
     # PAGE 1: DASHBOARD
@@ -104,6 +115,11 @@ def main():
                     st.success("¡Sesión sintética cargada con éxito! Ya puedes explorar el Comparador y el Entrenador.")
                     st.rerun()
         else:
+            # Progression chart
+            evo_fig = build_evolution_figure(sessions)
+            if evo_fig:
+                st.plotly_chart(evo_fig, use_container_width=True)
+
             st.subheader("Historial Reciente de Sesiones")
 
             col_f1, col_f2 = st.columns(2)
@@ -145,11 +161,31 @@ def main():
     # -------------------------------------------------------------
     elif page == "📥 Importar sesión":
         st.title("📥 Importar Telemetría de Sesión")
-        st.write("Sube los archivos generados por ACC o MoTeC i2 (.ld, .ldx, .csv).")
+        st.write("Sube o escanea archivos generados por ACC o MoTeC i2 (.ld, .ldx, .csv).")
 
-        st.info("💡 En ACC, activa la telemetría en el setup del coche (pestaña Electrónica > Laps of telemetry > 99). "
-                "Los archivos se guardan en tu carpeta de usuario de ACC / MoTeC.")
+        # Proton Auto-Detection Section
+        acc_dir_exists = os.path.exists(DEFAULT_ACC_MOTEC_DIR)
+        with st.expander("🔍 Escaneo automático de Assetto Corsa Competizione (Steam Proton)", expanded=acc_dir_exists):
+            if acc_dir_exists:
+                st.success(f"Carpeta de telemetría de ACC detectada:\n`{DEFAULT_ACC_MOTEC_DIR}`")
+                ld_candidates = glob.glob(os.path.join(DEFAULT_ACC_MOTEC_DIR, "**", "*.ld"), recursive=True)
+                if ld_candidates:
+                    st.write(f"Se encontraron **{len(ld_candidates)}** archivos de telemetría:")
+                    selected_ld = st.selectbox("Selecciona archivo de ACC a importar", ld_candidates)
+                    if st.button("Importar archivo seleccionado desde ACC"):
+                        with st.spinner("Importando archivo de ACC..."):
+                            importer = MoTeCImporter(selected_ld)
+                            parsed = importer.parse()
+                            storage.save_session(parsed)
+                            st.success(f"¡Sesión '{parsed.session_id}' importada exitosamente desde ACC!")
+                else:
+                    st.info("No hay archivos `.ld` en la carpeta de MoTeC de ACC todavía. "
+                            "Recuerda activar la opción en el setup de tu coche: **Electronics > Laps of telemetry > 99**.")
+            else:
+                st.warning("No se detectó la ruta por defecto de Steam Proton para ACC en este equipo.")
 
+        st.divider()
+        st.subheader("Carga manual de archivos")
         uploaded_files = st.file_uploader(
             "Selecciona archivo(s) de telemetría",
             type=["ld", "ldx", "csv"],
@@ -168,9 +204,8 @@ def main():
                     st.error(f"El archivo {f.name} excede el límite máximo permitido de 50 MB.")
                     return
 
-            if st.button("Procesar e Importar"):
+            if st.button("Procesar e Importar Archivos"):
                 with st.spinner("Procesando y validando archivos..."):
-                    # Save to secure temporary directory
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         saved_paths = []
                         for uf in uploaded_files:
@@ -180,7 +215,6 @@ def main():
                                 out.write(uf.getbuffer())
                             saved_paths.append(target_p)
 
-                        # Locate .ld or .csv
                         ld_file = next((p for p in saved_paths if p.lower().endswith(".ld")), None)
                         csv_file = next((p for p in saved_paths if p.lower().endswith(".csv")), None)
 
@@ -273,7 +307,6 @@ def main():
         laps_dict = {f"Vuelta {l.lap_number} ({format_lap_time(l.lap_time)})": l for l in session.laps}
         keys = list(laps_dict.keys())
 
-        # Select laps
         c_lap1, c_lap2 = st.columns(2)
         ref_key = c_lap1.selectbox("Vuelta de Referencia (Base)", keys, index=1 if len(keys) > 1 else 0)
         comp_key = c_lap2.selectbox("Vuelta de Comparación (A Analizar)", keys, index=min(2, len(keys) - 1))
@@ -287,6 +320,7 @@ def main():
 
         with st.spinner("Alineando telemetría por distancia y calculando deltas..."):
             comparison = compare_laps(ref_lap, comp_lap)
+            aligned_data = align_laps_by_distance(ref_lap.telemetry, comp_lap.telemetry)
 
         # Delta Summary KPI
         k1, k2, k3, k4 = st.columns(4)
@@ -298,15 +332,23 @@ def main():
         k3.metric("Sector 2 Δ", f"{s_diffs.get('sector2', 0.0):+.3f} s")
         k4.metric("Sector 3 Δ", f"{s_diffs.get('sector3', 0.0):+.3f} s")
 
-        st.subheader("Gráficas Sincronizadas por Distancia")
-        aligned_data = align_laps_by_distance(ref_lap.telemetry, comp_lap.telemetry)
-        fig = build_detailed_telemetry_figure(
-            aligned_data,
-            ref_lap.lap_number,
-            comp_lap.lap_number,
-            comparison.corners,
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        st.divider()
+
+        # Visual Display: 2D Track Map & Synchronized Telemetry
+        tab_telemetry, tab_map = st.tabs(["📉 Canales de Telemetría Sincronizados", "🗺️ Mapa de Pista 2D"])
+
+        with tab_telemetry:
+            fig = build_detailed_telemetry_figure(
+                aligned_data,
+                ref_lap.lap_number,
+                comp_lap.lap_number,
+                comparison.corners,
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        with tab_map:
+            track_fig = build_track_map_figure(aligned_data, comparison.corners)
+            st.plotly_chart(track_fig, use_container_width=True)
 
         st.subheader("Desglose Técnico por Viraje")
         corner_data = []
@@ -327,7 +369,7 @@ def main():
     # -------------------------------------------------------------
     elif page == "🧠 Entrenador":
         st.title("🧠 Entrenador de Conducción — Asistente de Pista")
-        st.write("Genera recomendaciones técnicas fundamentadas exclusivamente en métricas de telemetría.")
+        st.write("Genera recomendaciones técnicas fundamentadas exclusivamente en métricas calculadas.")
 
         sessions = storage.list_sessions()
         if not sessions:
@@ -400,8 +442,14 @@ def main():
             st.rerun()
 
         st.divider()
-        st.subheader("Almacenamiento Local (SQLite)")
-        st.write(f"**Ruta de la base de datos:** `{storage.db_path}`")
+        st.subheader("Entorno y Almacenamiento Local (SQLite)")
+        st.write(f"- **Ruta de la base de datos:** `{storage.db_path}`")
+        st.write(f"- **Ruta MoTeC de ACC (Steam Proton):** `{DEFAULT_ACC_MOTEC_DIR}`")
+        if os.path.exists(DEFAULT_ACC_MOTEC_DIR):
+            st.success("Carpeta de telemetría de ACC verificada y accesible.")
+        else:
+            st.info("Carpeta de telemetría de ACC no detectada en la ruta predeterminada.")
+
         if st.button("🗑️ Purgar base de datos (Reiniciar datos)"):
             if os.path.exists(storage.db_path):
                 os.remove(storage.db_path)
