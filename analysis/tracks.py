@@ -4,7 +4,9 @@ Provides authentic closed-loop layouts for Circuit Ricardo Tormo (Valencia)
 and universal coordinate projection for multi-simulator tracks.
 """
 
-from typing import Dict, List, Optional, Tuple
+import json
+import os
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 # Authentic 2D Waypoints for Circuit Ricardo Tormo (Valencia, Cheste — 4005m)
@@ -131,6 +133,31 @@ def get_track_corners(track_name: Optional[str] = None, total_distance: float = 
         return VALENCIA_CORNERS
 
 
+def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Load surveyed, verified GPS/Cartesian track coordinates from local circuit dataset.
+    Returns (coordinates_array_Nx2, cumulative_distances_N) or None if not available.
+    """
+    slug = circuit_slug.lower().strip()
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "data", "circuits", f"{slug}.json"),
+        os.path.join(os.path.dirname(__file__), "circuits", f"{slug}.json"),
+        os.path.join("data", "circuits", f"{slug}.json"),
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                coords = np.array(data["coordinates"], dtype=np.float64)
+                dists = np.array(data["distances"], dtype=np.float64)
+                if len(coords) > 10 and len(coords) == len(dists):
+                    return coords, dists
+            except Exception:
+                pass
+    return None
+
+
 def generate_track_coordinates(
     track_name: str,
     distance: np.ndarray,
@@ -139,6 +166,7 @@ def generate_track_coordinates(
     """
     Generate smooth, closed 2D track coordinates (x, y) matching circuit geometry.
     If GPS or coordinate channels exist, uses them; otherwise generates the authentic circuit layout.
+    For Sebring International Raceway, uses verified 836-point aerial-surveyed centerline geometry.
     """
     if telemetry and "x" in telemetry and "y" in telemetry:
         return telemetry["x"].tolist(), telemetry["y"].tolist()
@@ -146,6 +174,25 @@ def generate_track_coordinates(
     t_norm = (track_name or "").lower()
     total_dist = float(distance[-1]) if len(distance) > 0 else 4005.0
 
+    # 1. Verified High-Fidelity Geometry Dataset (Sebring)
+    if "sebring" in t_norm:
+        verified = load_verified_circuit_coordinates("sebring")
+        if verified is not None:
+            coords, dists = verified
+            norm_dists = dists / dists[-1]
+            norm_target = (distance - distance[0]) / max(1.0, distance[-1] - distance[0])
+
+            x_interp = np.interp(norm_target, norm_dists, coords[:, 0])
+            y_interp = np.interp(norm_target, norm_dists, coords[:, 1])
+
+            # Ensure exact closed loop
+            if len(x_interp) > 1:
+                x_interp[-1] = x_interp[0]
+                y_interp[-1] = y_interp[0]
+
+            return x_interp.tolist(), y_interp.tolist()
+
+    # 2. Reference Waypoints Layout (Valencia and Fallback)
     if "sebring" in t_norm:
         raw_waypoints = SEBRING_WAYPOINTS
         base_len = 6019.0
@@ -153,7 +200,6 @@ def generate_track_coordinates(
         raw_waypoints = VALENCIA_WAYPOINTS
         base_len = 4005.0
     else:
-        # Default based on track length
         if total_dist > 5200.0:
             raw_waypoints = SEBRING_WAYPOINTS
             base_len = 6019.0
@@ -184,40 +230,3 @@ def generate_track_coordinates(
         y_smooth[-1] = y_smooth[0]
 
     return x_smooth.tolist(), y_smooth.tolist()
-
-
-    # Universal closed loop projection based on heading integration with periodic closure
-    if telemetry and "ref_speed" in telemetry:
-        v = np.maximum(telemetry["ref_speed"] / 3.6, 2.0)
-        lat_acc = telemetry.get("ref_lat_accel", np.zeros_like(v)) * 9.81
-        ds = np.diff(distance, prepend=distance[0])
-        dt = ds / v
-        yaw_rate = lat_acc / v
-        raw_heading = np.cumsum(yaw_rate * dt)
-        # Periodic drift correction so total rotation is exactly -2pi or +2pi
-        net_rotation = raw_heading[-1] - raw_heading[0]
-        target_rotation = -2.0 * np.pi if net_rotation < 0 else 2.0 * np.pi
-        drift = (net_rotation - target_rotation) / len(distance)
-        corrected_heading = raw_heading - np.arange(len(distance)) * drift
-
-        dx = v * np.cos(corrected_heading) * dt
-        dy = v * np.sin(corrected_heading) * dt
-
-        # Close position loop
-        closure_x = np.sum(dx) / len(distance)
-        closure_y = np.sum(dy) / len(distance)
-        dx -= closure_x
-        dy -= closure_y
-
-        x = np.cumsum(dx)
-        y = np.cumsum(dy)
-        if len(x) > 1:
-            x[-1] = x[0]
-            y[-1] = y[0]
-        return x.tolist(), y.tolist()
-
-    # Fallback oval/stadium
-    t = np.linspace(0, 2 * np.pi, len(distance))
-    x = 400.0 + 350.0 * np.cos(t)
-    y = 300.0 + 200.0 * np.sin(t)
-    return x.tolist(), y.tolist()

@@ -48,12 +48,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     };
   }, [comparison, selectedCorner]);
 
-  // SVG Chart Geometry
+  // SVG Chart Geometry (Compact laptop-first layout)
   const width = 850;
-  const hSpeed = 160;
-  const hDelta = 80;
-  const hPedals = 110;
-  const hGear = 55;
+  const hSpeed = 120;
+  const hDelta = 60;
+  const hPedals = 85;
+  const hGear = 45;
   const padLeft = 45;
   const padRight = 20;
 
@@ -255,9 +255,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   };
 
   return (
-    <div className="glass-panel rounded-xl p-4 flex flex-col h-full relative" ref={containerRef}>
+    <div className="glass-panel rounded-xl p-3 flex flex-col h-full relative overflow-hidden" ref={containerRef}>
       {/* Header Controls */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1.5 shrink-0">
         <div className="flex items-center gap-3">
           <Activity className="w-4 h-4 text-[#00D2BE]" />
           <h3 className="font-bold text-sm text-white tracking-wide uppercase">
@@ -305,7 +305,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       </div>
 
       {/* Synchronized Hover HUD Bar (Fixed height to prevent layout shifts) */}
-      <div className="mb-2 px-3 py-1.5 bg-[#0A0D14]/90 border border-white/10 rounded-lg flex items-center justify-between text-xs font-telemetry shadow-md min-h-[38px]">
+      <div className="mb-1.5 px-3 py-1 bg-[#0A0D14]/90 border border-white/10 rounded-lg flex items-center justify-between text-xs font-telemetry shadow-md min-h-[32px] shrink-0">
         {hoverData ? (
           <>
             <div className="flex items-center gap-4">

@@ -75,10 +75,10 @@ export const CornerInspector: React.FC<CornerInspectorProps> = ({
   const isTimeGained = activeCorner.delta_time < -0.05;
 
   return (
-    <div className="glass-panel rounded-xl p-4 flex flex-col h-full space-y-4">
-      {/* Top: Corner Carousel / Selector Bar */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+    <div className="glass-panel rounded-xl p-3 sm:p-3.5 flex flex-col h-full space-y-2.5 overflow-hidden">
+      {/* Top: Corner Carousel / Selector Bar (Pinned) */}
+      <div className="shrink-0">
+        <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-2">
             <Compass className="w-4 h-4 text-[#00D2BE]" />
             <h3 className="font-bold text-xs text-white uppercase tracking-wider">
@@ -161,13 +161,15 @@ export const CornerInspector: React.FC<CornerInspectorProps> = ({
         </div>
       </div>
 
-      {/* Active Corner Header Info */}
-      <div className="p-3.5 rounded-xl bg-[#090D15] border border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-lg bg-[#B138FE] text-white font-telemetry font-black text-sm flex items-center justify-center shadow-md">
-            T{activeCorner.corner_number}
-          </span>
-          <div>
+      {/* Scrollable Content Body */}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
+        {/* Active Corner Header Info */}
+        <div className="p-2.5 sm:p-3 rounded-xl bg-[#090D15] border border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-lg bg-[#B138FE] text-white font-telemetry font-black text-xs flex items-center justify-center shadow-md">
+              T{activeCorner.corner_number}
+            </span>
+            <div>
             <h4 className="text-sm font-bold text-white tracking-wide">{activeCorner.name}</h4>
             <div className="flex items-center gap-3 text-[11px] font-telemetry text-gray-400 mt-0.5">
               <span>
@@ -305,6 +307,7 @@ export const CornerInspector: React.FC<CornerInspectorProps> = ({
           <span>Preguntar al Ingeniero IA sobre la Curva {activeCorner.corner_number} ({activeCorner.name})</span>
         </button>
       )}
+      </div>
     </div>
   );
 };

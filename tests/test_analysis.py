@@ -114,4 +114,14 @@ def test_sebring_multitrack_corners_and_telemetry():
     assert sebring_corners_analysis[0].corner_number == 1
     assert sebring_corners_analysis[0].racing_line_svg is not None
 
+    # Test verified track coordinates generation
+    from analysis.tracks import generate_track_coordinates
+    tx, ty = generate_track_coordinates("Sebring International Raceway", aligned["distance"])
+    assert len(tx) == len(aligned["distance"])
+    assert len(ty) == len(aligned["distance"])
+    assert abs(tx[0] - tx[-1]) < 1e-4  # Closed loop
+    assert abs(ty[0] - ty[-1]) < 1e-4  # Closed loop
+    assert max(tx) - min(tx) > 500.0   # Real dimensions (span > 500m)
+
+
 

@@ -1,8 +1,11 @@
-import { Gauge } from 'lucide-react';
+import { Bot, Gauge } from 'lucide-react';
 import type { ComparisonResponse } from '../types/telemetry';
 
 interface TimingTowerProps {
   comparison: ComparisonResponse;
+  compact?: boolean;
+  onOpenDebrief?: () => void;
+  reportAvailable?: boolean;
 }
 
 function formatLapTime(seconds: number): string {
@@ -18,7 +21,12 @@ function formatDelta(seconds: number): string {
   return `${sign}${seconds.toFixed(3)}s`;
 }
 
-export const TimingTower: React.FC<TimingTowerProps> = ({ comparison }) => {
+export const TimingTower: React.FC<TimingTowerProps> = ({
+  comparison,
+  compact = false,
+  onOpenDebrief,
+  reportAvailable = false,
+}) => {
   const refS1 = comparison.ref_sectors?.['S1'] ?? 0;
   const refS2 = comparison.ref_sectors?.['S2'] ?? 0;
   const refS3 = comparison.ref_sectors?.['S3'] ?? 0;
@@ -36,6 +44,101 @@ export const TimingTower: React.FC<TimingTowerProps> = ({ comparison }) => {
 
   const minSpeedRef = Math.min(...(comparison.ref_speed || [999]));
   const minSpeedComp = Math.min(...(comparison.comp_speed || [999]));
+
+  // Compact Single-Row Ribbon Mode (Laptop-first, 42-46px)
+  if (compact) {
+    return (
+      <div className="w-full glass-panel rounded-xl px-4 py-2 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm">
+        {/* Laps & Times */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] tracking-wide border border-[#00D2BE]/30">
+              P1 REF
+            </span>
+            <span className="text-white font-bold tracking-tight">
+              {formatLapTime(comparison.ref_lap_time)}
+            </span>
+          </div>
+
+          <span className="text-gray-600">vs</span>
+
+          <div className="flex items-center gap-2">
+            <span className="px-1.5 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] font-bold text-[10px] tracking-wide border border-[#B138FE]/30">
+              P2 COMP
+            </span>
+            <span className="text-white font-bold tracking-tight">
+              {formatLapTime(comparison.comp_lap_time)}
+            </span>
+          </div>
+
+          {/* GAP Pill */}
+          <span
+            className={`px-2.5 py-0.5 rounded font-extrabold text-[11px] shadow-sm ml-1 ${
+              comparison.delta_time_total > 0
+                ? 'bg-[#E10600]/20 text-[#FF453A] border border-[#E10600]/40'
+                : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
+            }`}
+          >
+            GAP {formatDelta(comparison.delta_time_total)}
+          </span>
+        </div>
+
+        {/* Micro-Sectors */}
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] border-l border-r border-white/10 px-3">
+          <span className="text-gray-400">
+            S1:{' '}
+            <strong className={deltaS1 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS1)}
+            </strong>
+          </span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-400">
+            S2:{' '}
+            <strong className={deltaS2 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS2)}
+            </strong>
+          </span>
+          <span className="text-gray-600">•</span>
+          <span className="text-gray-400">
+            S3:{' '}
+            <strong className={deltaS3 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+              {formatDelta(deltaS3)}
+            </strong>
+          </span>
+        </div>
+
+        {/* Speed Stats & AI Button */}
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3 text-[11px] text-gray-400">
+            <span>
+              Vmax: <strong className="text-white">{Math.round(maxSpeedComp)}</strong>{' '}
+              <span className="text-gray-500 text-[10px]">km/h</span>{' '}
+              <span className="text-gray-600">({Math.round(maxSpeedRef)})</span>
+            </span>
+            <span>•</span>
+            <span>
+              Vmin: <strong className="text-white">{Math.round(minSpeedComp)}</strong>{' '}
+              <span className="text-gray-500 text-[10px]">km/h</span>{' '}
+              <span className="text-gray-600">({Math.round(minSpeedRef)})</span>
+            </span>
+          </div>
+
+          {onOpenDebrief && (
+            <button
+              onClick={onOpenDebrief}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-[#00D2BE]/20 to-[#B138FE]/20 hover:from-[#00D2BE]/30 hover:to-[#B138FE]/30 border border-[#00D2BE]/40 hover:border-[#00D2BE] text-white font-sans text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <Bot className="w-3.5 h-3.5 text-[#00D2BE]" />
+              <span>Debrief & Radio IA</span>
+              {reportAvailable && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-3 mb-4">

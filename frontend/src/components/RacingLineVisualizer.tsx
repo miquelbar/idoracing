@@ -23,18 +23,18 @@ export const RacingLineVisualizer: React.FC<RacingLineVisualizerProps> = ({ corn
   const isOptimal = (corner.racing_line_eval || '').includes('Óptima');
 
   return (
-    <div className="bg-[#07090E]/80 rounded-xl p-3.5 border border-white/5 flex flex-col space-y-2.5">
+    <div className="bg-[#07090E]/80 rounded-xl p-2.5 border border-white/5 flex flex-col space-y-1.5 shrink-0">
       {/* Header with Badges */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CornerDownRight className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`} />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white">
             Trazada {isLeft ? 'Viraje a Izquierdas' : 'Viraje a Derechas'}
           </span>
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 text-[10px] font-telemetry">
+        <div className="flex items-center gap-2.5 text-[9px] font-telemetry">
           <div className="flex items-center gap-1">
             <span className="w-2 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
             <span className="text-gray-300">Trazada Óptima</span>
@@ -47,7 +47,7 @@ export const RacingLineVisualizer: React.FC<RacingLineVisualizerProps> = ({ corn
       </div>
 
       {/* SVG Canvas */}
-      <div className="relative w-full h-[180px] bg-[#05070B] rounded-lg border border-white/5 overflow-hidden flex items-center justify-center">
+      <div className="relative w-full h-[125px] sm:h-[135px] bg-[#05070B] rounded-lg border border-white/5 overflow-hidden flex items-center justify-center">
         <svg viewBox="0 0 440 230" className="w-full h-full select-none">
           <defs>
             {/* Kerb Pattern Red/White */}
