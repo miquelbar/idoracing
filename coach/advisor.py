@@ -193,7 +193,7 @@ class CoachAdvisor:
             confidence = "Alta (Ollama LLM + Telemetría)"
         else:
             confidence = "Alta (Motor Analítico Numérico)"
-            raw_report = f"""# Informe Técnico de Conducción — SimCoach
+            raw_report = f"""# Informe Técnico de Conducción — IdoRacing Analytics
 
 **Vehículo:** {car}  
 **Circuito:** {track}  
@@ -220,13 +220,21 @@ class CoachAdvisor:
                     )
 
             raw_report += f"""
-### 3. Hipótesis técnica de conducción
+### 3. Hipótesis técnica & Dinámica del Vehículo ({car})
 {chr(10).join(f"- {hyp}" for hyp in hypotheses)}
+- **Arquitectura y Comportamiento Dinámico:** {"En el Porsche 911 GT3 R (992), el motor posterior (reparto ~38/62) exige prolongar la frenada regresiva (trail braking) manteniendo un 15-20% de pedal hasta el vértice para clavar el tren delantero y eliminar el subviraje de entrada. Soltar el freno de golpe descarga el morro y arruina la inserción." if "911" in car or "Porsche" in car else "El reparto equilibrado de masas permite una frenada muy estable, pero requiere modular con precisión el desvanecimiento del pedal para no bloquear el tren delantero ni sobrecargar el neumático exterior en apoyo."}
+- **Modulación en Vértice:** En curvas lentas y medias, la transición de freno a acelerador debe sincronizarse con el punto de giro máximo; acelerar con dirección cerrada provoca subviraje dinámico por transferencia de masa hacia el eje trasero.
 
-### 4. Ejercicios concretos para la siguiente sesión
+### 4. Ejercicios concretos & Recomendaciones de Setup
+**Ejercicios de conducción recomendados:**
 {chr(10).join(f"{i+1}. {ex}" for i, ex in enumerate(exercises))}
 
-### 5. Indicador numérico de comprobación y confianza
+**Ajustes de Setup de Competición:**
+- **Reparto de Frenada (Brake Bias):** {"54.0% - 55.0% (retrasar 1-2 clics si experimentas subviraje en la fase de entrada con freno; adelantar 0.5% si la trasera se muestra inestable en frenadas en línea recta a alta velocidad)." if "911" in car or "Porsche" in car else "53.5% - 54.5% para optimizar la deceleración longitudinal sin comprometer la rotación inicial."}
+- **Control de Tracción & ABS:** ABS en nivel 2-3 para evitar intrusiones que alarguen la frenada; TC1 en 3-4 para tracción estable sin ahogar la entrega de par en aceleración.
+- **Barras Estabilizadoras (ARB):** Si persiste el subviraje en curva media/rápida, ablandar 1 punto la barra delantera o endurecer 1 punto la trasera para forzar rotación.
+
+### 5. Indicador numérico de comprobación y Confianza
 - **Indicador de validación en telemetría:** {verification_indicator}
 - **Nivel de confianza del análisis:** {confidence}
 """
@@ -241,3 +249,153 @@ class CoachAdvisor:
             raw_report=raw_report,
             created_at=datetime.now(),
         )
+
+
+def generate_race_engineer_response(
+    query: str,
+    car: str = "Porsche 911 GT3 R (992)",
+    track: str = "Ricardo Tormo de Valencia",
+    corner: Optional[Dict[str, Any]] = None,
+    lang: str = "es",
+) -> str:
+    """
+    Synthesizes an authentic, senior racing engineer radio response
+    with specific technical telemetry, vehicle dynamics, and setup advice.
+    """
+    q_lower = query.lower()
+    is_en = lang == "en"
+
+    # 1. Corner context if available
+    c_info = ""
+    if corner:
+        c_num = corner.get("corner_number", "")
+        c_name = corner.get("name", f"Curva {c_num}")
+        d_time = corner.get("delta_time", 0.0)
+        sign = "+" if d_time > 0 else ""
+        vmin_c = corner.get("v_min_comp", 0)
+        vmin_r = corner.get("v_min_ref", 0)
+        gear = corner.get("comp_gear", 3)
+        gear_ev = corner.get("gear_eval", "Óptima")
+        bal = corner.get("balance_eval", "Equilibrio Neutro")
+        trail = corner.get("trail_braking_eval", "Óptimo")
+        r_advice = corner.get("racing_line_advice", "")
+
+        if is_en:
+            c_info = (
+                f"\n\n**Telemetry Focus — T{c_num} ({c_name}):**\n"
+                f"- **Time Delta:** `{sign}{d_time:.3f}s`\n"
+                f"- **Apex Speed:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{corner.get('delta_v_min', 0):+.1f} km/h`)\n"
+                f"- **Gear:** `Gear {gear}` ({gear_ev})\n"
+                f"- **Balance & Trail:** `{bal}` • `{trail}`\n"
+                f"- **Line Advice:** {r_advice}"
+            )
+        else:
+            c_info = (
+                f"\n\n**Datos de Telemetría en T{c_num} ({c_name}):**\n"
+                f"- **Diferencia de tiempo:** `{sign}{d_time:.3f}s`\n"
+                f"- **Velocidad en vértice:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{corner.get('delta_v_min', 0):+.1f} km/h`)\n"
+                f"- **Marcha en vértice:** `{gear}ª Marcha` ({gear_ev})\n"
+                f"- **Balance & Trail Braking:** `{bal}` • `{trail}`\n"
+                f"- **Recomendación de trazada:** {r_advice}"
+            )
+
+    # 2. Topic Detection & Response Formulation
+    is_porsche = "911" in car or "porsche" in car.lower()
+    is_trail = any(k in q_lower for k in ["trail", "freno", "frenar", "frenada", "brake", "braking"])
+    is_gear = any(k in q_lower for k in ["marcha", "gear", "velocidad", "rpm"])
+    is_setup = any(k in q_lower for k in ["setup", "reparto", "bias", "presion", "arb", "suspension", "caida", "camber"])
+    is_balance = any(k in q_lower for k in ["subviraje", "sobreviraje", "understeer", "oversteer", "rotacion", "morro", "zaga"])
+
+    if is_trail:
+        if is_en:
+            return (
+                f"Radio check. Optimizing **Trail Braking** in the **{car}** at **{track}**:\n\n"
+                f"1. **Peak Braking (Straight Line):** Hit 100% initial pressure firmly with the steering centered. "
+                f"In the {car}, ABS handles the threshold, but avoid stomping excessively to keep the platform flat.\n"
+                f"2. **Decompression Phase (The Trail):** As you turn towards the apex, bleed pressure smoothly from 100% down to **15-20%**. "
+                f"Never release the brake abruptly; that unloads the front axle and creates instant entry understeer.\n"
+                f"3. **Rotational Hold (Apex Clipping):** Maintain that **15% residual brake pressure** until you clip the inner kerb. "
+                f"This dynamic pitch keeps the front tyres biting and allows the rear to rotate cleanly.\n"
+                f"4. **Throttle Transition:** Do not overlap throttle while steering with trail brake. Once at the apex, come off the brake completely and feed throttle as you unwind the steering.{c_info}"
+            )
+        else:
+            return (
+                f"Copiado por radio. Para optimizar el **Trail Braking** con el **{car}** en **{track}**:\n\n"
+                f"1. **Fase Inicial (Pico de Frenada):** Aplica el 100% de presión con el coche recto antes de iniciar el viraje. "
+                f"{'El reparto trasero (~38/62) del 992 tolera mucha fuerza inicial, pero clavar de golpe satura los amortiguadores delanteros.' if is_porsche else 'Mantén la plataforma equilibrada antes de iniciar el giro.'}\n"
+                f"2. **Desvanecimiento Progresivo (El Trail):** A medida que metes volante hacia el vértice, reduce la presión suavemente del 100% al **15-20%**. "
+                f"El error más común es soltar a 0% de golpe: al hacerlo, el morro se levanta, las ruedas delanteras pierden agarre y aparece un subviraje irrecuperable.\n"
+                f"3. **Carga en el Morro (Rotación en Ápice):** Mantén ese **15% residual de freno** hasta alcanzar la cuerda del piano interior. "
+                f"Esa presión constante hace pivotar el coche sobre el eje delantero sin desestabilizar la zaga.\n"
+                f"4. **Transición al Acelerador:** Suelta el freno al 0% exactamente en el ápice y empieza a pisar el gas (30-50%) únicamente cuando empieces a desgirar volante.{c_info}"
+            )
+
+    elif is_gear:
+        if is_en:
+            return (
+                f"Copy on gearing. In the **{car}** at **{track}**:\n\n"
+                f"- **Apex Engine Speed:** You want to maintain the engine in the peak torque band (between 6,200 and 8,500 RPM in GT3).\n"
+                f"- **Gear Selection:** Dropping to too low a gear causes severe engine braking instability on corner entry and wheelspin on exit. "
+                f"In medium-speed corners, carrying one gear higher maintains chassis momentum and delivers smoother traction off the kerbs.{c_info}"
+            )
+        else:
+            return (
+                f"Copiado sobre marchas. En el **{car}** compitiendo en **{track}**:\n\n"
+                f"- **Rango Óptimo:** El motor debe mantenerse en la meseta de par máximo (6.500 a 8.500 RPM en GT3).\n"
+                f"- **Selección en Vértice:** Bajar una marcha de más frena bruscamente el eje trasero por retención motor y provoca pérdidas de tracción al abrir gas. "
+                f"En curvas de velocidad media, mantener una marcha más larga estabiliza la plataforma y permite transferir mayor velocidad de paso.{c_info}"
+            )
+
+    elif is_setup:
+        if is_en:
+            return (
+                f"Pit wall setup advice for **{car}** at **{track}**:\n\n"
+                f"- **Brake Bias:** Set to `{54.5 if is_porsche else 54.0}%`. Move 1-2 clicks rearward if experiencing entry push; move 1 click forward if rear snaps under straight-line braking.\n"
+                f"- **Anti-Roll Bars (ARB):** Soften front ARB by 1 click to increase front lateral grip, or stiffen rear ARB to promote rotation.\n"
+                f"- **Tyre Pressures:** Target **26.8 – 27.2 psi hot** across all four tyres after 3 consecutive push laps.\n"
+                f"- **Differential & Electronics:** ABS at setting 2-3, TC1 at 3, TC2 at 2-3 for progressive slip angle.{c_info}"
+            )
+        else:
+            return (
+                f"Recomendaciones de Setup desde el muro para el **{car}** en **{track}**:\n\n"
+                f"- **Reparto de Frenada (Brake Bias):** Ajustar en `{54.5 if is_porsche else 54.0}%`. Si notas que el morro no entra en curvas lentas, retrasa 1-2 clics hacia atrás. Si la zaga baila al frenar a más de 200 km/h, adelanta 0.5%.\n"
+                f"- **Barras Estabilizadoras (ARB):** Si persiste el subviraje en apoyo lateral, ablanda 1 clic la barra delantera o endurece 1 clic la trasera para liberar rotación.\n"
+                f"- **Presiones en Caliente:** Apunta a un rango óptimo de **26.8 a 27.2 psi** en los 4 neumáticos tras 3 vueltas de ritmo constante.\n"
+                f"- **Electrónica:** ABS en nivel 2-3 (máxima mordida sin alargar distancia) y TC1 en nivel 3 para dosificar tracción.{c_info}"
+            )
+
+    elif is_balance:
+        if is_en:
+            return (
+                f"Chassis balance analysis for **{car}** at **{track}**:\n\n"
+                f"- **Entry Understeer:** Caused by releasing the brake too quickly or turning the wheel with excessive initial speed. "
+                f"Keep 15% brake pressure onto the nose until the apex.\n"
+                f"- **Mid-Corner Push:** Do not tighten steering angle if the car is sliding wide; straighten slightly to recover tyre grip and touch the apex kerb.\n"
+                f"- **Exit Snap:** In rear-engine machinery, wait until the front wheels are unwound past 50% before applying full throttle.{c_info}"
+            )
+        else:
+            return (
+                f"Diagnóstico de balance dinámico para el **{car}** en **{track}**:\n\n"
+                f"- **Subviraje en Entrada:** Ocurre casi siempre por soltar el pedal de freno antes de tiempo o por exceso de velocidad inicial. Mantén un 15% de freno residual para clavar el morro.\n"
+                f"- **Falta de Giro en Vértice:** Si el coche se abre hacia el exterior, no fuerces más ángulo de volante: levantar 2-3% de dirección recupera adherencia lateral inmediata.\n"
+                f"- **Sobreviraje en Salida:** Espera a abrir dirección al menos un 50% antes de hundir el acelerador al 100% para no descolocar el eje trasero.{c_info}"
+            )
+
+    # General racing guidance
+    if is_en:
+        return (
+            f"Radio check loud and clear from the engineering stand at **{track}** for the **{car}**.\n\n"
+            f"Looking at your overall telemetry stint:\n"
+            f"- Focus on carrying rolling speed through the mid-corner apex rather than braking excessively deep.\n"
+            f"- Smooth progressive trail braking will yield the highest lap time delta improvement across all sectors.\n"
+            f"- Unwind the steering early to maximize exit speed onto the subsequent straights.{c_info}"
+        )
+    else:
+        return (
+            f"Copiado alto y claro por radio desde el puesto de ingeniería en **{track}** para el **{car}**.\n\n"
+            f"Revisando los datos globales de tu tanda:\n"
+            f"- El mayor margen de mejora está en no sobre-frenar en entrada: retrasa 5-10m la frenada y transfiere velocidad al vértice.\n"
+            f"- Modula la frenada regresiva manteniendo un 15% de presión para rotar el coche hacia el piano interior.\n"
+            f"- Abre dirección con decisión al tocar el vértice para aplicar el acelerador al 100% con el coche recto.{c_info}"
+        )
+

@@ -20,7 +20,7 @@ class LLMClient:
         openai_api_key: Optional[str] = None,
         openai_base_url: Optional[str] = None,
         openai_model: Optional[str] = None,
-        timeout: float = 90.0,
+        timeout: float = 120.0,
         enabled: bool = True,
     ):
         self.provider = (provider or os.environ.get("LLM_PROVIDER", "ollama")).lower()
@@ -67,22 +67,26 @@ class LLMClient:
             return bool(self.openai_api_key.strip())
         return self.ollama.is_available()
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
+    ) -> Optional[str]:
         """Generate a response using the active provider."""
         if not self.enabled:
             return None
 
         if self.provider == "openai":
-            return self._generate_openai(prompt, system_prompt)
-        return self.ollama.generate(prompt, system_prompt)
+            return self._generate_openai(prompt, system_prompt, timeout=timeout)
+        return self.ollama.generate(prompt, system_prompt, timeout=timeout)
 
-    def chat(self, messages: List[Dict[str, str]]) -> Optional[str]:
+    def chat(
+        self, messages: List[Dict[str, str]], timeout: Optional[float] = None
+    ) -> Optional[str]:
         """Multi-turn chat interaction with the race engineer."""
         if not self.enabled:
             return None
 
         if self.provider == "openai":
-            return self._chat_openai(messages)
+            return self._chat_openai(messages, timeout=timeout)
 
         # For Ollama: combine messages into conversation format
         conversation_prompt = ""
@@ -93,9 +97,11 @@ class LLMClient:
         conversation_prompt += "\n[ASSISTANT]:"
 
         system_msg = next((m["content"] for m in messages if m.get("role") == "system"), None)
-        return self.ollama.generate(conversation_prompt, system_prompt=system_msg)
+        return self.ollama.generate(conversation_prompt, system_prompt=system_msg, timeout=timeout)
 
-    def _generate_openai(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def _generate_openai(
+        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
+    ) -> Optional[str]:
         if not self.openai_api_key:
             return None
 
@@ -104,9 +110,11 @@ class LLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        return self._chat_openai(messages)
+        return self._chat_openai(messages, timeout=timeout)
 
-    def _chat_openai(self, messages: List[Dict[str, str]]) -> Optional[str]:
+    def _chat_openai(
+        self, messages: List[Dict[str, str]], timeout: Optional[float] = None
+    ) -> Optional[str]:
         if not self.openai_api_key:
             return None
 
@@ -121,8 +129,9 @@ class LLMClient:
             "temperature": 0.2,
         }
 
+        effective_timeout = timeout if timeout is not None else self.timeout
         try:
-            with httpx.Client(timeout=self.timeout) as client:
+            with httpx.Client(timeout=effective_timeout) as client:
                 res = client.post(url, headers=headers, json=payload)
                 if res.status_code == 200:
                     data = res.json()

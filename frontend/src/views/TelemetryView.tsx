@@ -3,6 +3,7 @@ import { AIDebriefDrawer } from '../components/AIDebriefDrawer';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { UnifiedTrackInspector } from '../components/UnifiedTrackInspector';
 import { fetchCoachReport, sendChatMessage } from '../services/api';
+import { useLanguage } from '../i18n';
 import type {
   ChatMessage,
   CoachReport,
@@ -37,6 +38,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   onOpenDebrief,
   onCloseDebrief,
 }) => {
+  const { lang } = useLanguage();
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
@@ -44,7 +46,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Canal de radio abierto en **${comparison.track_name || 'pista'}**. He procesado la telemetría del **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar tu técnica de frenada, trail braking y trazada, o preguntarme directamente por la radio.`,
+      content:
+        lang === 'en'
+          ? `Radio channel open at **${comparison.track_name || 'track'}** with the **${comparison.car_name || 'car'}**.\n\nYou can select any corner to evaluate braking technique, trail braking and racing line, or talk to me directly over the radio.`
+          : `Canal de radio abierto en **${comparison.track_name || 'pista'}**. He procesado la telemetría del **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar tu técnica de frenada, trail braking y trazada, o preguntarme directamente por la radio.`,
     },
   ]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -60,7 +65,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       );
       onReportGenerated(rep);
     } catch (err: any) {
-      setReportError(err?.message || 'Error al generar el informe con el modelo local');
+      setReportError(err?.message || (lang === 'en' ? 'Error generating technical report' : 'Error al generar el informe'));
     } finally {
       setLoadingReport(false);
     }
@@ -95,7 +100,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
               racing_line_eval: selectedCorner.racing_line_eval,
               racing_line_advice: selectedCorner.racing_line_advice,
             }
-          : undefined
+          : undefined,
+        lang
       );
       setChatMessages((prev) => [...prev, { role: 'assistant', content: res.content }]);
     } catch (err: any) {
@@ -103,7 +109,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         ...prev,
         {
           role: 'assistant',
-          content: 'Error de comunicación en radio. Comprueba que el servidor local esté activo.',
+          content:
+            lang === 'en'
+              ? 'Radio communication error. Please ensure local backend server is operational.'
+              : 'Error de comunicación en radio. Comprueba que el servidor local esté activo.',
         },
       ]);
     } finally {
@@ -112,9 +121,14 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   };
 
   const handleAskAboutCorner = (corner: CornerDTO) => {
-    const question = `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${
-      corner.delta_time > 0 ? '+' : ''
-    }${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
+    const isEn = lang === 'en';
+    const question = isEn
+      ? `How can I optimize Turn ${corner.corner_number} (${corner.name})? I lost ${
+          corner.delta_time > 0 ? '+' : ''
+        }${corner.delta_time.toFixed(3)}s. Telemetry diagnosis: ${corner.balance_eval} and ${corner.gear_eval}.`
+      : `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${
+          corner.delta_time > 0 ? '+' : ''
+        }${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
     onOpenDebrief();
     handleSendChatMessage(question);
   };

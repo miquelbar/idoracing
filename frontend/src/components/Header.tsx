@@ -8,6 +8,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import type { SystemStatus } from '../types/telemetry';
+import { useLanguage } from '../i18n';
 
 export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'settings';
 
@@ -22,16 +23,18 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   status,
 }) => {
+  const { lang, setLanguage, t } = useLanguage();
+
   const tabs = [
-    { id: 'sessions', label: 'Sesiones & Garaje', icon: Layers },
-    { id: 'telemetry', label: 'Telemetría & Trazada', icon: Gauge },
-    { id: 'setup', label: 'Historial & Setup', icon: Wrench },
-    { id: 'engineer', label: 'Ingeniero de Pista (IA)', icon: MessageSquare },
-    { id: 'settings', label: 'Ajustes IA', icon: Settings },
+    { id: 'sessions', label: t('sessions_tab'), icon: Layers },
+    { id: 'telemetry', label: t('telemetry_tab'), icon: Gauge },
+    { id: 'setup', label: t('setup_tab'), icon: Wrench },
+    { id: 'engineer', label: t('engineer_tab'), icon: MessageSquare },
+    { id: 'settings', label: t('settings_tab'), icon: Settings },
   ] as const;
 
   return (
-    <header className="border-b border-[#1E2638] bg-[#0A0C12]/95 backdrop-blur-md sticky top-0 z-40 px-6 py-2.5">
+    <header className="border-b border-[#1E2638] bg-[#0A0C12]/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-2.5">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3">
@@ -48,47 +51,74 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <span className="text-[9px] text-gray-400 font-telemetry -mt-0.5 hidden sm:inline">
-              Every lap tells a story
+              {t('app_slogan')}
             </span>
           </div>
         </div>
 
         {/* Section Navigation Tabs */}
-        <nav className="flex items-center gap-1 bg-[#121622] p-1 rounded-xl border border-white/5">
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            const isActive = currentTab === t.id;
+        <nav className="flex items-center gap-1 bg-[#121622] p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
+          {tabs.map((tItem) => {
+            const Icon = tItem.icon;
+            const isActive = currentTab === tItem.id;
             return (
               <button
-                key={t.id}
-                onClick={() => onSelectTab(t.id)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                key={tItem.id}
+                onClick={() => onSelectTab(tItem.id)}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-[#1E2738] text-white shadow-sm border border-white/10'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#00D2BE]' : 'text-gray-400'}`} />
-                <span>{t.label}</span>
+                <span>{tItem.label}</span>
               </button>
             );
           })}
         </nav>
 
-        {/* Status Pill */}
-        <div className="flex items-center gap-3">
+        {/* Status Pill & Language Selector */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Model Status Badge */}
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#121622] border border-[#232B3E] text-xs">
             <Cpu className="w-3.5 h-3.5 text-[#00D2BE]" />
-            <span className="text-gray-400 text-[11px]">Modelo:</span>
+            <span className="text-gray-400 text-[11px]">{t('model')}:</span>
             {status?.ai_available ? (
               <span className="font-telemetry font-bold text-[#00D2BE] text-xs">
                 {status.active_model}
               </span>
             ) : (
               <span className="font-telemetry text-[#FFD700] text-xs">
-                Reglas Numéricas
+                {t('rules_engine')}
               </span>
             )}
+          </div>
+
+          {/* Language Switcher Selector */}
+          <div className="flex items-center rounded-lg bg-[#121622] border border-[#232B3E] p-0.5 text-xs font-telemetry">
+            <button
+              onClick={() => setLanguage('es')}
+              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] ${
+                lang === 'es'
+                  ? 'bg-[#00D2BE] text-black shadow-sm'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              title="Español"
+            >
+              ES
+            </button>
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] ${
+                lang === 'en'
+                  ? 'bg-[#00D2BE] text-black shadow-sm'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              title="English"
+            >
+              EN
+            </button>
           </div>
         </div>
       </div>

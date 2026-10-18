@@ -36,3 +36,28 @@ def test_api_autodiscover():
     data = res.json()
     assert "acc_path" in data
     assert "lmu_path" in data
+
+
+def test_api_coach_chat_with_fallback(monkeypatch):
+    from api.server import llm_client
+    # Simulate LLM offline or empty response to verify instant deterministic fallback
+    monkeypatch.setattr(llm_client, "chat", lambda messages: None)
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "¿Cómo puedo optimizar la técnica de trail braking con el Porsche 911 GT3 R (992)?",
+            }
+        ],
+        "track_name": "Ricardo Tormo de Valencia",
+        "car_name": "Porsche 911 GT3 R (992)",
+        "lang": "es",
+    }
+    res = client.post("/api/coach/chat", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert "assistant" == data["role"]
+    assert "Trail Braking" in data["content"] or "frenada" in data["content"].lower()
+    # Must NEVER return the old unhelpful error message
+    assert "No se ha recibido respuesta del modelo de IA" not in data["content"]

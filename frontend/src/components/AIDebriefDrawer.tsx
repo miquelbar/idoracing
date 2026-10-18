@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -10,12 +10,15 @@ import {
   MessageSquare,
   RefreshCw,
   Send,
+  Sliders,
   Sparkles,
   Target,
   User,
+  Wrench,
   X,
   Zap,
 } from 'lucide-react';
+import { useLanguage } from '../i18n';
 import type { ChatMessage, CoachReport, CornerDTO } from '../types/telemetry';
 
 interface AIDebriefDrawerProps {
@@ -34,18 +37,19 @@ interface AIDebriefDrawerProps {
   carName?: string;
 }
 
-function formatMetricKey(key: string): string {
-  const map: Record<string, string> = {
-    time_difference: 'Diferencia Total',
-    diferencia_vuelta: 'Diferencia Total',
-    sector_differences: 'Diferencia por Sectores',
-    diferencia_sectores: 'Diferencia por Sectores',
-    corners_evaluated: 'Curvas Evaluadas',
-    curvas_analizadas: 'Curvas Evaluadas',
-    eficiencia_trail_braking: 'Eficiencia Trail Braking',
-    primary_loss_corner: 'Punto Crítico',
+function formatMetricKey(key: string, lang: 'es' | 'en' = 'es'): string {
+  const map: Record<string, { es: string; en: string }> = {
+    time_difference: { es: 'Diferencia Total', en: 'Total Delta' },
+    diferencia_vuelta: { es: 'Diferencia Total', en: 'Total Delta' },
+    sector_differences: { es: 'Diferencia por Sectores', en: 'Sector Deltas' },
+    diferencia_sectores: { es: 'Diferencia por Sectores', en: 'Sector Deltas' },
+    corners_evaluated: { es: 'Curvas Evaluadas', en: 'Corners Evaluated' },
+    curvas_analizadas: { es: 'Curvas Evaluadas', en: 'Corners Evaluated' },
+    eficiencia_trail_braking: { es: 'Eficiencia Trail Braking', en: 'Trail Braking Efficiency' },
+    primary_loss_corner: { es: 'Punto Crítico', en: 'Critical Point' },
   };
-  return map[key] || key.replace(/_/g, ' ').toUpperCase();
+  if (map[key]) return map[key][lang] || map[key].es;
+  return key.replace(/_/g, ' ').toUpperCase();
 }
 
 function formatMetricValue(val: any): string {
@@ -68,12 +72,11 @@ function formatMetricValue(val: any): string {
 }
 
 /**
- * Format markdown text with bolding, lists, code pills, and paragraph breaks
+ * Format markdown text with headers, bolding, lists, code pills, and paragraph breaks
  */
 function renderFormattedMarkdown(text: string): React.ReactNode {
   if (!text) return null;
 
-  // Split into paragraphs by double newlines or single newlines
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: { type: 'ul' | 'ol'; items: React.ReactNode[] } | null = null;
@@ -86,7 +89,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
             {currentList.items.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2">
                 <span className="text-[#00D2BE] font-bold mt-0.5">•</span>
-                <span className="flex-1">{item}</span>
+                <span className="flex-1 leading-relaxed text-xs">{item}</span>
               </li>
             ))}
           </ul>
@@ -97,7 +100,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
             {currentList.items.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2">
                 <span className="text-amber-400 font-bold font-telemetry text-xs mt-0.5">{idx + 1}.</span>
-                <span className="flex-1">{item}</span>
+                <span className="flex-1 leading-relaxed text-xs">{item}</span>
               </li>
             ))}
           </ol>
@@ -108,7 +111,6 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
   };
 
   const formatInline = (str: string): React.ReactNode[] => {
-    // Parse `code`, **bold**, *italic*
     const parts: React.ReactNode[] = [];
     const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
     let lastIdx = 0;
@@ -156,7 +158,41 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
       return;
     }
 
-    // Check for bullet list item: * or -
+    // Markdown Headers
+    if (trimmed.startsWith('### ')) {
+      flushList();
+      elements.push(
+        <h4 key={`h4-${lineIdx}`} className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider mt-3 mb-1 font-telemetry">
+          {formatInline(trimmed.substring(4))}
+        </h4>
+      );
+      return;
+    }
+    if (trimmed.startsWith('## ')) {
+      flushList();
+      elements.push(
+        <h3 key={`h3-${lineIdx}`} className="text-sm font-bold text-white uppercase tracking-wider mt-4 mb-1.5 font-telemetry border-b border-white/10 pb-1">
+          {formatInline(trimmed.substring(3))}
+        </h3>
+      );
+      return;
+    }
+    if (trimmed.startsWith('# ')) {
+      flushList();
+      elements.push(
+        <h2 key={`h2-${lineIdx}`} className="text-base font-bold text-white uppercase tracking-wider mt-4 mb-2 font-telemetry">
+          {formatInline(trimmed.substring(2))}
+        </h2>
+      );
+      return;
+    }
+    if (trimmed === '---' || trimmed === '***') {
+      flushList();
+      elements.push(<hr key={`hr-${lineIdx}`} className="border-white/10 my-2.5" />);
+      return;
+    }
+
+    // Bullet list: * or -
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       if (!currentList || currentList.type !== 'ul') {
         flushList();
@@ -166,7 +202,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
       return;
     }
 
-    // Check for numbered list item: 1. 2. etc
+    // Numbered list: 1. 2.
     const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (numMatch) {
       if (!currentList || currentList.type !== 'ol') {
@@ -177,10 +213,10 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
       return;
     }
 
-    // Regular paragraph line
+    // Regular paragraph
     flushList();
     elements.push(
-      <p key={`p-${lineIdx}`} className="leading-relaxed my-1">
+      <p key={`p-${lineIdx}`} className="leading-relaxed my-1 text-xs text-gray-300">
         {formatInline(trimmed)}
       </p>
     );
@@ -205,11 +241,13 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   trackName = 'Circuito',
   carName = 'GT3',
 }) => {
+  const { lang, t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>('debrief');
+  const [debriefViewMode, setDebriefViewMode] = useState<'structured' | 'full'>('structured');
   const [inputMessage, setInputMessage] = useState('');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
-  const chatBottomRef = React.useRef<HTMLDivElement>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape key
   useEffect(() => {
@@ -251,9 +289,13 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
   const copyFullReport = () => {
     if (!report) return;
+    if (report.raw_report) {
+      copyToClipboard(report.raw_report);
+      return;
+    }
     const text = [
-      `=== DEBRIEF TÉCNICO IDORACING: ${trackName} ===`,
-      `Vehículo: ${carName}`,
+      `=== IDORACING TECHNICAL DEBRIEF: ${trackName} ===`,
+      `Vehicle: ${carName}`,
       '',
       '--- HECHOS OBSERVADOS EN DATOS ---',
       ...(report.facts || []).map((f) => `• ${f}`),
@@ -269,8 +311,25 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
     copyToClipboard(text);
   };
 
+  const isEn = lang === 'en';
+  const isPorsche = carName.toLowerCase().includes('911') || carName.toLowerCase().includes('porsche');
+
   // Dynamic quick prompts oriented to the active circuit and selected corner
-  const quickPrompts = selectedCorner
+  const quickPrompts = isEn
+    ? selectedCorner
+      ? [
+          `How to optimize the racing line in T${selectedCorner.corner_number} (${selectedCorner.name})?`,
+          `Why am I losing ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)}s in T${selectedCorner.corner_number}?`,
+          `Is gear ${selectedCorner.comp_gear || 3} optimal for exit in T${selectedCorner.corner_number}?`,
+          `How to modulate brake pedal and trail braking in T${selectedCorner.corner_number}?`,
+        ]
+      : [
+          `In which sector am I losing the most time at ${trackName}?`,
+          `How can I optimize trail braking technique in the ${carName}?`,
+          'Which corners should I prioritize to gain the most lap time?',
+          'How would you evaluate my braking consistency across this stint?',
+        ]
+    : selectedCorner
     ? [
         `¿Cómo mejorar la trazada en T${selectedCorner.corner_number} (${selectedCorner.name})?`,
         `¿Por qué pierdo ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)}s en T${selectedCorner.corner_number}?`,
@@ -302,7 +361,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 font-telemetry">
-                Ingeniero de Competición & Radio
+                {t('engineer_panel_title')}
               </h2>
               <p className="text-[11px] text-gray-400 font-telemetry">
                 {trackName} • <strong className="text-[#00D2BE]">{activeModel}</strong>
@@ -315,17 +374,17 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               <button
                 onClick={copyFullReport}
                 className="flex items-center gap-1 px-2.5 py-1 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white text-xs font-telemetry transition cursor-pointer"
-                title="Copiar informe completo al portapapeles"
+                title={t('copy')}
               >
                 {reportCopied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-[#00D2BE]" />
-                    <span className="text-[#00D2BE] font-bold">Copiado</span>
+                    <span className="text-[#00D2BE] font-bold">{t('copied')}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copiar</span>
+                    <span>{t('copy')}</span>
                   </>
                 )}
               </button>
@@ -335,17 +394,17 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               onClick={() => onGenerateDebrief(true)}
               disabled={loadingReport}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50 shadow-sm"
-              title="Generar o recalcular análisis integral"
+              title={report ? t('update') : t('analyze')}
             >
               {loadingReport ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Analizando...</span>
+                  <span>{t('analyzing')}</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{report ? 'Actualizar' : 'Analizar'}</span>
+                  <span>{report ? t('update') : t('analyze')}</span>
                 </>
               )}
             </button>
@@ -353,7 +412,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              title="Cerrar panel (Esc)"
+              title={t('close_hint')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -361,30 +420,58 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-white/10 bg-[#07090F] px-4 shrink-0 text-xs font-telemetry font-bold">
-          <button
-            onClick={() => setActiveTab('debrief')}
-            className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
-              activeTab === 'debrief'
-                ? 'border-[#00D2BE] text-[#00D2BE]'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Debrief Técnico</span>
-            {report && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE]" />}
-          </button>
-          <button
-            onClick={() => setActiveTab('radio')}
-            className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
-              activeTab === 'radio'
-                ? 'border-[#B138FE] text-[#D8B4FE]'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Radio de Equipo ({chatMessages.length})</span>
-          </button>
+        <div className="flex items-center justify-between border-b border-white/10 bg-[#07090F] px-4 shrink-0 text-xs font-telemetry font-bold">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('debrief')}
+              className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
+                activeTab === 'debrief'
+                  ? 'border-[#00D2BE] text-[#00D2BE]'
+                  : 'border-transparent text-gray-400 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{t('debrief_tab')}</span>
+              {report && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE]" />}
+            </button>
+            <button
+              onClick={() => setActiveTab('radio')}
+              className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
+                activeTab === 'radio'
+                  ? 'border-[#B138FE] text-[#D8B4FE]'
+                  : 'border-transparent text-gray-400 hover:text-white'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>{t('radio_tab')} ({chatMessages.length})</span>
+            </button>
+          </div>
+
+          {/* View Mode Toggle when in Debrief */}
+          {activeTab === 'debrief' && report && (
+            <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded border border-white/10">
+              <button
+                onClick={() => setDebriefViewMode('structured')}
+                className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold transition cursor-pointer ${
+                  debriefViewMode === 'structured'
+                    ? 'bg-[#00D2BE] text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {t('structured_view')}
+              </button>
+              <button
+                onClick={() => setDebriefViewMode('full')}
+                className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold transition cursor-pointer ${
+                  debriefViewMode === 'full'
+                    ? 'bg-[#00D2BE] text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {t('full_report')}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Content Body */}
@@ -399,112 +486,220 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
           {activeTab === 'debrief' && (
             <>
               {report ? (
-                <div className="space-y-4 font-sans">
-                  {/* Numerical Metrics Overview */}
-                  {report.metrics && Object.keys(report.metrics).length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      {Object.entries(report.metrics).map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="p-2.5 rounded-lg bg-[#0E131E] border border-white/5 font-telemetry"
-                        >
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-0.5">
-                            {formatMetricKey(k)}
-                          </span>
-                          <span className="text-xs font-bold text-white block truncate">
-                            {formatMetricValue(v)}
-                          </span>
+                debriefViewMode === 'full' && report.raw_report ? (
+                  /* Full Markdown Technical Report View */
+                  <div className="p-4 rounded-xl bg-[#0E131E] border border-white/5 font-sans space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+                      <span className="text-[11px] font-bold text-[#00D2BE] uppercase font-telemetry tracking-wider">
+                        {t('full_report')} • {activeModel}
+                      </span>
+                      <button
+                        onClick={copyFullReport}
+                        className="text-[11px] text-gray-400 hover:text-white flex items-center gap-1 font-telemetry cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{t('copy')}</span>
+                      </button>
+                    </div>
+                    {renderFormattedMarkdown(report.raw_report)}
+                  </div>
+                ) : (
+                  /* Structured Executive Cards View */
+                  <div className="space-y-4 font-sans">
+                    {/* Numerical Metrics Overview */}
+                    {report.metrics && Object.keys(report.metrics).length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {Object.entries(report.metrics).map(([k, v]) => (
+                          <div
+                            key={k}
+                            className="p-2.5 rounded-lg bg-[#0E131E] border border-white/5 font-telemetry"
+                          >
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-0.5">
+                              {formatMetricKey(k, lang)}
+                            </span>
+                            <span className="text-xs font-bold text-white block truncate">
+                              {formatMetricValue(v)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 1. Hechos Observados */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                        <CheckCircle className="w-4 h-4 text-[#00D2BE]" />
+                        <span>{t('facts_title')}</span>
+                      </div>
+                      <ul className="space-y-1.5 text-xs text-gray-300">
+                        {report.facts && report.facts.length > 0 ? (
+                          report.facts.map((fact, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
+                              <span className="leading-relaxed">{fact}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-gray-500">Sin hechos críticos registrados.</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* 2. Diagnóstico Técnico */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                        <Lightbulb className="w-4 h-4 text-amber-400" />
+                        <span>{t('diagnosis_title')}</span>
+                      </div>
+                      <ul className="space-y-1.5 text-xs text-gray-300">
+                        {report.hypotheses && report.hypotheses.length > 0 ? (
+                          report.hypotheses.map((hyp, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-amber-400 mt-0.5 font-bold">•</span>
+                              <span className="leading-relaxed">{hyp}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-gray-500">Técnica consistente sin desviaciones mayores.</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* 3. Dinámica del Vehículo & Transferencia de Pesos */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                        <Sliders className="w-4 h-4 text-[#00D2BE]" />
+                        <span>{t('vehicle_dynamics_title')}</span>
+                      </div>
+                      <div className="space-y-2 text-xs text-gray-300">
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
+                          <div>
+                            <strong className="text-white">
+                              {isEn ? 'Architecture & Weight Transfer: ' : 'Arquitectura y Comportamiento Dinámico: '}
+                            </strong>
+                            <span>
+                              {isPorsche
+                                ? isEn
+                                  ? 'In the Porsche 911 GT3 R (992), rear-engine mass distribution (~38/62) requires trailing 15-20% residual brake pressure into the apex to load front tyres and prevent entry push. Releasing brake abruptly immediately unloads the front axle.'
+                                  : 'En el Porsche 911 GT3 R (992), el reparto posterior (~38/62) exige mantener un 15-20% de freno residual hasta el ápice para asentar el morro y eliminar el subviraje de entrada. Soltar el freno bruscamente descarga el tren delantero.'
+                                : isEn
+                                  ? 'Balanced chassis platform provides stable high-speed braking; trail off progressively to maintain optimal lateral grip across the front axle.'
+                                  : 'Plataforma equilibrada con frenada muy estable; requiere modular el soltado regresivo para mantener agarre lateral delantero.'}
+                            </span>
+                          </div>
                         </div>
-                      ))}
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
+                          <div>
+                            <strong className="text-white">
+                              {isEn ? 'Apex Throttle Transition: ' : 'Transición al Acelerador en Ápice: '}
+                            </strong>
+                            <span>
+                              {isEn
+                                ? 'Avoid overlapping throttle while holding steering lock. Unwind the steering wheel at least 40% before stomping full throttle.'
+                                : 'No aceleres con dirección cerrada al máximo. Abre volante al menos un 40% antes de hundir el pedal para no inducir subviraje por transferencia a la zaga.'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  )}
 
-                  {/* 1. Hechos Observados */}
-                  <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                      <CheckCircle className="w-4 h-4 text-[#00D2BE]" />
-                      <span>1. Hechos Observados en Datos</span>
-                    </div>
-                    <ul className="space-y-1.5 text-xs text-gray-300">
-                      {report.facts && report.facts.length > 0 ? (
-                        report.facts.map((fact, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
-                            <span className="leading-relaxed">{fact}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-gray-500">Sin hechos críticos registrados.</li>
-                      )}
-                    </ul>
-                  </div>
+                    {/* 4. Recomendaciones de Setup de Competición */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                        <Wrench className="w-4 h-4 text-emerald-400" />
+                        <span>{t('setup_advice_title')}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-gray-400 uppercase font-telemetry block">
+                            {isEn ? 'Brake Bias' : 'Reparto de Frenada'}
+                          </span>
+                          <span className="text-emerald-300 font-bold font-telemetry block">
+                            {isPorsche ? '54.0% – 55.0%' : '53.5% – 54.5%'}
+                          </span>
+                          <p className="text-[11px] text-gray-400 leading-tight">
+                            {isEn
+                              ? '1 click rearward if experiencing entry push; 0.5% forward if rear is nervous under straight braking.'
+                              : 'Retrasar 1 clic si hay subviraje al entrar frenando; adelantar 0.5% si la trasera se insinúa a alta velocidad.'}
+                          </p>
+                        </div>
 
-                  {/* 2. Diagnóstico Técnico */}
-                  <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                      <Lightbulb className="w-4 h-4 text-amber-400" />
-                      <span>2. Diagnóstico Técnico de Conducción</span>
+                        <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-gray-400 uppercase font-telemetry block">
+                            {isEn ? 'Hot Tyre Pressures' : 'Presiones en Caliente'}
+                          </span>
+                          <span className="text-emerald-300 font-bold font-telemetry block">
+                            26.8 – 27.2 psi
+                          </span>
+                          <p className="text-[11px] text-gray-400 leading-tight">
+                            {isEn
+                              ? 'Target after 3 push laps for optimal contact patch.'
+                              : 'Objetivo tras 3 vueltas lanzadas para máxima superficie de contacto.'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <ul className="space-y-1.5 text-xs text-gray-300">
-                      {report.hypotheses && report.hypotheses.length > 0 ? (
-                        report.hypotheses.map((hyp, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-amber-400 mt-0.5 font-bold">•</span>
-                            <span className="leading-relaxed">{hyp}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-gray-500">Técnica consistente sin desviaciones mayores.</li>
-                      )}
-                    </ul>
-                  </div>
 
-                  {/* 3. Plan de Ejercicios */}
-                  <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                      <Target className="w-4 h-4 text-[#FF1801]" />
-                      <span>3. Plan de Ejercicios para la Siguiente Tanda</span>
+                    {/* 5. Plan de Ejercicios */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                        <Target className="w-4 h-4 text-[#FF1801]" />
+                        <span>{t('exercises_title')}</span>
+                      </div>
+                      <ul className="space-y-1.5 text-xs text-gray-300">
+                        {report.exercises && report.exercises.length > 0 ? (
+                          report.exercises.map((ex, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-[#FF1801] mt-0.5 font-bold">{idx + 1}.</span>
+                              <span className="leading-relaxed">{ex}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-gray-500">Mantener el ritmo actual.</li>
+                        )}
+                      </ul>
                     </div>
-                    <ul className="space-y-1.5 text-xs text-gray-300">
-                      {report.exercises && report.exercises.length > 0 ? (
-                        report.exercises.map((ex, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-[#FF1801] mt-0.5 font-bold">{idx + 1}.</span>
-                            <span className="leading-relaxed">{ex}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-gray-500">Mantener el ritmo actual.</li>
-                      )}
-                    </ul>
-                  </div>
 
-                  {/* 4. Indicador Objetivo */}
-                  <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                      <FileText className="w-4 h-4 text-[#B138FE]" />
-                      <span>4. Indicador Objetivo de Mejora</span>
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 font-telemetry text-xs text-purple-200">
-                      {report.verification_indicator ||
-                        'Comprobar aumento de velocidad mínima en vértice (+5 km/h) sin penalizar tracción.'}
+                    {/* 6. Indicador Objetivo y Confianza */}
+                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
+                          <FileText className="w-4 h-4 text-[#B138FE]" />
+                          <span>{t('kpi_title')}</span>
+                        </div>
+                        {report.confidence && (
+                          <span className="text-[10px] font-telemetry px-2 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30">
+                            {t('confidence_level')}: {report.confidence}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 font-telemetry text-xs text-purple-200">
+                        {report.verification_indicator ||
+                          'Comprobar aumento de velocidad mínima en vértice (+5 km/h) sin penalizar tracción.'}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )
               ) : (
                 !loadingReport && (
                   <div className="p-8 rounded-xl bg-[#0E131E] border border-white/5 text-center space-y-3 my-6">
                     <Sparkles className="w-10 h-10 text-[#00D2BE] mx-auto opacity-80" />
-                    <h3 className="text-sm font-bold text-white">¿Quieres un debrief integral con IA?</h3>
+                    <h3 className="text-sm font-bold text-white">
+                      {isEn ? 'Want a comprehensive AI telemetry debrief?' : '¿Quieres un debrief integral con IA?'}
+                    </h3>
                     <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
-                      Sintetiza pérdidas por sector, modulación de trail braking en todas las curvas y ejercicios concretos para tu próxima tanda.
+                      {isEn
+                        ? 'Synthesizes sector deltas, trail braking modulation, vehicle dynamics, setup recommendations, and actionable exercises.'
+                        : 'Sintetiza pérdidas por sector, modulación de trail braking en todas las curvas, dinámica de pesos y recomendaciones de setup.'}
                     </p>
                     <button
                       onClick={() => onGenerateDebrief(false)}
                       className="px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md inline-flex items-center gap-2"
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      <span>Generar Análisis de Vuelta</span>
+                      <span>{isEn ? 'Generate Lap Analysis' : 'Generar Análisis de Vuelta'}</span>
                     </button>
                   </div>
                 )
@@ -517,7 +712,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               {/* Circuit & Corner Awareness Banner */}
               <div className="px-3 py-1.5 rounded-lg bg-[#0E131E] border border-white/5 flex items-center justify-between text-xs font-telemetry">
                 <div className="flex items-center gap-2 truncate">
-                  <span className="text-gray-400">Pista:</span>
+                  <span className="text-gray-400">{isEn ? 'Track:' : 'Pista:'}</span>
                   <span className="text-white font-bold truncate">{trackName}</span>
                   <span className="text-gray-600">·</span>
                   <span className="text-[#00D2BE] font-semibold truncate">{carName}</span>
@@ -538,7 +733,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               {/* Dynamic Quick Prompts */}
               <div className="space-y-1.5 shrink-0">
                 <span className="text-[10px] text-gray-500 uppercase font-telemetry font-bold">
-                  Consultas Sugeridas {selectedCorner ? `(Curva ${selectedCorner.corner_number})` : ''}
+                  {t('suggested_queries')} {selectedCorner ? `(T${selectedCorner.corner_number})` : ''}
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {quickPrompts.map((q, idx) => (
@@ -584,21 +779,21 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
                         {/* Copy button on message */}
                         <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
-                          <span>{m.role === 'assistant' ? 'Ingeniero de Pista' : 'Tú'}</span>
+                          <span>{m.role === 'assistant' ? (isEn ? 'Race Engineer' : 'Ingeniero de Pista') : (isEn ? 'You' : 'Tú')}</span>
                           <button
                             onClick={() => copyToClipboard(m.content, idx)}
                             className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
-                            title="Copiar mensaje"
+                            title={t('copy')}
                           >
                             {copiedIdx === idx ? (
                               <>
                                 <Check className="w-3 h-3 text-[#00D2BE]" />
-                                <span className="text-[#00D2BE]">Copiado</span>
+                                <span className="text-[#00D2BE]">{t('copied')}</span>
                               </>
                             ) : (
                               <>
                                 <Copy className="w-3 h-3" />
-                                <span>Copiar</span>
+                                <span>{t('copy')}</span>
                               </>
                             )}
                           </button>
@@ -616,7 +811,11 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 {chatLoading && (
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-[#0E131E]/60 border border-white/5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00D2BE]" />
-                    <span>El ingeniero está consultando los canales de telemetría de {trackName}...</span>
+                    <span>
+                      {isEn
+                        ? `The engineer is inspecting telemetry channels for ${trackName}...`
+                        : `El ingeniero está consultando los canales de telemetría de ${trackName}...`}
+                    </span>
                   </div>
                 )}
                 <div ref={chatBottomRef} />
@@ -636,7 +835,11 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={
                   selectedCorner
-                    ? `Pregunta sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}) o setup...`
+                    ? isEn
+                      ? `Ask about Turn ${selectedCorner.corner_number} (${selectedCorner.name}) or setup...`
+                      : `Pregunta sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}) o setup...`
+                    : isEn
+                    ? `Ask about ${trackName}, braking points or technique...`
                     : `Pregunta sobre ${trackName}, puntos de frenada o técnica...`
                 }
                 className="flex-1 bg-[#090D15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE] font-telemetry"
@@ -647,7 +850,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 className="px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Transmitir</span>
+                <span>{t('transmit')}</span>
               </button>
             </div>
           </div>

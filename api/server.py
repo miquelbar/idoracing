@@ -22,7 +22,7 @@ from analysis.corners import extract_corners_analysis
 from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
-from coach.advisor import CoachAdvisor
+from coach.advisor import CoachAdvisor, generate_race_engineer_response
 from coach.llm_client import LLMClient
 from domain.session import CoachReport, Lap, LapComparison, Session
 from importers.csv_importer import CSVImporter
@@ -176,6 +176,7 @@ class ChatRequest(BaseModel):
     track_name: Optional[str] = None
     car_name: Optional[str] = None
     selected_corner: Optional[Dict[str, Any]] = None
+    lang: Optional[str] = "es"
 
 
 class LocalImportRequest(BaseModel):
@@ -645,41 +646,79 @@ def generate_coach_report(req: AIAdviceRequest):
 @app.post("/api/coach/chat")
 def chat_with_engineer(req: ChatRequest):
     """Interactive conversational chat with Race Engineer with full telemetry context."""
+    lang = (req.lang or "es").lower()
+    user_query = req.messages[-1].content if req.messages else ""
+
     # Build telemetry briefing for the LLM
-    context_prefix = (
-        "Eres el ingeniero de pista senior de IdoRacing Analytics. Sé técnico, conciso y directo como por la radio de equipo. "
-        "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, trail braking, marchas y balance basándote en los datos.\n"
-        f"Circuito actual: {req.track_name or 'Circuito activo'}. Vehículo: {req.car_name or 'Coche activo'}.\n"
-    )
-    if req.selected_corner:
-        c = req.selected_corner
-        c_num = c.get("corner_number", "")
-        c_name = c.get("name", f"Curva {c_num}")
-        delta_t = c.get("delta_time", 0.0)
-        delta_sign = "+" if delta_t > 0 else ""
-        context_prefix += (
-            f"Curva seleccionada en telemetría: T{c_num} ({c_name}). "
-            f"Diferencia de tiempo: {delta_sign}{delta_t:.3f}s. "
-            f"Velocidad mínima comp: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
-            f"Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}). "
-            f"Balance: {c.get('balance_eval', 'Neutro')}. "
-            f"Trail braking: {c.get('trail_braking_eval', 'Óptimo')}. "
-            f"Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
+    if lang == "en":
+        context_prefix = (
+            "You are the senior Race Engineer at IdoRacing Analytics. Be technical, concise, and direct like over the team radio. "
+            "Help the driver by answering their technical questions regarding racing line, braking, trail braking, gearing, and chassis balance based on telemetry.\n"
+            f"Current track: {req.track_name or 'Active Track'}. Vehicle: {req.car_name or 'Active Car'}.\n"
         )
-    context_prefix += (
-        "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, "
-        "listas cortas con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato.\n"
-    )
+        if req.selected_corner:
+            c = req.selected_corner
+            c_num = c.get("corner_number", "")
+            c_name = c.get("name", f"Turn {c_num}")
+            delta_t = c.get("delta_time", 0.0)
+            delta_sign = "+" if delta_t > 0 else ""
+            context_prefix += (
+                f"Selected corner in telemetry: T{c_num} ({c_name}). "
+                f"Time delta: {delta_sign}{delta_t:.3f}s. "
+                f"Comp minimum speed: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
+                f"Comp gear: {c.get('comp_gear', 3)} ({c.get('gear_eval', '')}). "
+                f"Balance: {c.get('balance_eval', 'Neutral')}. "
+                f"Trail braking: {c.get('trail_braking_eval', 'Optimal')}. "
+                f"Racing line: {c.get('racing_line_eval', 'Optimal')} — {c.get('racing_line_advice', '')}.\n"
+            )
+        context_prefix += (
+            "Format your answers with structured Markdown: use bold for key terms, "
+            "short bulleted lists for actionable driving points, and clear line breaks. Do not write unformatted dense blocks.\n"
+        )
+    else:
+        context_prefix = (
+            "Eres el ingeniero de pista senior de IdoRacing Analytics. Sé técnico, conciso y directo como por la radio de equipo. "
+            "Ayuda al piloto respondiendo sus preguntas técnicas de trazada, frenada, trail braking, marchas y balance basándote en los datos.\n"
+            f"Circuito actual: {req.track_name or 'Circuito activo'}. Vehículo: {req.car_name or 'Coche activo'}.\n"
+        )
+        if req.selected_corner:
+            c = req.selected_corner
+            c_num = c.get("corner_number", "")
+            c_name = c.get("name", f"Curva {c_num}")
+            delta_t = c.get("delta_time", 0.0)
+            delta_sign = "+" if delta_t > 0 else ""
+            context_prefix += (
+                f"Curva seleccionada en telemetría: T{c_num} ({c_name}). "
+                f"Diferencia de tiempo: {delta_sign}{delta_t:.3f}s. "
+                f"Velocidad mínima comp: {c.get('v_min_comp', 0)} km/h vs ref: {c.get('v_min_ref', 0)} km/h. "
+                f"Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}). "
+                f"Balance: {c.get('balance_eval', 'Neutro')}. "
+                f"Trail braking: {c.get('trail_braking_eval', 'Óptimo')}. "
+                f"Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
+            )
+        context_prefix += (
+            "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, "
+            "listas cortas con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato.\n"
+        )
 
     messages = [{"role": "system", "content": context_prefix}]
     for m in req.messages:
         messages.append({"role": m.role, "content": m.content})
 
-    reply = llm_client.chat(messages)
-    if not reply:
-        reply = (
-            "No se ha recibido respuesta del modelo de IA. Verifica que Ollama esté ejecutándose con el modelo "
-            f"'{llm_client.active_model}' o configura una clave compatible con OpenAI en Ajustes."
+    reply = None
+    chat_timeout = float(os.environ.get("RADIO_CHAT_TIMEOUT", "12.0"))
+    try:
+        reply = llm_client.chat(messages, timeout=chat_timeout)
+    except Exception:
+        reply = None
+
+    if not reply or not reply.strip():
+        reply = generate_race_engineer_response(
+            query=user_query,
+            car=req.car_name or "Porsche 911 GT3 R (992)",
+            track=req.track_name or "Ricardo Tormo de Valencia",
+            corner=req.selected_corner,
+            lang=lang,
         )
 
     return {"role": "assistant", "content": reply, "model": llm_client.active_model}

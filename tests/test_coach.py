@@ -55,3 +55,27 @@ def test_ollama_client_timeout_or_error_handling():
     assert client.is_available() is False
     assert client.list_models() == []
     assert client.generate("test prompt") is None
+
+
+def test_race_engineer_response_trail_braking_and_porsche():
+    from coach.advisor import generate_race_engineer_response
+
+    resp_es = generate_race_engineer_response(
+        query="¿Cómo puedo optimizar la técnica de trail braking con el Porsche 911 GT3 R (992)?",
+        car="Porsche 911 GT3 R (992)",
+        track="Ricardo Tormo de Valencia",
+        lang="es",
+    )
+    assert "Trail Braking" in resp_es
+    assert "15-20%" in resp_es
+    assert "Porsche 911 GT3 R" in resp_es
+
+    resp_en = generate_race_engineer_response(
+        query="How can I optimize trail braking technique in the Porsche 911 GT3 R (992)?",
+        car="Porsche 911 GT3 R (992)",
+        track="Ricardo Tormo de Valencia",
+        lang="en",
+    )
+    assert "Trail Braking" in resp_en
+    assert "Apex" in resp_en or "apex" in resp_en
+    assert "15-20%" in resp_en

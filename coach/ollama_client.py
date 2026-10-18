@@ -10,7 +10,7 @@ import httpx
 
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
-DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "60.0"))
+DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120.0"))
 DEFAULT_AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
@@ -54,7 +54,9 @@ class OllamaClient:
             pass
         return []
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> Optional[str]:
+    def generate(
+        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
+    ) -> Optional[str]:
         """
         Send generation request to Ollama. Returns response text or None if failed/disabled.
         """
@@ -67,13 +69,16 @@ class OllamaClient:
             "stream": False,
             "options": {
                 "temperature": 0.2,  # Low temperature for analytical consistency
+                "num_ctx": 4096,     # Fast GPU KV cache fitting, avoids 262k memory swap
+                "num_predict": 1024, # Concise racing engineer answers
             },
         }
         if system_prompt:
             payload["system"] = system_prompt
 
+        effective_timeout = timeout if timeout is not None else self.timeout
         try:
-            with httpx.Client(timeout=self.timeout) as client:
+            with httpx.Client(timeout=effective_timeout) as client:
                 res = client.post(f"{self.base_url}/api/generate", json=payload)
                 if res.status_code == 200:
                     data = res.json()

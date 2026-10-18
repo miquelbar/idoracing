@@ -13,6 +13,7 @@ import {
   User,
 } from 'lucide-react';
 import { fetchCoachReport, sendChatMessage } from '../services/api';
+import { useLanguage } from '../i18n';
 import type { ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
 
 interface EngineerViewProps {
@@ -61,6 +62,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   onReportGenerated,
   activeModel,
 }) => {
+  const { lang } = useLanguage();
   const [loadingReport, setLoadingReport] = useState(false);
   const [errorReport, setErrorReport] = useState<string | null>(null);
 
@@ -69,7 +71,9 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     {
       role: 'assistant',
       content:
-        'Hola. He revisado la telemetría de tus vueltas. ¿Sobre qué curva o aspecto de tu conducción quieres que profundicemos?',
+        lang === 'en'
+          ? 'Radio channel open. Telemetry processed. Which corner, trail braking phase, or setup parameter would you like to analyze?'
+          : 'Canal de radio abierto. He revisado la telemetría de tus vueltas. ¿Sobre qué curva o aspecto de tu conducción quieres que profundicemos?',
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
@@ -83,7 +87,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
       const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh);
       onReportGenerated(rep);
     } catch (err: any) {
-      setErrorReport(err?.message || 'Error generando debrief técnico');
+      setErrorReport(err?.message || (lang === 'en' ? 'Error generating debrief' : 'Error generando debrief técnico'));
     } finally {
       setLoadingReport(false);
     }
@@ -103,7 +107,11 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
       const res = await sendChatMessage(
         newMessages,
         comparison?.ref_lap_id,
-        comparison?.comp_lap_id
+        comparison?.comp_lap_id,
+        comparison?.track_name,
+        comparison?.car_name,
+        undefined,
+        lang
       );
       setChatMessages([...newMessages, { role: 'assistant', content: res.content }]);
     } catch (err: any) {
@@ -111,7 +119,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         ...newMessages,
         {
           role: 'assistant',
-          content: `Error al contactar con el modelo: ${err?.message || 'Sin conexión'}`,
+          content: lang === 'en' ? 'Radio communication error with Race Engineer.' : 'Error de comunicación en radio con el ingeniero de pista.',
         },
       ]);
     } finally {
