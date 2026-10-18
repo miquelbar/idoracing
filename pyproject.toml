@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "acc-coach"
-version = "0.1.0"
-description = "Local telemetry and AI driving coach for Assetto Corsa Competizione (ACC)"
+name = "simcoach"
+version = "0.2.0"
+description = "Universal local telemetry analysis and AI driving coach for SimRacing (ACC, Le Mans Ultimate, iRacing)"
 authors = [
     { name = "miquelbar" }
 ]

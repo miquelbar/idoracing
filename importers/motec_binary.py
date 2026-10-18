@@ -313,7 +313,7 @@ def create_synthetic_ld_bytes(
         vehicle.encode("ascii")[:64],
         venue.encode("ascii")[:64],
         0xc81a4,
-        b"ACC Coach Synthetic Session"[:64],
+        b"SimCoach Synthetic Session"[:64],
     )
 
     # Build Channel headers

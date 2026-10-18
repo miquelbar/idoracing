@@ -1,5 +1,5 @@
 """
-CSV Telemetry Importer for ACC Coach.
+CSV Telemetry Importer for SimCoach.
 Allows importing telemetry data exported from MoTeC i2, third-party apps, or synthetic logs.
 """
 

@@ -1,5 +1,5 @@
 """
-Ollama HTTP API client for ACC Coach.
+Ollama HTTP API client for SimCoach.
 Provides robust local communication with Ollama, model listing, health checks,
 and timeout handling.
 """

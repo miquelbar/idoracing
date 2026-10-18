@@ -17,6 +17,7 @@ from coach.advisor import CoachAdvisor
 from coach.ollama_client import OllamaClient
 from domain.session import Session
 from importers.csv_importer import CSVImporter
+from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
 from importers.synthetic import create_synthetic_session
 from storage.database import Storage
@@ -29,7 +30,7 @@ from ui.components import (
 )
 
 st.set_page_config(
-    page_title="ACC Coach — F1 Telemetry Suite",
+    page_title="SimCoach — F1 Telemetry Suite",
     page_icon="🏎️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -97,9 +98,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Known Linux Steam Proton MoTeC telemetry path for ACC
+# Detected Linux Steam telemetry paths for ACC and Le Mans Ultimate (LMU)
 DEFAULT_ACC_MOTEC_DIR = os.path.expanduser(
     "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC"
+)
+DEFAULT_LMU_RESULTS_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results"
+)
+DEFAULT_LMU_TELEMETRY_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Telemetry"
 )
 
 # Initialize Storage & Session State
@@ -124,8 +131,8 @@ advisor = CoachAdvisor(ollama_client)
 
 
 def main():
-    st.sidebar.markdown("## 🏎️ ACC COACH")
-    st.sidebar.caption("Assetto Corsa Competizione — F1 Telemetry Suite")
+    st.sidebar.markdown("## 🏎️ SIMCOACH")
+    st.sidebar.caption("Universal SimRacing Telemetry & F1 Suite  \n*(ACC • Le Mans Ultimate • iRacing)*")
 
     page = st.sidebar.radio(
         "Navegación",
@@ -482,18 +489,25 @@ def main():
     # PAGE 4: IMPORTAR TELEMETRÍA
     # -------------------------------------------------------------
     elif page == "📥 Importar Telemetría":
-        st.title("📥 Importar Telemetría")
-        st.write("Sube o escanea archivos generados por ACC o MoTeC i2 (.ld, .ldx, .csv).")
+        st.title("📥 Importar Telemetría Multisimulador")
+        st.write("Importa sesiones y telemetría de **Assetto Corsa Competizione**, **Le Mans Ultimate**, **iRacing** u otros simuladores.")
 
-        acc_dir_exists = os.path.exists(DEFAULT_ACC_MOTEC_DIR)
-        with st.expander("🔍 Escaneo automático de Assetto Corsa Competizione (Steam Proton)", expanded=acc_dir_exists):
+        tab_acc, tab_lmu, tab_manual = st.tabs([
+            "🏎️ Assetto Corsa Competizione (ACC)",
+            "🏁 Le Mans Ultimate (LMU)",
+            "📁 Carga Manual (MoTeC / CSV / iRacing)",
+        ])
+
+        with tab_acc:
+            st.markdown("##### Detección de Telemetría MoTeC de ACC")
+            acc_dir_exists = os.path.exists(DEFAULT_ACC_MOTEC_DIR)
             if acc_dir_exists:
                 st.success(f"Carpeta de telemetría de ACC detectada:\n`{DEFAULT_ACC_MOTEC_DIR}`")
                 ld_candidates = glob.glob(os.path.join(DEFAULT_ACC_MOTEC_DIR, "**", "*.ld"), recursive=True)
                 if ld_candidates:
                     st.write(f"Se encontraron **{len(ld_candidates)}** archivos de telemetría:")
-                    selected_ld = st.selectbox("Selecciona archivo de ACC a importar", ld_candidates)
-                    if st.button("Importar archivo seleccionado desde ACC"):
+                    selected_ld = st.selectbox("Selecciona archivo de ACC a importar", ld_candidates, key="acc_ld_sel")
+                    if st.button("Importar Telemetría Seleccionada de ACC", key="btn_acc_import"):
                         with st.spinner("Importando archivo de ACC..."):
                             importer = MoTeCImporter(selected_ld)
                             parsed = importer.parse()
@@ -505,59 +519,86 @@ def main():
             else:
                 st.warning("No se detectó la ruta por defecto de Steam Proton para ACC en este equipo.")
 
-        st.divider()
-        st.subheader("Carga manual de archivos (.ld, .ldx, .csv)")
-        uploaded_files = st.file_uploader(
-            "Selecciona archivo(s) de telemetría",
-            type=["ld", "ldx", "csv"],
-            accept_multiple_files=True,
-        )
+        with tab_lmu:
+            st.markdown("##### Detección de Sesiones de Le Mans Ultimate")
+            lmu_dir_exists = os.path.exists(DEFAULT_LMU_RESULTS_DIR)
+            if lmu_dir_exists:
+                st.success(f"Carpeta de resultados de LMU detectada:\n`{DEFAULT_LMU_RESULTS_DIR}`")
+                lmu_xml_files = sorted(glob.glob(os.path.join(DEFAULT_LMU_RESULTS_DIR, "*.xml")), reverse=True)
+                if lmu_xml_files:
+                    st.write(f"Se encontraron **{len(lmu_xml_files)}** sesiones de Le Mans Ultimate:")
+                    selected_lmu = st.selectbox("Selecciona sesión de LMU a importar", lmu_xml_files, key="lmu_sel")
+                    if st.button("Importar Sesión de LMU", key="btn_lmu_import"):
+                        with st.spinner("Importando sesión de Le Mans Ultimate..."):
+                            importer = LMUImporter(selected_lmu)
+                            parsed = importer.parse()
+                            storage.save_session(parsed)
+                            st.success(f"¡Sesión '{parsed.session_id}' de LMU importada con {len(parsed.laps)} vueltas!")
+                else:
+                    st.info("No hay archivos de resultados XML en la carpeta de LMU.")
+            else:
+                st.info("Ruta de Le Mans Ultimate no encontrada automáticamente.")
 
-        car_input = st.text_input("Coche", value="Porsche 911 GT3 R (992)")
-        track_input = st.text_input("Circuito", value="Ricardo Tormo de Valencia")
+        with tab_manual:
+            st.markdown("##### Subida de Archivos (.ld, .ldx, .csv)")
+            uploaded_files = st.file_uploader(
+                "Selecciona archivo(s) de telemetría",
+                type=["ld", "ldx", "csv", "xml"],
+                accept_multiple_files=True,
+                key="manual_files",
+            )
 
-        if uploaded_files:
-            max_size_bytes = 50 * 1024 * 1024
-            for f in uploaded_files:
-                if f.size > max_size_bytes:
-                    st.error(f"El archivo {f.name} excede el límite máximo permitido de 50 MB.")
-                    return
+            col_c1, col_c2 = st.columns(2)
+            car_input = col_c1.text_input("Vehículo (opcional)", value="Porsche 911 GT3 R (992)")
+            track_input = col_c2.text_input("Circuito (opcional)", value="Ricardo Tormo de Valencia")
 
-            if st.button("Procesar e Importar Archivos"):
-                with st.spinner("Validando telemetría..."):
-                    with tempfile.TemporaryDirectory() as tmp_dir:
-                        saved_paths = []
-                        for uf in uploaded_files:
-                            safe_name = os.path.basename(uf.name)
-                            target_p = os.path.join(tmp_dir, safe_name)
-                            with open(target_p, "wb") as out:
-                                out.write(uf.getbuffer())
-                            saved_paths.append(target_p)
+            if uploaded_files:
+                max_size_bytes = 50 * 1024 * 1024
+                for f in uploaded_files:
+                    if f.size > max_size_bytes:
+                        st.error(f"El archivo {f.name} excede el límite máximo permitido de 50 MB.")
+                        return
 
-                        ld_file = next((p for p in saved_paths if p.lower().endswith(".ld")), None)
-                        csv_file = next((p for p in saved_paths if p.lower().endswith(".csv")), None)
+                if st.button("Procesar e Importar Archivos", key="btn_manual_import"):
+                    with st.spinner("Validando telemetría..."):
+                        with tempfile.TemporaryDirectory() as tmp_dir:
+                            saved_paths = []
+                            for uf in uploaded_files:
+                                safe_name = os.path.basename(uf.name)
+                                target_p = os.path.join(tmp_dir, safe_name)
+                                with open(target_p, "wb") as out:
+                                    out.write(uf.getbuffer())
+                                saved_paths.append(target_p)
 
-                        parsed_session = None
-                        if ld_file:
-                            importer = MoTeCImporter(ld_file)
-                            parsed_session = importer.parse()
-                        elif csv_file:
-                            importer = CSVImporter(csv_file, car=car_input, track=track_input)
-                            parsed_session = importer.parse()
-                        else:
-                            st.error("No se encontró ningún archivo .ld o .csv principal.")
-                            return
+                            ld_file = next((p for p in saved_paths if p.lower().endswith(".ld")), None)
+                            csv_file = next((p for p in saved_paths if p.lower().endswith(".csv")), None)
+                            xml_file = next((p for p in saved_paths if p.lower().endswith(".xml")), None)
 
-                        if parsed_session:
-                            if car_input:
-                                parsed_session.car = car_input
-                            if track_input:
-                                parsed_session.track = track_input
+                            parsed_session = None
+                            if ld_file:
+                                importer = MoTeCImporter(ld_file)
+                                parsed_session = importer.parse()
+                            elif xml_file:
+                                importer = LMUImporter(xml_file)
+                                parsed_session = importer.parse()
+                            elif csv_file:
+                                importer = CSVImporter(csv_file, car=car_input, track=track_input)
+                                parsed_session = importer.parse()
+                            else:
+                                st.error("No se encontró ningún archivo .ld, .csv o .xml compatible.")
+                                return
 
-                            storage.save_session(parsed_session)
-                            st.success(f"¡Sesión '{parsed_session.session_id}' guardada!")
-                            st.write(f"- Vueltas: {len(parsed_session.laps)}")
-                            st.write(f"- Canales: {', '.join(parsed_session.telemetry.keys())}")
+                            if parsed_session:
+                                if car_input:
+                                    parsed_session.car = car_input
+                                if track_input:
+                                    parsed_session.track = track_input
+
+                                storage.save_session(parsed_session)
+                                st.success(f"¡Sesión '{parsed_session.session_id}' guardada correctamente!")
+                                st.write(f"- Vueltas registradas: {len(parsed_session.laps)}")
+                                if parsed_session.telemetry:
+                                    st.write(f"- Canales: {', '.join(parsed_session.telemetry.keys())}")
 
     # -------------------------------------------------------------
     # PAGE 5: HISTORIAL DE VUELTAS
@@ -630,6 +671,8 @@ def main():
         st.subheader("Entorno Local")
         st.write(f"- **Base de datos:** `{storage.db_path}`")
         st.write(f"- **Ruta MoTeC de ACC (Steam Proton):** `{DEFAULT_ACC_MOTEC_DIR}`")
+        st.write(f"- **Ruta Resultados LMU:** `{DEFAULT_LMU_RESULTS_DIR}`")
+        st.write(f"- **Ruta Telemetría LMU:** `{DEFAULT_LMU_TELEMETRY_DIR}`")
 
         if st.button("🗑️ Purgar base de datos"):
             if os.path.exists(storage.db_path):

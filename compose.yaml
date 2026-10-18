@@ -1,9 +1,9 @@
 services:
-  acc-coach:
+  simcoach:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: acc-coach
+    container_name: simcoach
     restart: unless-stopped
     ports:
       # Accessible locally and from your LAN (localhost:8501)
@@ -13,9 +13,9 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:14b}
       - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-60.0}
       - AI_ENABLED=${AI_ENABLED:-true}
-      - ACC_COACH_DB_PATH=/app/data/acc_coach.db
+      - SIMCOACH_DB_PATH=/app/data/simcoach.db
     volumes:
-      - acc_coach_data:/app/data
+      - simcoach_data:/app/data
     # Configure access to host network services (Ollama) on Linux
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -27,5 +27,5 @@ services:
       start_period: 10s
 
 volumes:
-  acc_coach_data:
-    name: acc_coach_data
+  simcoach_data:
+    name: simcoach_data

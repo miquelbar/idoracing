@@ -1,5 +1,5 @@
 """
-Lap comparison engine for ACC Coach.
+Lap comparison engine for SimCoach.
 Computes numerical time, speed, sector, and corner differences between two laps.
 """
 

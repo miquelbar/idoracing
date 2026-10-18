@@ -1,5 +1,5 @@
 """
-Premium Motorsport & Formula 1-Style Telemetry Visualizations for ACC Coach.
+Premium Motorsport & Formula 1-Style Telemetry Visualizations for SimCoach.
 Provides interactive 2D track maps with speed delta heatmaps, synchronized F1 telemetry stacks,
 timing towers with micro-sectors, and corner-by-corner technical breakdowns.
 """

@@ -9,7 +9,10 @@ import sqlite3
 from typing import Any, Dict, List, Optional
 from domain.session import CoachReport, Lap, Session, SessionSummary
 
-DEFAULT_DB_PATH = os.environ.get("ACC_COACH_DB_PATH", os.path.join("data", "acc_coach.db"))
+DEFAULT_DB_PATH = os.environ.get(
+    "SIMCOACH_DB_PATH",
+    os.environ.get("ACC_COACH_DB_PATH", os.path.join("data", "simcoach.db")),
+)
 
 
 class Storage:

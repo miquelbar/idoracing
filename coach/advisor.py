@@ -9,7 +9,7 @@ from domain.session import CoachReport, LapComparison
 from coach.ollama_client import OllamaClient
 
 
-SYSTEM_PROMPT = """Eres el ingeniero de pista y entrenador senior de Assetto Corsa Competizione (ACC).
+SYSTEM_PROMPT = """Eres el ingeniero de pista y entrenador senior de SimRacing (Assetto Corsa Competizione, Le Mans Ultimate, iRacing).
 Tu labor es ayudar al piloto a mejorar sus tiempos de forma analítica, técnica y rigurosa.
 
 DIRECTRICES OBLIGATORIAS:
@@ -173,7 +173,7 @@ class CoachAdvisor:
             confidence = "Alta (Ollama LLM + Telemetría)"
         else:
             confidence = "Alta (Motor Analítico Numérico)"
-            raw_report = f"""# Informe Técnico de Conducción — ACC Coach
+            raw_report = f"""# Informe Técnico de Conducción — SimCoach
 
 **Vehículo:** {car}  
 **Circuito:** {track}  
