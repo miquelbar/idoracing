@@ -149,13 +149,27 @@ export const AIEngineerModal: React.FC<AIEngineerModalProps> = ({
                   <Target className="w-4 h-4" />
                   <span>2. Métricas de Apoyo (Telemetría de Precisión)</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 font-telemetry text-xs">
-                  {Object.entries(report.metrics || {}).map(([key, val]) => (
-                    <div key={key} className="p-2.5 rounded bg-[#151B27] border border-white/5">
-                      <span className="text-[10px] text-gray-400 block truncate">{key}</span>
-                      <span className="text-white font-bold text-sm">{String(val)}</span>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 font-telemetry text-xs">
+                  {Object.entries(report.metrics || {}).map(([key, val]) => {
+                    const label = key.replace(/_/g, ' ').toUpperCase();
+                    let valStr = String(val);
+                    if (typeof val === 'number') {
+                      valStr = val > 0 ? `+${val.toFixed(3)}s` : `${val.toFixed(3)}s`;
+                    } else if (typeof val === 'object' && val !== null) {
+                      valStr = Object.entries(val)
+                        .map(([k, v]) => {
+                          const num = Number(v);
+                          return `${k.replace(/sector_?(\d+)/i, 'S$1').toUpperCase()}: ${!isNaN(num) && num > 0 ? '+' : ''}${!isNaN(num) ? num.toFixed(3) : String(v)}s`;
+                        })
+                        .join(' | ');
+                    }
+                    return (
+                      <div key={key} className="p-2.5 rounded bg-[#151B27] border border-white/5">
+                        <span className="text-[10px] text-gray-400 block mb-0.5">{label}</span>
+                        <span className="text-white font-bold text-xs">{valStr}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

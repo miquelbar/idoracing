@@ -276,6 +276,9 @@ export const App: React.FC = () => {
                 onHoverDistance={setHoverDistance}
                 selectedCorner={selectedCorner}
                 onSelectCorner={handleCornerSelect}
+                report={coachReport}
+                onReportGenerated={setCoachReport}
+                activeModel={status?.active_model || 'qwen3.8:27b-32k'}
               />
             )}
 

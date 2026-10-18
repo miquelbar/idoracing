@@ -99,6 +99,26 @@ export const CornerSelector: React.FC<CornerSelectorProps> = ({
                       : 'Exacta'}
                   </span>
                 </div>
+
+                {c.trail_braking_eval && (
+                  <div className="flex justify-between items-center text-[9px] pt-0.5">
+                    <span className="text-gray-500">Trail:</span>
+                    <span
+                      className={`font-semibold truncate max-w-[85px] ${
+                        c.trail_braking_eval.includes('Efectivo') || c.trail_braking_eval.includes('Óptimo')
+                          ? 'text-[#00FF7F]'
+                          : c.trail_braking_eval.includes('Prematuro')
+                          ? 'text-[#FFD700]'
+                          : c.trail_braking_eval.includes('Exceso')
+                          ? 'text-[#FF453A]'
+                          : 'text-gray-400'
+                      }`}
+                      title={c.trail_braking_advice || c.trail_braking_eval}
+                    >
+                      {c.trail_braking_eval.replace('Trail Braking ', '')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Diagnosis Pill */}

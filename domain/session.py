@@ -77,6 +77,8 @@ class CornerAnalysis(BaseModel):
     comp_throttle_point: Optional[float] = None
     throttle_delta_dist: Optional[float] = None
     diagnosis: str = ""
+    trail_eval: Optional[str] = "Óptimo"
+    trail_advice: Optional[str] = None
 
 
 class LapComparison(BaseModel):

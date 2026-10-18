@@ -117,6 +117,8 @@ class CornerDTO(BaseModel):
     throttle_pickup_delta: float
     diagnosis: str
     severity: str
+    trail_braking_eval: Optional[str] = "Óptimo"
+    trail_braking_advice: Optional[str] = None
 
 
 class ComparisonResponse(BaseModel):
@@ -329,6 +331,8 @@ def get_lap_comparison(
                 throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
                 diagnosis=c.diagnosis or "Trazada óptima en el segmento.",
                 severity=severity,
+                trail_braking_eval=getattr(c, "trail_eval", "Óptimo"),
+                trail_braking_advice=getattr(c, "trail_advice", None),
             )
         )
 

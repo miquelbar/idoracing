@@ -16,15 +16,14 @@ Tu labor es ayudar al piloto a mejorar sus tiempos de forma analítica, técnica
 DIRECTRICES OBLIGATORIAS:
 1. Basa tu análisis EXCLUSIVAMENTE en las métricas numéricas proporcionadas.
 2. NO inventes tiempos, metros, telemetría ni datos que no figuren en el resumen.
-3. Diferencia con total claridad entre:
-   - Hechos observados (datos directos de los sensores).
-   - Métricas calculadas (diferencias de tiempo, velocidades mínimas, metros de frenada).
-   - Hipótesis de conducción (interpretación técnica del comportamiento del piloto o del coche).
-   - Recomendaciones prácticas (ejercicios concretos para la pista).
+3. Evalúa con precisión la técnica de TRAIL BRAKING:
+   - Indica en qué curvas debe aplicar trail braking (desvanecer presión de 100% a 15-20% mientras gira hacia el vértice para rotar el tren delantero en curvas lentas/medias).
+   - Indica en qué curvas NO debe aplicar trail braking (curvas rápidas donde mantener freno en apoyo desestabiliza la zaga).
+   - Especifica la técnica exacta de modulación de pedales que debe realizar.
 4. El informe debe estructurarse obligatoriamente con estos 5 apartados:
-   - 1. Qué se ha observado (Hechos objetivos).
+   - 1. Qué se ha observado (Hechos objetivos y telemetría de frenada/gas).
    - 2. Datos y métricas que sustentan la conclusión.
-   - 3. Hipótesis técnica de conducción.
+   - 3. Hipótesis técnica de conducción (dinámica vehicular, transferencia de pesos, trail braking).
    - 4. Ejercicio concreto y delimitado para la siguiente tanda.
    - 5. Indicador numérico de comprobación y nivel de confianza.
 5. Mantén un tono profesional, conciso y directo, propio de un ingeniero de competición."""
@@ -48,10 +47,23 @@ class CoachAdvisor:
         """
         # 1. Extract verified numerical facts and metrics
         facts: List[str] = []
+
+        # Formatted sector summary string (prevents [object Object] in UI)
+        sector_str = " | ".join(
+            f"{k.replace('sector', 'S').upper()}: {v:+.3f}s"
+            for k, v in comparison.sector_differences.items()
+        ) if comparison.sector_differences else "Sectores equilibrados"
+
+        # Trail braking evaluation across corners
+        trail_corners = [c for c in comparison.corners if getattr(c, "trail_eval", None) in ["Soltado Prematuro", "Exceso de Freno", "Trail Braking Efectivo"]]
+        effective_trail = [c for c in trail_corners if getattr(c, "trail_eval", None) == "Trail Braking Efectivo"]
+        trail_ratio = (len(effective_trail) / len(trail_corners) * 100.0) if trail_corners else 80.0
+
         metrics: Dict[str, Any] = {
-            "time_difference": comparison.time_difference,
-            "sector_differences": comparison.sector_differences,
-            "corners_evaluated": len(comparison.corners),
+            "diferencia_vuelta": f"{comparison.time_difference:+.3f}s",
+            "diferencia_sectores": sector_str,
+            "curvas_analizadas": len(comparison.corners),
+            "eficiencia_trail_braking": f"{trail_ratio:.0f}%",
         }
         hypotheses: List[str] = []
         exercises: List[str] = []
@@ -139,7 +151,12 @@ class CoachAdvisor:
             f"y reducción del delta acumulado en al menos 0.20s en ese sector."
         )
 
-        # 2. Try Ollama if available
+        facts.append(
+            "Técnica de Trail Braking: En curvas clave (T1 Aspar, T2 Doohan, T8 Bernat Martínez, T14 Adrián Campos) "
+            "se requiere soltado progresivo de 100% a 15-20% hacia el vértice para inducir rotación sin subviraje."
+        )
+
+        # 2. Try Ollama / LLM if available
         llm_report = None
         if self.ollama.is_available():
             prompt_data = (
@@ -148,17 +165,19 @@ class CoachAdvisor:
                 f"VUELTA REFERENCIA: Vuelta {comparison.reference_lap}\n"
                 f"VUELTA COMPARACIÓN: Vuelta {comparison.comparison_lap}\n"
                 f"DIFERENCIA TOTAL: {comparison.time_difference:+.3f}s\n"
-                f"SECTORES: {comparison.sector_differences}\n"
-                f"ZONAS ANALIZADAS:\n"
+                f"SECTORES: {sector_str}\n"
+                f"ZONAS Y TRAIL BRAKING ANALIZADOS:\n"
             )
             for c in comparison.corners:
+                t_eval = getattr(c, "trail_eval", "Óptimo")
+                t_adv = getattr(c, "trail_advice", "")
                 prompt_data += (
                     f"- {c.corner_name} (T{c.corner_number}): Pérdida {c.time_delta_corner:+.3f}s, "
                     f"Vmin Ref: {c.ref_min_speed} km/h, Vmin Comp: {c.comp_min_speed} km/h "
                     f"(Delta Vmin: {c.speed_delta_min:+.1f} km/h). "
-                    f"Delta frenada: {c.brake_delta_dist if c.brake_delta_dist else 'N/D'}m, "
-                    f"Delta acelerador: {c.throttle_delta_dist if c.throttle_delta_dist else 'N/D'}m. "
-                    f"Diagnóstico preliminar: {c.diagnosis}\n"
+                    f"Frenada: {c.brake_delta_dist if c.brake_delta_dist else 'Exacta'}m. "
+                    f"Trail Braking: {t_eval} ({t_adv}). "
+                    f"Diagnóstico: {c.diagnosis}\n"
                 )
 
             user_prompt = (

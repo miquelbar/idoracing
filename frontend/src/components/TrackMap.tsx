@@ -120,7 +120,7 @@ export const TrackMap: React.FC<TrackMapProps> = ({
         <div className="flex items-center gap-2">
           <Navigation className="w-4 h-4 text-[#00D2BE]" />
           <h3 className="font-bold text-sm text-white tracking-wide uppercase">
-            Mapa de Pista 2D • Heatmap de Delta ($\Delta V$)
+            Mapa de Pista 2D • Heatmap de Velocidad (ΔV km/h)
           </h3>
         </div>
 

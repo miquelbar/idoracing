@@ -22,6 +22,39 @@ interface EngineerViewProps {
   activeModel: string;
 }
 
+function formatMetricKey(key: string): string {
+  const map: Record<string, string> = {
+    time_difference: 'Diferencia Total',
+    diferencia_vuelta: 'Diferencia Total',
+    sector_differences: 'Diferencia por Sectores',
+    diferencia_sectores: 'Diferencia por Sectores',
+    corners_evaluated: 'Curvas Evaluadas',
+    curvas_analizadas: 'Curvas Evaluadas',
+    eficiencia_trail_braking: 'Eficiencia Trail Braking',
+    primary_loss_corner: 'Punto Crítico',
+  };
+  return map[key] || key.replace(/_/g, ' ').toUpperCase();
+}
+
+function formatMetricValue(val: any): string {
+  if (val === null || val === undefined) return '--';
+  if (typeof val === 'number') {
+    return val > 0 ? `+${val.toFixed(3)}s` : `${val.toFixed(3)}s`;
+  }
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) return val.join(', ');
+    return Object.entries(val)
+      .map(([k, v]) => {
+        const secLabel = k.replace(/sector_?(\d+)/i, 'S$1').toUpperCase();
+        const num = Number(v);
+        const numStr = !isNaN(num) ? (num > 0 ? `+${num.toFixed(3)}s` : `${num.toFixed(3)}s`) : String(v);
+        return `${secLabel}: ${numStr}`;
+      })
+      .join(' | ');
+  }
+  return String(val);
+}
+
 export const EngineerView: React.FC<EngineerViewProps> = ({
   comparison,
   report,
@@ -182,11 +215,11 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
                 <Target className="w-4 h-4" />
                 <span>2. Métricas de Apoyo (Cálculos de Telemetría)</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-telemetry text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 font-telemetry text-xs">
                 {Object.entries(report.metrics || {}).map(([k, v]) => (
-                  <div key={k} className="p-2 rounded bg-[#131722] border border-white/5">
-                    <span className="text-[10px] text-gray-400 block truncate">{k}</span>
-                    <span className="text-white font-bold text-xs truncate block">{String(v)}</span>
+                  <div key={k} className="p-2.5 rounded-lg bg-[#131722] border border-white/5">
+                    <span className="text-[10px] text-gray-400 block mb-0.5">{formatMetricKey(k)}</span>
+                    <span className="text-white font-bold text-xs block leading-snug">{formatMetricValue(v)}</span>
                   </div>
                 ))}
               </div>

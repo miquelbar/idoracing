@@ -36,6 +36,8 @@ export interface CornerDTO {
   throttle_pickup_delta: number;
   diagnosis: string;
   severity: 'info' | 'warning' | 'critical' | 'success';
+  trail_braking_eval?: string;
+  trail_braking_advice?: string;
 }
 
 export interface ComparisonResponse {

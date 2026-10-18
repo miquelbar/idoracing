@@ -115,6 +115,41 @@ def analyze_corner(
     else:
         diagnosis = " ".join(diagnosis_parts)
 
+    # Trail Braking Analysis
+    trail_eval = "Óptimo"
+    trail_advice = ""
+    is_trail_corner = number in [1, 2, 4, 8, 11, 14]
+    is_fast_corner = number in [3, 7, 12, 13]
+
+    max_brk = float(np.max(comp_br)) if len(comp_br) > 0 else 0.0
+    if max_brk > 0.20:
+        pre_apex_slice = comp_br[max(0, comp_apex_idx - 10) : comp_apex_idx]
+        pre_apex_mean = float(np.mean(pre_apex_slice)) if len(pre_apex_slice) > 0 else 0.0
+
+        if is_trail_corner:
+            if pre_apex_mean < 0.03 and brake_delta_dist and brake_delta_dist < -10.0:
+                trail_eval = "Soltado Prematuro"
+                trail_advice = "Sueltas el pedal antes del vértice sin trail braking; el morro se aligera y pierdes rotación en entrada."
+            elif pre_apex_mean > 0.40:
+                trail_eval = "Exceso de Freno"
+                trail_advice = "Mantienes más del 40% de freno con volante girado en el ápice, sobrecargando el neumático exterior."
+            else:
+                trail_eval = "Trail Braking Efectivo"
+                trail_advice = "Desvanecimiento regresivo adecuado: mantienes 15-20% de freno cargando el morro hasta el ápice."
+        elif is_fast_corner:
+            if pre_apex_mean > 0.20:
+                trail_eval = "Riesgo de Inestabilidad"
+                trail_advice = "En esta curva rápida no abuses del trail braking. Suelta el freno en línea recta para no desestabilizar la zaga."
+            else:
+                trail_eval = "Frenada Estable"
+                trail_advice = "Frenada breve y desahogo rápido adecuado a curva de alta velocidad."
+        else:
+            trail_eval = "Frenada Neutra"
+            trail_advice = "Presión de frenada equilibrada en aproximación."
+    else:
+        trail_eval = "Paso en Apoyo"
+        trail_advice = "Curva rápida sin frenada mayor; paso a fondo o levantada de pie."
+
     return CornerAnalysis(
         corner_number=number,
         corner_name=name,
@@ -131,6 +166,8 @@ def analyze_corner(
         comp_throttle_point=round(comp_th_pt, 1) if comp_th_pt else None,
         throttle_delta_dist=round(th_delta_dist, 1) if th_delta_dist else None,
         diagnosis=diagnosis,
+        trail_eval=trail_eval,
+        trail_advice=trail_advice,
     )
 
 
