@@ -2,17 +2,19 @@
 SQLite storage for IdoRacing sessions, laps and coaching reports.
 """
 
-from datetime import datetime
 import json
 import os
 import sqlite3
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any
+
 from domain.session import CoachReport, Lap, Session, SessionSummary
+
 
 class Storage:
     """Manages SQLite persistence for sessions, telemetry, and coaching feedback."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         self.db_path = db_path or os.environ.get("IDORACING_DB_PATH", os.path.join("data", "idoracing.db"))
         os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
         self.init_db()
@@ -146,7 +148,7 @@ class Storage:
             conn.commit()
         return session.id
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Session | None:
         """Load full session by ID."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -158,7 +160,7 @@ class Storage:
             cursor.execute("SELECT * FROM laps WHERE session_id = ? ORDER BY lap_number ASC", (s_row["id"],))
             lap_rows = cursor.fetchall()
 
-            laps: List[Lap] = []
+            laps: list[Lap] = []
             for lr in lap_rows:
                 l_telemetry = json.loads(lr["telemetry"]) if lr["telemetry"] else None
                 l_sectors = json.loads(lr["sector_times"]) if lr["sector_times"] else []
@@ -192,9 +194,9 @@ class Storage:
 
     def list_sessions(
         self,
-        car: Optional[str] = None,
-        track: Optional[str] = None,
-    ) -> List[SessionSummary]:
+        car: str | None = None,
+        track: str | None = None,
+    ) -> list[SessionSummary]:
         """List session summaries with optional filtering."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -205,7 +207,7 @@ class Storage:
             LEFT JOIN laps l ON s.id = l.session_id
             WHERE 1=1
             """
-            params: List[Any] = []
+            params: list[Any] = []
             if car:
                 query += " AND s.car LIKE ?"
                 params.append(f"%{car}%")
@@ -264,12 +266,12 @@ class Storage:
             ))
             conn.commit()
 
-    def get_coach_report(self, session_id: str, ref_lap: int, comp_lap: int) -> Optional[CoachReport]:
+    def get_coach_report(self, session_id: str, ref_lap: int, comp_lap: int) -> CoachReport | None:
         """Fetch previously stored coaching report."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-            SELECT * FROM coach_reports 
+            SELECT * FROM coach_reports
             WHERE (session_id = ? OR session_id IN (SELECT id FROM sessions WHERE session_id = ?))
               AND ref_lap = ? AND comp_lap = ?
             ORDER BY created_at DESC LIMIT 1

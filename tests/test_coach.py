@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 from analysis.lap_comparison import compare_laps
 from coach.advisor import CoachAdvisor
 from coach.ollama_client import OllamaClient
@@ -36,17 +37,16 @@ def test_ollama_client_mock_generation():
     comp = compare_laps(session.laps[1], session.laps[2])
 
     mock_client = OllamaClient(enabled=True)
-    with patch.object(mock_client, "is_available", return_value=True):
-        with patch.object(
-            mock_client,
-            "generate",
-            return_value="# Informe LLM\n\n1. Qué se ha observado\n2. Datos\n3. Hipótesis\n4. Ejercicio\n5. Indicador",
-        ):
-            advisor = CoachAdvisor(mock_client)
-            report = advisor.generate_report(comp, car=session.car, track=session.track)
+    with patch.object(mock_client, "is_available", return_value=True), patch.object(
+        mock_client,
+        "generate",
+        return_value="# Informe LLM\n\n1. Qué se ha observado\n2. Datos\n3. Hipótesis\n4. Ejercicio\n5. Indicador",
+    ):
+        advisor = CoachAdvisor(mock_client)
+        report = advisor.generate_report(comp, car=session.car, track=session.track)
 
-            assert "Informe LLM" in report.raw_report
-            assert report.confidence == "Alta (LLM + telemetría)"
+        assert "Informe LLM" in report.raw_report
+        assert report.confidence == "Alta (LLM + telemetría)"
 
 
 def test_ollama_client_timeout_or_error_handling():
@@ -86,7 +86,7 @@ def test_race_engineer_response_trail_braking_and_porsche():
 
 def test_pep_corner_context_and_strict_diagnostics():
     from coach.advisor import generate_race_engineer_response
-    from coach.prompt import PEP_SYSTEM_PROMPT_ES, PEP_SYSTEM_PROMPT_EN
+    from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 
     # Verify system prompts enforce zero false praise
     assert "PROHIBIDO emitir elogios" in PEP_SYSTEM_PROMPT_ES

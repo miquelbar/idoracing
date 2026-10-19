@@ -3,11 +3,12 @@ CSV Telemetry Importer for IdoRacing Analytics.
 Allows importing telemetry data exported from MoTeC i2, third-party apps, or synthetic logs.
 """
 
-from datetime import datetime
 import os
-from typing import Dict, List, Optional
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
+
 from domain.session import Lap, Session
 
 
@@ -52,7 +53,7 @@ class CSVImporter:
         normalized_cols = {col: col.strip().lower() for col in df.columns}
         df.rename(columns=normalized_cols, inplace=True)
 
-        telemetry: Dict[str, List[float]] = {}
+        telemetry: dict[str, list[float]] = {}
         for canonical, variants in self.CANONICAL_COLUMNS.items():
             matched_col = None
             for variant in variants:
@@ -84,7 +85,7 @@ class CSVImporter:
                 telemetry[req] = [0.0] * n_samples
 
         # Segment into laps if lap column is present
-        laps: List[Lap] = []
+        laps: list[Lap] = []
         if "lap" in telemetry:
             lap_arr = np.array(telemetry["lap"])
             unique_laps = np.unique(lap_arr)

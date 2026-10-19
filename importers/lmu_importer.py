@@ -3,10 +3,11 @@ Le Mans Ultimate (LMU) and rFactor 2 session and results importer for IdoRacing 
 Parses XML results from UserData/Log/Results with laps, sectors, and car metadata.
 """
 
-from datetime import datetime
+import contextlib
 import os
-from typing import List, Optional
 import xml.etree.ElementTree as ET
+from datetime import datetime
+
 from domain.session import Lap, Session
 
 
@@ -28,10 +29,8 @@ class LMUImporter:
 
         date_val = datetime.now()
         if time_str:
-            try:
+            with contextlib.suppress(ValueError):
                 date_val = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S")
-            except ValueError:
-                pass
 
         # Locate player driver (<isPlayer>1</isPlayer>) or fallback to first driver
         player_driver = None
@@ -44,11 +43,9 @@ class LMUImporter:
             player_driver = root.find(".//Driver")
 
         car = "Porsche 911 GT3 R LMGT3"
-        driver_name = "Player"
-        laps: List[Lap] = []
+        laps: list[Lap] = []
 
         if player_driver is not None:
-            driver_name = player_driver.findtext("Name") or "Player"
             car = player_driver.findtext("CarType") or player_driver.findtext("VehName") or car
 
             prev_et = 0.0

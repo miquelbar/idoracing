@@ -1,8 +1,10 @@
-from datetime import datetime
 import os
 import tempfile
-import pytest
+from datetime import datetime
+
 import numpy as np
+import pytest
+
 from importers.motec_binary import (
     MoTeCLDParser,
     MoTeCLDXParser,

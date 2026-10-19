@@ -1,10 +1,10 @@
 from domain.session import (
-    Session,
-    Lap,
-    SessionSummary,
-    CornerAnalysis,
-    LapComparison,
     CoachReport,
+    CornerAnalysis,
+    Lap,
+    LapComparison,
+    Session,
+    SessionSummary,
 )
 
 __all__ = [

@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 
 import numpy as np
 import pytest
@@ -46,7 +45,7 @@ def test_corrupt_file_raises_instead_of_returning_a_session(tmp_path):
     path = tmp_path / "broken.ld"
     path.write_text("not a MoTeC file")
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         MoTeCImporter(str(path)).parse()
 
 

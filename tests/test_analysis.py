@@ -1,8 +1,8 @@
 import numpy as np
+
 from analysis.alignment import align_laps_by_distance
-from analysis.corners import analyze_corner, extract_corners_analysis
+from analysis.corners import extract_corners_analysis
 from analysis.lap_comparison import compare_laps
-from domain.session import Lap
 from importers.synthetic import create_synthetic_session, generate_lap_telemetry
 
 
@@ -83,8 +83,8 @@ def test_compare_laps_full():
 
 
 def test_sebring_multitrack_corners_and_telemetry():
-    from analysis.tracks import get_track_corners, get_track_length
     from analysis.telemetry_generator import generate_lap_telemetry_for_track
+    from analysis.tracks import get_track_corners, get_track_length
 
     corners = get_track_corners("Sebring International Raceway")
     assert len(corners) == 17

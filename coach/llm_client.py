@@ -5,8 +5,9 @@ Supports Local Ollama (qwen3.8:27b-32k) and OpenAI-compatible APIs (OpenAI, Open
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+
 import httpx
+
 from coach.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
@@ -18,11 +19,11 @@ class LLMClient:
     def __init__(
         self,
         provider: str = "ollama",
-        ollama_base_url: Optional[str] = None,
-        ollama_model: Optional[str] = None,
-        openai_api_key: Optional[str] = None,
-        openai_base_url: Optional[str] = None,
-        openai_model: Optional[str] = None,
+        ollama_base_url: str | None = None,
+        ollama_model: str | None = None,
+        openai_api_key: str | None = None,
+        openai_base_url: str | None = None,
+        openai_model: str | None = None,
         timeout: float = 120.0,
         enabled: bool = True,
     ):
@@ -71,8 +72,8 @@ class LLMClient:
         return self.ollama.is_available()
 
     def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
-    ) -> Optional[str]:
+        self, prompt: str, system_prompt: str | None = None, timeout: float | None = None
+    ) -> str | None:
         """Generate a response using the active provider."""
         if not self.enabled:
             return None
@@ -82,8 +83,8 @@ class LLMClient:
         return self.ollama.generate(prompt, system_prompt, timeout=timeout)
 
     def chat(
-        self, messages: List[Dict[str, str]], timeout: Optional[float] = None
-    ) -> Optional[str]:
+        self, messages: list[dict[str, str]], timeout: float | None = None
+    ) -> str | None:
         """Multi-turn chat interaction with the race engineer."""
         if not self.enabled:
             return None
@@ -103,8 +104,8 @@ class LLMClient:
         return self.ollama.generate(conversation_prompt, system_prompt=system_msg, timeout=timeout)
 
     def _generate_openai(
-        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
-    ) -> Optional[str]:
+        self, prompt: str, system_prompt: str | None = None, timeout: float | None = None
+    ) -> str | None:
         if not self.openai_api_key:
             return None
 
@@ -116,8 +117,8 @@ class LLMClient:
         return self._chat_openai(messages, timeout=timeout)
 
     def _chat_openai(
-        self, messages: List[Dict[str, str]], timeout: Optional[float] = None
-    ) -> Optional[str]:
+        self, messages: list[dict[str, str]], timeout: float | None = None
+    ) -> str | None:
         if not self.openai_api_key:
             return None
 

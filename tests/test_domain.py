@@ -1,7 +1,9 @@
 from datetime import datetime
+
 import pytest
 from pydantic import ValidationError
-from domain.session import Session, Lap, SessionSummary, LapComparison, CoachReport
+
+from domain.session import CoachReport, Session, SessionSummary
 
 
 def test_session_validation_success():

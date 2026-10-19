@@ -3,18 +3,19 @@ Lap comparison engine for IdoRacing Analytics.
 Computes numerical time, speed, sector, and corner differences between two laps.
 """
 
-from typing import Dict, List, Optional
+
 import numpy as np
-from domain.session import CornerAnalysis, Lap, LapComparison
+
 from analysis.alignment import align_laps_by_distance
 from analysis.corners import extract_corners_analysis
+from domain.session import CornerAnalysis, Lap, LapComparison
 
 
 def compare_laps(
     ref_lap: Lap,
     comp_lap: Lap,
     step_m: float = 2.0,
-    track_name: Optional[str] = None,
+    track_name: str | None = None,
 ) -> LapComparison:
     """
     Compare a reference lap and a comparison lap with distance alignment
@@ -23,18 +24,18 @@ def compare_laps(
     time_diff = float(comp_lap.lap_time - ref_lap.lap_time)
 
     # Sector differences
-    sector_diffs: Dict[str, float] = {}
+    sector_diffs: dict[str, float] = {}
     if ref_lap.sector_times and comp_lap.sector_times:
-        for i, (rs, cs) in enumerate(zip(ref_lap.sector_times, comp_lap.sector_times)):
+        for i, (rs, cs) in enumerate(zip(ref_lap.sector_times, comp_lap.sector_times, strict=False)):
             sector_diffs[f"sector{i+1}"] = round(float(cs - rs), 3)
 
     # Telemetry alignment
     aligned_data = None
-    corners: List[CornerAnalysis] = []
-    speed_diffs: Dict[str, float] = {}
-    throttle_diffs: Dict[str, float] = {}
-    brake_diffs: Dict[str, float] = {}
-    gear_changes: Dict[str, int] = {}
+    corners: list[CornerAnalysis] = []
+    speed_diffs: dict[str, float] = {}
+    throttle_diffs: dict[str, float] = {}
+    brake_diffs: dict[str, float] = {}
+    gear_changes: dict[str, int] = {}
 
     if ref_lap.telemetry and comp_lap.telemetry:
         aligned_data = align_laps_by_distance(

@@ -4,15 +4,14 @@ Interpolates telemetry from two laps onto a common distance grid to compute
 speed deltas and cumulative time delta profiles.
 """
 
-from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 
 def align_laps_by_distance(
-    ref_telemetry: Dict[str, List[float]],
-    comp_telemetry: Dict[str, List[float]],
+    ref_telemetry: dict[str, list[float]],
+    comp_telemetry: dict[str, list[float]],
     step_m: float = 2.0,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Interpolate reference and comparison telemetry onto a uniform distance axis.
     Returns aligned distance, channels for both laps, and calculated deltas.
@@ -38,7 +37,7 @@ def align_laps_by_distance(
     max_dist = min(ref_dist[-1], comp_dist[-1]) if len(ref_dist) > 0 and len(comp_dist) > 0 else 4000.0
     common_dist = np.arange(0.0, max_dist, step_m)
 
-    aligned: Dict[str, np.ndarray] = {"distance": common_dist}
+    aligned: dict[str, np.ndarray] = {"distance": common_dist}
 
     channels_to_align = ["speed", "throttle", "brake", "gear", "steer_angle", "lat_accel", "long_accel", "rpm", "x", "y"]
     for ch in channels_to_align:

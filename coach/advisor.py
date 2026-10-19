@@ -4,11 +4,11 @@ Synthesizes verified numerical metrics from LapComparison into structured techni
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from domain.session import CoachReport, LapComparison
+from typing import Any
+
 from coach.llm_client import LLMClient
-from coach.ollama_client import OllamaClient
-from coach.prompt import PEP_SYSTEM_PROMPT_ES, PEP_SYSTEM_PROMPT_EN
+from coach.prompt import PEP_SYSTEM_PROMPT_ES
+from domain.session import CoachReport, LapComparison
 
 SYSTEM_PROMPT = PEP_SYSTEM_PROMPT_ES
 
@@ -16,7 +16,7 @@ SYSTEM_PROMPT = PEP_SYSTEM_PROMPT_ES
 class CoachAdvisor:
     """Generates structured coaching reports from lap comparisons."""
 
-    def __init__(self, llm_client: Optional[Any] = None):
+    def __init__(self, llm_client: Any | None = None):
         self.llm = llm_client or LLMClient()
 
     def generate_report(
@@ -32,7 +32,7 @@ class CoachAdvisor:
         synthetic marks a comparison built on placeholder telemetry, which caps confidence at low.
         """
         # 1. Extract verified numerical facts and metrics
-        facts: List[str] = []
+        facts: list[str] = []
 
         # Formatted sector summary string (prevents [object Object] in UI)
         sector_str = " | ".join(
@@ -44,15 +44,15 @@ class CoachAdvisor:
         trail_corners = [c for c in comparison.corners if c.trail_eval in ("Soltado Prematuro", "Exceso de Freno en Giro", "Trail Braking Efectivo")]
         effective_trail = [c for c in trail_corners if c.trail_eval == "Trail Braking Efectivo"]
 
-        metrics: Dict[str, Any] = {
+        metrics: dict[str, Any] = {
             "diferencia_vuelta": f"{comparison.time_difference:+.3f}s",
             "diferencia_sectores": sector_str,
             "curvas_analizadas": len(comparison.corners),
         }
         if trail_corners:
             metrics["eficiencia_trail_braking"] = f"{len(effective_trail) / len(trail_corners) * 100.0:.0f}%"
-        hypotheses: List[str] = []
-        exercises: List[str] = []
+        hypotheses: list[str] = []
+        exercises: list[str] = []
 
         # Sort corners by time lost (descending)
         loss_corners = sorted(
@@ -193,10 +193,10 @@ class CoachAdvisor:
             confidence = f"{level} (motor de reglas)"
             raw_report = f"""# Informe Técnico de Conducción — IdoRacing Analytics
 
-**Vehículo:** {car}  
-**Circuito:** {track}  
-**Comparativa:** Vuelta {comparison.comparison_lap} frente a Vuelta {comparison.reference_lap} (Referencia)  
-**Diferencia de tiempo:** {comparison.time_difference:+.3f}s  
+- **Vehículo:** {car}
+- **Circuito:** {track}
+- **Comparativa:** Vuelta {comparison.comparison_lap} frente a Vuelta {comparison.reference_lap} (Referencia)
+- **Diferencia de tiempo:** {comparison.time_difference:+.3f}s
 
 ---
 
@@ -245,7 +245,7 @@ def generate_race_engineer_response(
     query: str,
     car: str,
     track: str,
-    corner: Optional[Dict[str, Any]] = None,
+    corner: dict[str, Any] | None = None,
     lang: str = "es",
 ) -> str:
     """

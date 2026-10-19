@@ -1,6 +1,6 @@
 import os
 import tempfile
-import pytest
+
 from importers.lmu_importer import LMUImporter
 
 

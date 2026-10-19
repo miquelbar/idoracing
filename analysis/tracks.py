@@ -6,7 +6,8 @@ and the 2D outline drawn on the track map.
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ SEBRING_WAYPOINTS = [
 ]
 
 # Valencia Ricardo Tormo corners (approximate distances along the 4005 m lap)
-VALENCIA_CORNERS: List[Dict[str, Any]] = [
+VALENCIA_CORNERS: list[dict[str, Any]] = [
     {"number": 1, "name": "Curva Aspar", "start": 580.0, "apex": 780.0, "end": 900.0, "gear": 3, "target_speed": 142.0, "turn_dir": "left"},
     {"number": 2, "name": "Curva Doohan", "start": 920.0, "apex": 1080.0, "end": 1220.0, "gear": 3, "target_speed": 128.0, "turn_dir": "right"},
     {"number": 3, "name": "Curva 3", "start": 1220.0, "apex": 1320.0, "end": 1420.0, "gear": 4, "target_speed": 175.0, "turn_dir": "right"},
@@ -86,7 +87,7 @@ VALENCIA_CORNERS: List[Dict[str, Any]] = [
 ]
 
 # Sebring International Raceway corners (approximate distances along the 6019 m lap)
-SEBRING_CORNERS: List[Dict[str, Any]] = [
+SEBRING_CORNERS: list[dict[str, Any]] = [
     {"number": 1, "name": "Turn 1 Sweeper", "start": 420.0, "apex": 720.0, "end": 950.0, "gear": 4, "target_speed": 172.0, "turn_dir": "left"},
     {"number": 2, "name": "Turn 2", "start": 1050.0, "apex": 1180.0, "end": 1280.0, "gear": 5, "target_speed": 210.0, "turn_dir": "right"},
     {"number": 3, "name": "Turn 3", "start": 1280.0, "apex": 1380.0, "end": 1480.0, "gear": 4, "target_speed": 165.0, "turn_dir": "right"},
@@ -107,7 +108,7 @@ SEBRING_CORNERS: List[Dict[str, Any]] = [
 ]
 
 
-def get_track_length(track_name: Optional[str] = None) -> float:
+def get_track_length(track_name: str | None = None) -> float:
     t = (track_name or "").lower()
     if "sebring" in t:
         return 6019.0
@@ -122,7 +123,7 @@ def get_track_length(track_name: Optional[str] = None) -> float:
     return 4500.0
 
 
-def known_track_corners(track_name: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+def known_track_corners(track_name: str | None) -> list[dict[str, Any]] | None:
     """Corner table for tracks we have mapped, None for any other track."""
     t_norm = (track_name or "").lower()
     if "sebring" in t_norm:
@@ -132,7 +133,7 @@ def known_track_corners(track_name: Optional[str]) -> Optional[List[Dict[str, An
     return None
 
 
-def get_track_corners(track_name: Optional[str] = None, total_distance: float = 0.0) -> List[Dict[str, Any]]:
+def get_track_corners(track_name: str | None = None, total_distance: float = 0.0) -> list[dict[str, Any]]:
     """Corner table used to shape placeholder telemetry; unmapped tracks borrow the closest-length layout."""
     known = known_track_corners(track_name)
     if known is not None:
@@ -142,7 +143,7 @@ def get_track_corners(track_name: Optional[str] = None, total_distance: float = 
 
 def reconstruct_track_from_dynamics(
     distance: np.ndarray, speed_kmh: np.ndarray, lat_accel_g: np.ndarray
-) -> Tuple[List[float], List[float]]:
+) -> tuple[list[float], list[float]]:
     """
     Dead-reckon the driven line: heading changes by a_lat * ds / v^2. The heading and position
     drift left at the line are spread evenly over the lap so the outline closes.
@@ -161,7 +162,7 @@ def reconstruct_track_from_dynamics(
     return x.tolist(), y.tolist()
 
 
-def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+def load_verified_circuit_coordinates(circuit_slug: str) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Load a circuit centreline from data/circuits/<slug>.json.
     Returns (coordinates_array_Nx2, cumulative_distances_N) or None if not available.
@@ -175,7 +176,7 @@ def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.nd
     for p in candidates:
         if os.path.exists(p):
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     data = json.load(f)
                 coords = np.array(data["coordinates"], dtype=np.float64)
                 dists = np.array(data["distances"], dtype=np.float64)
@@ -189,8 +190,8 @@ def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.nd
 def generate_track_coordinates(
     track_name: str,
     distance: np.ndarray,
-    telemetry: Optional[Dict[str, np.ndarray]] = None,
-) -> Tuple[List[float], List[float]]:
+    telemetry: dict[str, np.ndarray] | None = None,
+) -> tuple[list[float], list[float]]:
     """
     Closed 2D outline (x, y) for the track map, from the first source available:
     recorded position channels, the mapped track outline, the outline dead-reckoned

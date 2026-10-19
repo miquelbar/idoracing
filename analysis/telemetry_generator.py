@@ -4,19 +4,18 @@ The traces are shaped from the track's corner table and scaled to each lap time.
 measurements, and every lap they fill is marked synthetic.
 """
 
-from typing import Dict, List, Optional
 import numpy as np
-from domain.session import Lap, Session
-from analysis.tracks import get_track_corners, get_track_length
 
+from analysis.tracks import get_track_corners, get_track_length
+from domain.session import Session
 
 
 def generate_lap_telemetry_for_track(
     track_name: str,
-    target_lap_time: Optional[float] = None,
+    target_lap_time: float | None = None,
     is_reference: bool = True,
     step_dist: float = 2.0,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """
     Generate distance-aligned telemetry for a track from its corner table.
     If target_lap_time is given, velocities are scaled so the lap takes exactly that long.
@@ -100,10 +99,7 @@ def generate_lap_telemetry_for_track(
                 exit_target = min(max_straight_speed, apex_speed + 60.0)
                 sp = apex_speed + ratio * (exit_target - apex_speed)
 
-                if delayed_th and ratio < 0.35:
-                    th = 0.0
-                else:
-                    th = min(1.0, float(0.2 + ratio * 0.85))
+                th = 0.0 if delayed_th and ratio < 0.35 else min(1.0, float(0.2 + ratio * 0.85))
 
                 br = 0.0
                 gr = max(1, c_gear - 1) if (wrong_gear and ratio < 0.6) else c_gear

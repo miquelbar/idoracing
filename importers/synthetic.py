@@ -4,21 +4,21 @@ Provides realistic telemetry for Porsche 911 GT3 R (992) at Circuit Ricardo Torm
 Enables instant out-of-the-box demo, validation, and reproducible automated tests without real game logs.
 """
 
-from datetime import datetime
 import os
-from typing import Dict, List, Tuple
+from datetime import datetime
+
 import numpy as np
+
 from domain.session import Lap, Session
 from importers.motec_binary import create_synthetic_ld_bytes
-
 
 TRACK_LENGTH = 4005.0  # meters
 
 
-def generate_lap_telemetry(is_reference: bool = True, step_dist: float = 2.0) -> Dict[str, np.ndarray]:
+def generate_lap_telemetry(is_reference: bool = True, step_dist: float = 2.0) -> dict[str, np.ndarray]:
     """
     Generate realistic synthetic telemetry curves along the 4005m of Valencia track.
-    
+
     If is_reference=True: Optimal lap (~1:31.40).
     If is_reference=False: Comparison lap (~1:32.90) with classic mistakes:
        - T1 (Aspar): Brakes 25m too early, apex speed 126 km/h vs 142 km/h.
@@ -209,11 +209,11 @@ def create_synthetic_session() -> Session:
     out_lap_time = float(out_lap_raw["time"][-1])
 
     # Convert to standard dict of lists
-    def to_lists(d: Dict[str, np.ndarray]) -> Dict[str, List[float]]:
+    def to_lists(d: dict[str, np.ndarray]) -> dict[str, list[float]]:
         return {k: v.tolist() for k, v in d.items()}
 
     # Calculate realistic sectors (Valencia ~4005m split roughly into 3 sectors: ~1200m, ~2400m, ~4005m)
-    def calc_sectors(data_dict: Dict[str, np.ndarray]) -> List[float]:
+    def calc_sectors(data_dict: dict[str, np.ndarray]) -> list[float]:
         dist = data_dict["distance"]
         t = data_dict["time"]
         idx_s1 = int(np.searchsorted(dist, 1220.0))
@@ -262,7 +262,7 @@ def create_synthetic_session() -> Session:
     return session
 
 
-def save_synthetic_motec_files(output_dir: str) -> Tuple[str, str]:
+def save_synthetic_motec_files(output_dir: str) -> tuple[str, str]:
     """Generate and write valid MoTeC .ld and .ldx files for testing and fixture usage."""
     os.makedirs(output_dir, exist_ok=True)
     ld_path = os.path.join(output_dir, "synthetic_valencia.ld")

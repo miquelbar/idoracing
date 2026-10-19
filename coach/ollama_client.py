@@ -5,7 +5,8 @@ Model listing, health checks and text generation against a local Ollama server.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,10 @@ class OllamaClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        model: Optional[str] = None,
-        timeout: Optional[float] = None,
-        enabled: Optional[bool] = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout: float | None = None,
+        enabled: bool | None = None,
     ):
         self.base_url = (base_url or DEFAULT_BASE_URL).rstrip("/")
         self.model = model or DEFAULT_MODEL
@@ -42,7 +43,7 @@ class OllamaClient:
         except httpx.HTTPError:
             return False
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """Fetch list of locally installed model names from Ollama."""
         if not self.enabled:
             return []
@@ -57,15 +58,15 @@ class OllamaClient:
         return []
 
     def generate(
-        self, prompt: str, system_prompt: Optional[str] = None, timeout: Optional[float] = None
-    ) -> Optional[str]:
+        self, prompt: str, system_prompt: str | None = None, timeout: float | None = None
+    ) -> str | None:
         """
         Send generation request to Ollama. Returns response text or None if failed/disabled.
         """
         if not self.enabled:
             return None
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,

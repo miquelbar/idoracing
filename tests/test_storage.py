@@ -1,5 +1,6 @@
 import os
 import tempfile
+
 from domain.session import CoachReport
 from importers.synthetic import create_synthetic_session
 from storage.database import Storage

@@ -4,30 +4,29 @@ Exposes REST APIs for sessions, lap comparison, corner segmentation, Ollama AI (
 OpenAI/OpenRouter integration, and closed-loop circuit track maps.
 """
 
-from contextlib import asynccontextmanager
 import glob
 import logging
 import os
 import struct
 import tempfile
-from typing import Any, Dict, List, Literal, Optional
 import xml.etree.ElementTree as ET
-import numpy as np
+from contextlib import asynccontextmanager
+from typing import Any, Literal
 
+import numpy as np
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from analysis.alignment import align_laps_by_distance
-from analysis.corners import extract_corners_analysis
 from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor, generate_race_engineer_response
-from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.llm_client import LLMClient
-from domain.session import CoachReport, Lap, LapComparison, Session
+from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
+from domain.session import CoachReport, Lap, Session
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
@@ -95,7 +94,7 @@ class SystemStatus(BaseModel):
     provider: str
     ai_available: bool
     active_model: str
-    ollama_models: List[str]
+    ollama_models: list[str]
     session_count: int
 
 
@@ -103,9 +102,9 @@ class SettingsDTO(BaseModel):
     provider: str = "ollama"
     ollama_model: str = "qwen3.8:27b-32k"
     ollama_base_url: str = "http://localhost:11434"
-    openai_api_key: Optional[str] = ""
-    openai_base_url: Optional[str] = "https://api.openai.com/v1"
-    openai_model: Optional[str] = "gpt-4o-mini"
+    openai_api_key: str | None = ""
+    openai_base_url: str | None = "https://api.openai.com/v1"
+    openai_model: str | None = "gpt-4o-mini"
 
 
 class CornerDTO(BaseModel):
@@ -117,20 +116,20 @@ class CornerDTO(BaseModel):
     v_min_ref: float
     v_min_comp: float
     delta_v_min: float
-    v_entry_ref: Optional[float] = None
-    v_entry_comp: Optional[float] = None
-    delta_v_entry: Optional[float] = None
-    v_exit_ref: Optional[float] = None
-    v_exit_comp: Optional[float] = None
-    delta_v_exit: Optional[float] = None
+    v_entry_ref: float | None = None
+    v_entry_comp: float | None = None
+    delta_v_entry: float | None = None
+    v_exit_ref: float | None = None
+    v_exit_comp: float | None = None
+    delta_v_exit: float | None = None
     delta_time: float
     braking_point_delta: float
     throttle_pickup_delta: float
     diagnosis: str
     severity: str
-    trail_braking_eval: Optional[str]
+    trail_braking_eval: str | None
     trail_braking_code: str
-    trail_braking_advice: Optional[str] = None
+    trail_braking_advice: str | None = None
     ref_gear: int
     comp_gear: int
     gear_eval: str
@@ -142,7 +141,7 @@ class CornerDTO(BaseModel):
     racing_line_eval: str
     racing_line_code: str
     racing_line_advice: str
-    racing_line_svg: Optional[Dict[str, Any]] = None
+    racing_line_svg: dict[str, Any] | None = None
 
 
 class ComparisonResponse(BaseModel):
@@ -154,30 +153,30 @@ class ComparisonResponse(BaseModel):
     delta_time_total: float
     track_name: str
     car_name: str
-    game_name: Optional[str] = "Assetto Corsa Competizione"
-    distance: List[float]
-    ref_speed: List[float]
-    comp_speed: List[float]
-    delta_speed: List[float]
-    delta_time: List[float]
-    ref_throttle: List[float]
-    comp_throttle: List[float]
-    ref_brake: List[float]
-    comp_brake: List[float]
-    ref_gear: List[int]
-    comp_gear: List[int]
-    track_x: List[float]
-    track_y: List[float]
-    ref_sectors: Dict[str, float]
-    comp_sectors: Dict[str, float]
-    corners: List[CornerDTO]
+    game_name: str | None = "Assetto Corsa Competizione"
+    distance: list[float]
+    ref_speed: list[float]
+    comp_speed: list[float]
+    delta_speed: list[float]
+    delta_time: list[float]
+    ref_throttle: list[float]
+    comp_throttle: list[float]
+    ref_brake: list[float]
+    comp_brake: list[float]
+    ref_gear: list[int]
+    comp_gear: list[int]
+    track_x: list[float]
+    track_y: list[float]
+    ref_sectors: dict[str, float]
+    comp_sectors: dict[str, float]
+    corners: list[CornerDTO]
     telemetry_source: Literal["recorded", "synthetic"]
 
 
 class AIAdviceRequest(BaseModel):
     ref_lap_id: str
     comp_lap_id: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     force_refresh: bool = False
 
 
@@ -187,13 +186,13 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: List[ChatMessage]
-    ref_lap_id: Optional[str] = None
-    comp_lap_id: Optional[str] = None
-    track_name: Optional[str] = None
-    car_name: Optional[str] = None
-    selected_corner: Optional[Dict[str, Any]] = None
-    lang: Optional[str] = "es"
+    messages: list[ChatMessage]
+    ref_lap_id: str | None = None
+    comp_lap_id: str | None = None
+    track_name: str | None = None
+    car_name: str | None = None
+    selected_corner: dict[str, Any] | None = None
+    lang: str | None = "es"
 
 
 class LocalImportRequest(BaseModel):
@@ -204,18 +203,18 @@ class LapRecordDTO(BaseModel):
     lap_number: int
     lap_time: float
     lap_time_str: str
-    sector_times: List[float]
+    sector_times: list[float]
     gap_to_pb: float
     is_pb: bool
-    v_max: Optional[float] = None
+    v_max: float | None = None
     date: str
     session_id: str
 
 
 class LapHistoryResponse(BaseModel):
     pb_lap: LapRecordDTO
-    comparison_lap: Optional[LapRecordDTO] = None
-    laps: List[LapRecordDTO]
+    comparison_lap: LapRecordDTO | None = None
+    laps: list[LapRecordDTO]
     track_name: str
     car_name: str
     delta_s1: float
@@ -294,7 +293,7 @@ def generate_demo_session():
     return {"status": "ok", "session_id": synth.session_id, "track": synth.track, "car": synth.car}
 
 
-def _load_session(session_id: Optional[str]) -> Session:
+def _load_session(session_id: str | None) -> Session:
     """The requested session, or the most recent one when no id is given."""
     if not session_id:
         sessions = storage.list_sessions()
@@ -307,15 +306,15 @@ def _load_session(session_id: Optional[str]) -> Session:
     return session
 
 
-def _find_lap(session: Session, lap_id: str) -> Optional[Lap]:
+def _find_lap(session: Session, lap_id: str) -> Lap | None:
     return next((l for l in session.laps if lap_id in (f"Lap {l.lap_number}", str(l.lap_number))), None)
 
 
 @app.get("/api/comparison", response_model=ComparisonResponse)
 def get_lap_comparison(
-    ref_lap_id: Optional[str] = Query(None),
-    comp_lap_id: Optional[str] = Query(None),
-    session_id: Optional[str] = Query(None),
+    ref_lap_id: str | None = Query(None),
+    comp_lap_id: str | None = Query(None),
+    session_id: str | None = Query(None),
 ):
     matched_session = ensure_session_telemetry(_load_session(session_id))
     ref_lap = _find_lap(matched_session, ref_lap_id) if ref_lap_id else None
@@ -349,7 +348,7 @@ def get_lap_comparison(
 
     track_x, track_y = generate_track_coordinates(matched_session.track, aligned["distance"], aligned)
 
-    corners_dto: List[CornerDTO] = []
+    corners_dto: list[CornerDTO] = []
     for c in comparison.corners:
         severity = "info"
         if c.time_delta_corner > 0.15:
@@ -450,9 +449,9 @@ def format_seconds_to_lap(seconds: float) -> str:
 
 @app.get("/api/lap-history", response_model=LapHistoryResponse)
 def get_lap_history(
-    session_id: Optional[str] = Query(None),
-    ref_lap_number: Optional[int] = Query(None),
-    comp_lap_number: Optional[int] = Query(None),
+    session_id: str | None = Query(None),
+    ref_lap_number: int | None = Query(None),
+    comp_lap_number: int | None = Query(None),
 ):
     matched_session = _load_session(session_id)
     valid_laps = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid] or matched_session.laps
@@ -461,7 +460,7 @@ def get_lap_history(
         raise HTTPException(status_code=404, detail="Session has no timed laps")
     pb_time = min(l.lap_time for l in timed_laps)
 
-    lap_records: List[LapRecordDTO] = []
+    lap_records: list[LapRecordDTO] = []
     for l in valid_laps:
         gap = round(l.lap_time - pb_time, 3)
         recorded_speed = l.telemetry.get("speed") if (l.telemetry and not l.synthetic) else None
@@ -480,7 +479,7 @@ def get_lap_history(
         )
 
     pb_record = next(r for r in lap_records if r.is_pb)
-    
+
     comp_record = None
     if comp_lap_number is not None:
         comp_record = next((r for r in lap_records if r.lap_number == comp_lap_number), None)

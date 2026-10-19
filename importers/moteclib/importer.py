@@ -1,7 +1,9 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import numpy as np
+
 from domain.session import Lap, Session, SessionSummary
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
@@ -85,7 +87,7 @@ class MoTeCImporter:
             source_file=self.file_path,
         )
 
-    def _canonical_telemetry(self, channels: Dict[str, Any]) -> Dict[str, List[float]]:
+    def _canonical_telemetry(self, channels: dict[str, Any]) -> dict[str, list[float]]:
         """Map MoTeC channel names to canonical ones, resampled to the speed channel's rate.
 
         ACC logs pedals in percent, so they are rescaled to 0-1 when they exceed 1.5.
@@ -95,7 +97,7 @@ class MoTeCImporter:
             raise ValueError("MoTeC file has no speed channel")
         n = len(base.data)
 
-        telemetry: Dict[str, List[float]] = {"time": (np.arange(n) / float(base.freq)).tolist()}
+        telemetry: dict[str, list[float]] = {"time": (np.arange(n) / float(base.freq)).tolist()}
         for canonical, names in CHANNEL_MAP.items():
             chan = next((channels[name] for name in names if name in channels), None)
             if chan is None or len(chan.data) == 0:
@@ -109,10 +111,10 @@ class MoTeCImporter:
             telemetry[canonical] = values.tolist()
         return telemetry
 
-    def _split_laps(self, telemetry: Dict[str, List[float]], ldx_laps: List[Dict[str, Any]]) -> List[Lap]:
+    def _split_laps(self, telemetry: dict[str, list[float]], ldx_laps: list[dict[str, Any]]) -> list[Lap]:
         """Cut session channels into laps using .ldx markers, else lap-distance resets."""
         time = np.asarray(telemetry["time"])
-        bounds: List[Tuple[int, int, int]] = []
+        bounds: list[tuple[int, int, int]] = []
 
         if ldx_laps:
             for info in ldx_laps:
@@ -127,7 +129,7 @@ class MoTeCImporter:
         else:
             bounds = [(1, 0, len(time))]
 
-        laps: List[Lap] = []
+        laps: list[Lap] = []
         for lap_number, start, end in bounds:
             if end - start < 2:
                 continue
@@ -177,8 +179,8 @@ class MoTeCImporter:
         )
 
     def _extract_spatial_coordinates(
-        self, channels: Dict[str, Any]
-    ) -> Tuple[Optional[List[float]], Optional[List[float]]]:
+        self, channels: dict[str, Any]
+    ) -> tuple[list[float] | None, list[float] | None]:
         """
         Auto-detect GPS latitude/longitude or local world position (X, Y, Z) channels from MoTeC logs.
         Converts GPS spherical coordinates into local planar Cartesian (x, y) in meters.
@@ -220,12 +222,8 @@ class MoTeCImporter:
             if y_chan is not None and z_chan is not None:
                 y_data = np.array(y_chan.data, dtype=np.float64)
                 z_data = np.array(z_chan.data, dtype=np.float64)
-                # Check which axis represents the ground plane vs vertical elevation
-                if float(np.var(z_data)) > float(np.var(y_data)) * 2.0:
-                    # Z is horizontal ground axis (rFactor2 / LMU / Unity standard)
-                    ground_y = z_data
-                else:
-                    ground_y = y_data
+                # rFactor 2 / LMU use Y for elevation, so the axis that varies more is the ground plane.
+                ground_y = z_data if float(np.var(z_data)) > float(np.var(y_data)) * 2.0 else y_data
             elif y_chan is not None:
                 ground_y = np.array(y_chan.data, dtype=np.float64)
             else:

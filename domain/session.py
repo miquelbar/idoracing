@@ -1,6 +1,7 @@
-from datetime import datetime
-from typing import Any, Dict, List, Optional
 import uuid
+from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -8,12 +9,12 @@ class Lap(BaseModel):
     """Represents a single lap within a driving session."""
     lap_number: int
     lap_time: float
-    sector_times: List[float] = Field(default_factory=list)
+    sector_times: list[float] = Field(default_factory=list)
     is_valid: bool = True
-    telemetry: Optional[Dict[str, List[float]]] = None
+    telemetry: dict[str, list[float]] | None = None
     synthetic: bool = Field(default=False, description="Telemetry was generated, not recorded by the simulator")
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    start_time: float | None = None
+    end_time: float | None = None
 
 
 class Session(BaseModel):
@@ -23,15 +24,15 @@ class Session(BaseModel):
     car: str = Field(..., description="Car model used in the session")
     track: str = Field(..., description="Circuit name")
     date: datetime = Field(..., description="Session date and time")
-    telemetry: Dict[str, List[float]] = Field(default_factory=dict, description="Session-wide telemetry channels")
-    laps: List[Lap] = Field(default_factory=list, description="List of segmented laps")
-    source_file: Optional[str] = Field(default=None, description="Original source filename or path")
+    telemetry: dict[str, list[float]] = Field(default_factory=dict, description="Session-wide telemetry channels")
+    laps: list[Lap] = Field(default_factory=list, description="List of segmented laps")
+    source_file: str | None = Field(default=None, description="Original source filename or path")
 
     @model_validator(mode="after")
     def validate_telemetry_channels(self) -> "Session":
         if self.telemetry:
             # Map canonical channel names for case-insensitivity and standard aliases
-            normalized_keys = {k.lower(): k for k in self.telemetry.keys()}
+            normalized_keys = {k.lower(): k for k in self.telemetry}
             aliases = {
                 "speed": ["speed", "corr speed"],
                 "throttle": ["throttle", "throttle pos"],
@@ -58,7 +59,7 @@ class SessionSummary(BaseModel):
     best_lap_time: float
     average_speed: float
     lap_count: int = 0
-    id: Optional[str] = None
+    id: str | None = None
 
 
 class CornerAnalysis(BaseModel):
@@ -78,16 +79,16 @@ class CornerAnalysis(BaseModel):
     comp_exit_speed: float = 0.0
     delta_v_exit: float = 0.0
     time_delta_corner: float
-    ref_brake_point: Optional[float] = None
-    comp_brake_point: Optional[float] = None
-    brake_delta_dist: Optional[float] = None
-    ref_throttle_point: Optional[float] = None
-    comp_throttle_point: Optional[float] = None
-    throttle_delta_dist: Optional[float] = None
+    ref_brake_point: float | None = None
+    comp_brake_point: float | None = None
+    brake_delta_dist: float | None = None
+    ref_throttle_point: float | None = None
+    comp_throttle_point: float | None = None
+    throttle_delta_dist: float | None = None
     diagnosis: str = ""
-    trail_eval: Optional[str] = "Óptimo"
+    trail_eval: str | None = "Óptimo"
     trail_code: str = "neutral"
-    trail_advice: Optional[str] = None
+    trail_advice: str | None = None
     ref_gear: int = 0
     comp_gear: int = 0
     gear_eval: str = "Óptima"
@@ -99,7 +100,7 @@ class CornerAnalysis(BaseModel):
     racing_line_eval: str = "Trazada Óptima"
     racing_line_code: str = "optimal"
     racing_line_advice: str = ""
-    racing_line_svg: Optional[Dict[str, Any]] = None
+    racing_line_svg: dict[str, Any] | None = None
 
 
 class LapComparison(BaseModel):
@@ -107,23 +108,23 @@ class LapComparison(BaseModel):
     reference_lap: str
     comparison_lap: str
     time_difference: float
-    sector_differences: Dict[str, float] = Field(default_factory=dict)
-    speed_differences: Dict[str, float] = Field(default_factory=dict)
-    throttle_differences: Dict[str, float] = Field(default_factory=dict)
-    brake_differences: Dict[str, float] = Field(default_factory=dict)
-    gear_changes: Dict[str, int] = Field(default_factory=dict)
-    corners: List[CornerAnalysis] = Field(default_factory=list)
-    aligned_distance: Optional[List[float]] = None
-    time_delta_profile: Optional[List[float]] = None
-    speed_delta_profile: Optional[List[float]] = None
+    sector_differences: dict[str, float] = Field(default_factory=dict)
+    speed_differences: dict[str, float] = Field(default_factory=dict)
+    throttle_differences: dict[str, float] = Field(default_factory=dict)
+    brake_differences: dict[str, float] = Field(default_factory=dict)
+    gear_changes: dict[str, int] = Field(default_factory=dict)
+    corners: list[CornerAnalysis] = Field(default_factory=list)
+    aligned_distance: list[float] | None = None
+    time_delta_profile: list[float] | None = None
+    speed_delta_profile: list[float] | None = None
 
 
 class CoachReport(BaseModel):
     """Structured report produced by the driving coach (numerical analysis + local AI)."""
-    facts: List[str] = Field(default_factory=list, description="Hechos observados directamente en los datos")
-    metrics: Dict[str, Any] = Field(default_factory=dict, description="Métricas calculadas numéricamente")
-    hypotheses: List[str] = Field(default_factory=list, description="Hipótesis de conducción sobre por qué se pierde tiempo")
-    exercises: List[str] = Field(default_factory=list, description="Ejercicios concretos y delimitados para la siguiente sesión")
+    facts: list[str] = Field(default_factory=list, description="Hechos observados directamente en los datos")
+    metrics: dict[str, Any] = Field(default_factory=dict, description="Métricas calculadas numéricamente")
+    hypotheses: list[str] = Field(default_factory=list, description="Hipótesis de conducción sobre por qué se pierde tiempo")
+    exercises: list[str] = Field(default_factory=list, description="Ejercicios concretos y delimitados para la siguiente sesión")
     verification_indicator: str = Field(default="", description="Indicador numérico para comprobar si el ejercicio funcionó")
     confidence: str = Field(default="Alta", description="Nivel de confianza del análisis (Alta / Media / Baja)")
     raw_report: str = Field(default="", description="Texto completo del informe en formato Markdown")

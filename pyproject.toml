@@ -33,3 +33,13 @@ dev = [
 pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["frontend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "BLE"]
+# B008: FastAPI declares request parameters as File()/Query() defaults.
+ignore = ["E501", "E741", "B008"]

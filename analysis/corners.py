@@ -3,10 +3,12 @@ Corner-by-corner driving analysis and technical diagnosis.
 Extracts apex speeds, braking points, throttle pickup points, and time loss per corner.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import numpy as np
-from domain.session import CornerAnalysis
+
 from analysis.tracks import known_track_corners
+from domain.session import CornerAnalysis
 
 # A speed dip counts as a corner when it is at least this much below the speed before and after it.
 CORNER_MIN_DROP_KMH = 12.0
@@ -16,8 +18,8 @@ FAST_CORNER_KMH = 160.0
 
 
 def analyze_corner(
-    corner_def: Dict,
-    aligned_data: Dict[str, np.ndarray],
+    corner_def: dict,
+    aligned_data: dict[str, np.ndarray],
 ) -> CornerAnalysis:
     """
     Perform technical breakdown of driving performance across a specific corner.
@@ -61,7 +63,6 @@ def analyze_corner(
     ref_min_speed = float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0
     comp_min_speed = float(np.min(comp_sp)) if len(comp_sp) > 0 else 0.0
     delta_vmin_kmh = float(comp_min_speed - ref_min_speed)
-    speed_delta_min = delta_vmin_kmh
 
     # Exit speed (at end of corner)
     ref_exit_speed = float(ref_sp[-1]) if len(ref_sp) > 0 else 0.0
@@ -348,7 +349,7 @@ def generate_racing_line_svg(
     speed_delta: float,
     ref_min_speed: float,
     comp_min_speed: float,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Schematic SVG paths for a 440x220 canvas: a fixed reference line and one of three stock
     shapes for the driven line (understeer, early apex, on line). The shapes are illustrations
@@ -413,7 +414,7 @@ def generate_racing_line_svg(
     }
 
 
-def detect_corners(distance: np.ndarray, speed: np.ndarray) -> List[Dict[str, Any]]:
+def detect_corners(distance: np.ndarray, speed: np.ndarray) -> list[dict[str, Any]]:
     """
     Find corners as dips in the reference speed trace, for tracks without a corner table.
     A dip counts when its prominence (how far it sits below the lower of the two speed peaks
@@ -425,7 +426,7 @@ def detect_corners(distance: np.ndarray, speed: np.ndarray) -> List[Dict[str, An
     window = max(1, int(round(20.0 / max(float(np.median(np.diff(distance))), 0.1)))) | 1
     smooth = np.convolve(np.pad(speed, window, mode="edge"), np.ones(window) / window, mode="same")[window:-window]
 
-    corners: List[Dict[str, Any]] = []
+    corners: list[dict[str, Any]] = []
     for apex in range(1, len(smooth) - 1):
         if not (smooth[apex] <= smooth[apex - 1] and smooth[apex] < smooth[apex + 1]):
             continue
@@ -451,10 +452,10 @@ def detect_corners(distance: np.ndarray, speed: np.ndarray) -> List[Dict[str, An
 
 
 def extract_corners_analysis(
-    aligned_data: Dict[str, np.ndarray],
-    corners_list: Optional[List[Dict]] = None,
-    track_name: Optional[str] = None,
-) -> List[CornerAnalysis]:
+    aligned_data: dict[str, np.ndarray],
+    corners_list: list[dict] | None = None,
+    track_name: str | None = None,
+) -> list[CornerAnalysis]:
     """Analyze every corner: from the track's corner table if it is mapped, otherwise detected from the speed trace."""
     if corners_list is None:
         corners_list = known_track_corners(track_name)

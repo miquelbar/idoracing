@@ -6,12 +6,13 @@ The header, channel and event layouts follow gotzl/ldparser
 (https://github.com/gotzl/ldparser), licensed under GPL-3.0.
 """
 
-from datetime import datetime
 import logging
 import os
 import struct
-from typing import Any, Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
+from datetime import datetime
+from typing import Any
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class MoTeCChannel:
         mul: int,
         scale: int,
         dec: int,
-        data: Optional[np.ndarray] = None,
+        data: np.ndarray | None = None,
     ):
         self.name = name
         self.short_name = short_name
@@ -56,7 +57,7 @@ class MoTeCChannel:
         self.data = data
 
     @classmethod
-    def from_binary(cls, f, meta_ptr: int) -> Tuple["MoTeCChannel", int]:
+    def from_binary(cls, f, meta_ptr: int) -> tuple["MoTeCChannel", int]:
         """Read channel metadata from binary stream. Returns (channel, next_meta_ptr)."""
         f.seek(meta_ptr)
         block = f.read(struct.calcsize(cls.FMT))
@@ -171,7 +172,7 @@ class MoTeCLDParser:
         self.venue: str = ""
         self.date_time: datetime = datetime.now()
         self.comment: str = ""
-        self.channels: Dict[str, MoTeCChannel] = {}
+        self.channels: dict[str, MoTeCChannel] = {}
 
     def parse(self) -> "MoTeCLDParser":
         """Read and parse the .ld file."""
@@ -221,7 +222,7 @@ class MoTeCLDXParser:
 
     def __init__(self, filepath: str):
         self.filepath = filepath
-        self.laps: List[Dict[str, Any]] = []
+        self.laps: list[dict[str, Any]] = []
 
     def parse(self) -> "MoTeCLDXParser":
         """Parse XML marker file containing lap markers."""
@@ -274,7 +275,7 @@ def create_synthetic_ld_bytes(
     vehicle: str,
     venue: str,
     date_time: datetime,
-    channels_data: Dict[str, np.ndarray],
+    channels_data: dict[str, np.ndarray],
     freq: int = 20,
 ) -> bytes:
     """Utility to generate a binary valid MoTeC .ld file format for tests and synthetic sessions."""
