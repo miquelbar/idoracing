@@ -30,7 +30,7 @@ def test_api_sessions_and_comparison(client):
     sessions = res.json()
     assert len(sessions) > 0
 
-    comp_res = client.get("/api/comparison")
+    comp_res = client.get("/api/comparison", params={"session_id": "synth_valencia_992_gt3"})
     assert comp_res.status_code == 200
     comp_data = comp_res.json()
     assert "distance" in comp_data
@@ -38,6 +38,41 @@ def test_api_sessions_and_comparison(client):
     assert "comp_speed" in comp_data
     assert "delta_time" in comp_data
     assert len(comp_data["corners"]) == 14
+    assert comp_data["telemetry_source"] == "synthetic"
+
+
+def test_comparison_of_unknown_session_is_404(client):
+    res = client.get("/api/comparison", params={"session_id": "does-not-exist"})
+    assert res.status_code == 404
+
+
+LMU_RESULTS = """<?xml version="1.0" encoding="utf-8"?>
+<rFactorXML version="1.0"><RaceResults>
+<TrackVenue>Circuit de la Sarthe</TrackVenue>
+<Driver><Name>Driver</Name><VehName>Porsche 911 GT3 R LMGT3</VehName><isPlayer>1</isPlayer>
+<Lap num="1" s1="42.5" s2="65.2" s3="85.3">193.000</Lap>
+<Lap num="2" s1="41.2" s2="64.1" s3="84.7">190.000</Lap>
+</Driver></RaceResults></rFactorXML>
+"""
+
+
+def test_lap_times_only_sessions_are_reported_as_synthetic(client):
+    res = client.post("/api/import/upload", files={"file": ("lmu_race.xml", LMU_RESULTS.encode(), "text/xml")})
+    assert res.status_code == 200, res.text
+
+    comp = client.get("/api/comparison", params={"session_id": res.json()["session_id"]}).json()
+    assert comp["telemetry_source"] == "synthetic"
+
+
+def test_recorded_csv_laps_are_reported_as_recorded(client):
+    rows = ["time,distance,speed,throttle,brake,gear,lap"]
+    for lap, speed in ((1, 150), (2, 145)):
+        rows += [f"{i * 0.1:.1f},{i * speed / 36:.2f},{speed},1.0,0.0,4,{lap}" for i in range(40)]
+    res = client.post("/api/import/upload", files={"file": ("recorded.csv", "\n".join(rows).encode(), "text/csv")})
+    assert res.status_code == 200, res.text
+
+    comp = client.get("/api/comparison", params={"session_id": "recorded"}).json()
+    assert comp["telemetry_source"] == "recorded"
 
 
 def test_api_autodiscover(client):

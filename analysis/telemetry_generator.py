@@ -1,7 +1,7 @@
 """
-Telemetry generator and synthesizer for multi-simulator tracks.
-Produces mathematically consistent, distance-aligned telemetry for any circuit and car
-when importing session files (like LMU/rFactor 2 XML results) that lack 50Hz continuous traces.
+Placeholder telemetry for sessions that only carry lap and sector times (LMU/rFactor 2 XML results).
+The traces are shaped from the track's corner table and scaled to each lap time. They are not
+measurements, and every lap they fill is marked synthetic.
 """
 
 from typing import Dict, List, Optional
@@ -18,8 +18,9 @@ def generate_lap_telemetry_for_track(
     step_dist: float = 2.0,
 ) -> Dict[str, np.ndarray]:
     """
-    Generate realistic, continuous 50Hz distance-aligned telemetry for a specific track.
-    If target_lap_time is given, velocities are scaled so time profile reaches target_lap_time exactly.
+    Generate distance-aligned telemetry for a track from its corner table.
+    If target_lap_time is given, velocities are scaled so the lap takes exactly that long.
+    is_reference=False plants mistakes at fixed corners; only tests use it.
     """
     total_dist = get_track_length(track_name)
     corners = get_track_corners(track_name, total_dist)
@@ -161,33 +162,19 @@ def generate_lap_telemetry_for_track(
 
 def ensure_session_telemetry(session: Session) -> Session:
     """
-    Ensure all laps in the session have valid distance-aligned telemetry dictionaries.
-    If laps lack continuous channels, generates realistic telemetry calibrated to each lap's time and track.
+    Fill laps that have no trace with placeholder telemetry scaled to their lap time.
+    Every lap filled here is marked synthetic so callers can say so.
     """
-    if not session.laps:
-        return session
-
-    valid_laps = [l for l in session.laps if l.lap_time > 15.0 and l.is_valid]
-    if not valid_laps:
-        valid_laps = session.laps
-
-    # Identify reference lap (fastest valid lap)
-    best_lap_idx = int(np.argmin([l.lap_time for l in valid_laps]))
-    ref_lap_obj = valid_laps[best_lap_idx]
-
     for lap in session.laps:
-        if not lap.telemetry or len(lap.telemetry.get("distance", [])) == 0:
-            is_ref = (lap.lap_number == ref_lap_obj.lap_number)
+        if not lap.telemetry or not lap.telemetry.get("speed"):
             t_dict = generate_lap_telemetry_for_track(
                 track_name=session.track,
                 target_lap_time=lap.lap_time,
-                is_reference=is_ref,
             )
             lap.telemetry = {k: v.tolist() for k, v in t_dict.items()}
+            lap.synthetic = True
 
-    # Populate session-level telemetry from best lap if missing
-    if not session.telemetry or len(session.telemetry.get("distance", [])) == 0:
-        if ref_lap_obj.telemetry:
-            session.telemetry = ref_lap_obj.telemetry
+    if not session.telemetry.get("speed") and session.laps:
+        session.telemetry = session.laps[0].telemetry or {}
 
     return session

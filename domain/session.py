@@ -11,6 +11,7 @@ class Lap(BaseModel):
     sector_times: List[float] = Field(default_factory=list)
     is_valid: bool = True
     telemetry: Optional[Dict[str, List[float]]] = None
+    synthetic: bool = Field(default=False, description="Telemetry was generated, not recorded by the simulator")
     start_time: Optional[float] = None
     end_time: Optional[float] = None
 

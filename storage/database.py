@@ -91,6 +91,17 @@ class Storage:
             );
             """)
 
+            lap_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(laps)")}
+            if "synthetic" not in lap_columns:
+                cursor.execute("ALTER TABLE laps ADD COLUMN synthetic INTEGER NOT NULL DEFAULT 0")
+                # Older versions stored generated traces for LMU results and the demo without marking them.
+                cursor.execute("""
+                UPDATE laps SET synthetic = 1
+                WHERE telemetry IS NOT NULL AND session_id IN (
+                    SELECT id FROM sessions WHERE source_file LIKE '%.xml' OR session_id LIKE 'synth_%'
+                )
+                """)
+
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_car ON sessions (car);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_track ON sessions (track);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions (date);")
@@ -139,8 +150,8 @@ class Storage:
                 telemetry_json = json.dumps(lap.telemetry) if lap.telemetry else None
                 sector_json = json.dumps(lap.sector_times) if lap.sector_times else None
                 cursor.execute("""
-                INSERT INTO laps (session_id, lap_number, lap_time, sector_times, is_valid, telemetry)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO laps (session_id, lap_number, lap_time, sector_times, is_valid, telemetry, synthetic)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     session.id,
                     lap.lap_number,
@@ -148,6 +159,7 @@ class Storage:
                     sector_json,
                     1 if lap.is_valid else 0,
                     telemetry_json,
+                    1 if lap.synthetic else 0,
                 ))
 
             conn.commit()
@@ -175,6 +187,7 @@ class Storage:
                     sector_times=l_sectors,
                     is_valid=bool(lr["is_valid"]),
                     telemetry=l_telemetry,
+                    synthetic=bool(lr["synthetic"]),
                 ))
 
             # Reconstruct session telemetry from reference lap or best lap if empty

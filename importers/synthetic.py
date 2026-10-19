@@ -230,6 +230,7 @@ def create_synthetic_session() -> Session:
             sector_times=calc_sectors(out_lap_raw),
             is_valid=False,  # Out lap
             telemetry=to_lists(out_lap_raw),
+            synthetic=True,
         ),
         Lap(
             lap_number=2,
@@ -237,6 +238,7 @@ def create_synthetic_session() -> Session:
             sector_times=calc_sectors(ref_lap_raw),
             is_valid=True,
             telemetry=to_lists(ref_lap_raw),
+            synthetic=True,
         ),
         Lap(
             lap_number=3,
@@ -244,6 +246,7 @@ def create_synthetic_session() -> Session:
             sector_times=calc_sectors(comp_lap_raw),
             is_valid=True,
             telemetry=to_lists(comp_lap_raw),
+            synthetic=True,
         ),
     ]
 

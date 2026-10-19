@@ -10,7 +10,7 @@ import os
 import shutil
 import struct
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 import xml.etree.ElementTree as ET
 import numpy as np
 
@@ -165,6 +165,7 @@ class ComparisonResponse(BaseModel):
     ref_sectors: Dict[str, float]
     comp_sectors: Dict[str, float]
     corners: List[CornerDTO]
+    telemetry_source: Literal["recorded", "synthetic"]
 
 
 class AIAdviceRequest(BaseModel):
@@ -295,62 +296,44 @@ def generate_demo_session():
     return {"status": "ok", "session_id": synth.session_id, "track": synth.track, "car": synth.car}
 
 
+def _load_session(session_id: Optional[str]) -> Session:
+    """The requested session, or the most recent one when no id is given."""
+    if not session_id:
+        sessions = storage.list_sessions()
+        if not sessions:
+            raise HTTPException(status_code=404, detail="No telemetry sessions found")
+        session_id = sessions[0].session_id
+    session = storage.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+
+def _find_lap(session: Session, lap_id: str) -> Optional[Lap]:
+    return next((l for l in session.laps if lap_id in (f"Lap {l.lap_number}", str(l.lap_number))), None)
+
+
 @app.get("/api/comparison", response_model=ComparisonResponse)
 def get_lap_comparison(
     ref_lap_id: Optional[str] = Query(None),
     comp_lap_id: Optional[str] = Query(None),
     session_id: Optional[str] = Query(None),
 ):
-    sessions = storage.list_sessions()
-    if not sessions:
-        raise HTTPException(status_code=404, detail="No telemetry sessions found")
-
-    ref_lap: Optional[Lap] = None
-    comp_lap: Optional[Lap] = None
-    matched_session: Optional[Session] = None
-
-    target_sessions = [storage.get_session(session_id)] if session_id else [storage.get_session(s.session_id) for s in sessions]
-    target_sessions = [ensure_session_telemetry(s) for s in target_sessions if s is not None]
-
-    if not target_sessions:
-        synth = create_synthetic_session()
-        target_sessions = [synth]
-
-    matched_session = target_sessions[0]
-
-    if ref_lap_id and comp_lap_id:
-        for lap in matched_session.laps:
-            lap_label = f"Lap {lap.lap_number}"
-            if lap_label == ref_lap_id or str(lap.lap_number) == ref_lap_id:
-                ref_lap = lap
-            if lap_label == comp_lap_id or str(lap.lap_number) == comp_lap_id:
-                comp_lap = lap
-            if ref_lap and comp_lap:
-                break
+    matched_session = ensure_session_telemetry(_load_session(session_id))
+    ref_lap = _find_lap(matched_session, ref_lap_id) if ref_lap_id else None
+    comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
 
     if not ref_lap or not comp_lap:
-        valid_laps = sorted([l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and l.telemetry], key=lambda x: x.lap_time)
-        if len(valid_laps) >= 2:
-            ref_lap = valid_laps[0]
-            comp_lap = valid_laps[1]
-        elif len(valid_laps) == 1:
-            ref_lap = valid_laps[0]
-            comp_lap = matched_session.laps[1] if len(matched_session.laps) > 1 else valid_laps[0]
-        elif len(matched_session.laps) >= 2:
-            ref_lap = matched_session.laps[0]
-            comp_lap = matched_session.laps[1]
-        elif len(matched_session.laps) == 1:
-            ref_lap = matched_session.laps[0]
-            comp_lap = matched_session.laps[0]
+        ranked = sorted(
+            [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid] or matched_session.laps,
+            key=lambda x: x.lap_time,
+        )
+        if not ranked:
+            raise HTTPException(status_code=404, detail="Session has no laps")
+        ref_lap = ranked[0]
+        comp_lap = ranked[1] if len(ranked) > 1 else ranked[0]
 
-    if not ref_lap or not comp_lap:
-        # Fallback to demo
-        synth = create_synthetic_session()
-        ref_lap = synth.laps[1]
-        comp_lap = synth.laps[2]
-        matched_session = synth
-
-    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track if matched_session else None)
+    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     aligned = align_laps_by_distance(ref_lap.telemetry or {}, comp_lap.telemetry or {}, step_m=2.0)
 
     # Build telemetry arrays
@@ -366,9 +349,7 @@ def get_lap_comparison(
     ref_gr = [int(g) for g in aligned["ref_gear"].tolist()]
     comp_gr = [int(g) for g in aligned["comp_gear"].tolist()]
 
-    # Generate authentic, closed-loop 2D track coordinates
-    track_name = matched_session.track if matched_session else "Valencia"
-    track_x, track_y = generate_track_coordinates(track_name, aligned["distance"], aligned)
+    track_x, track_y = generate_track_coordinates(matched_session.track, aligned["distance"], aligned)
 
     corners_dto: List[CornerDTO] = []
     for c in comparison.corners:
@@ -419,14 +400,13 @@ def get_lap_comparison(
     comp_sectors = {f"S{i+1}": t for i, t in enumerate(comp_lap.sector_times)}
 
     detected_game = "Assetto Corsa Competizione"
-    if matched_session:
-        sid = (matched_session.session_id or "").lower()
-        sf = (matched_session.source_file or "").lower()
-        car = (matched_session.car or "").lower()
-        if "lmu" in sid or "le mans" in sf or "lmgt3" in car or "hypercar" in car or "lmp2" in car:
-            detected_game = "Le Mans Ultimate"
-        elif "iracing" in sid or "iracing" in sf:
-            detected_game = "iRacing"
+    sid = matched_session.session_id.lower()
+    sf = (matched_session.source_file or "").lower()
+    car = matched_session.car.lower()
+    if "lmu" in sid or "le mans" in sf or "lmgt3" in car or "hypercar" in car or "lmp2" in car:
+        detected_game = "Le Mans Ultimate"
+    elif "iracing" in sid or "iracing" in sf:
+        detected_game = "iRacing"
 
     return ComparisonResponse(
         ref_lap_id=f"Lap {ref_lap.lap_number}",
@@ -434,8 +414,8 @@ def get_lap_comparison(
         ref_lap_time=ref_lap.lap_time,
         comp_lap_time=comp_lap.lap_time,
         delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
-        track_name=matched_session.track if matched_session else "Circuito",
-        car_name=matched_session.car if matched_session else "GT3",
+        track_name=matched_session.track,
+        car_name=matched_session.car,
         game_name=detected_game,
         distance=distance_grid,
         ref_speed=ref_speed,
@@ -453,6 +433,7 @@ def get_lap_comparison(
         ref_sectors=ref_sectors,
         comp_sectors=comp_sectors,
         corners=corners_dto,
+        telemetry_source="synthetic" if (ref_lap.synthetic or comp_lap.synthetic) else "recorded",
     )
 
 
