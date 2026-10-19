@@ -1,7 +1,6 @@
 """
-Circuit track geometry models and 2D coordinate generators for IdoRacing Analytics.
-Provides authentic closed-loop layouts for Circuit Ricardo Tormo (Valencia)
-and universal coordinate projection for multi-simulator tracks.
+Circuit geometry for IdoRacing Analytics: corner tables for the mapped tracks (Valencia, Sebring)
+and the 2D outline drawn on the track map.
 """
 
 import json
@@ -9,7 +8,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
-# Authentic 2D Waypoints for Circuit Ricardo Tormo (Valencia, Cheste — 4005m)
+# Hand-placed outline of Circuit Ricardo Tormo (Valencia, 4005 m); approximate, not surveyed
 VALENCIA_WAYPOINTS = [
     (0.0, 300.0, 420.0),      # Start / Finish line
     (300.0, 600.0, 420.0),    # Main straight
@@ -45,7 +44,7 @@ VALENCIA_WAYPOINTS = [
     (4005.0, 300.0, 420.0),   # Closes loop at Start / Finish line
 ]
 
-# Authentic 2D Waypoints for Sebring International Raceway (Florida, 6019m)
+# Hand-placed outline of Sebring International Raceway (6019 m), used if data/circuits/sebring.json is missing
 SEBRING_WAYPOINTS = [
     (0.0, 320.0, 470.0),       # Start / Finish line
     (420.0, 580.0, 470.0),     # Approaching Turn 1
@@ -65,7 +64,7 @@ SEBRING_WAYPOINTS = [
     (6019.0, 320.0, 470.0),    # Finish line (Closes loop)
 ]
 
-# Official Valencia Ricardo Tormo Turn definitions (Distance in meters along 4005m lap)
+# Valencia Ricardo Tormo corners (approximate distances along the 4005 m lap)
 VALENCIA_CORNERS: List[Dict[str, Any]] = [
     {"number": 1, "name": "Curva Aspar", "start": 580.0, "apex": 780.0, "end": 900.0, "gear": 3, "target_speed": 142.0, "turn_dir": "left"},
     {"number": 2, "name": "Curva Doohan", "start": 920.0, "apex": 1080.0, "end": 1220.0, "gear": 3, "target_speed": 128.0, "turn_dir": "right"},
@@ -83,7 +82,7 @@ VALENCIA_CORNERS: List[Dict[str, Any]] = [
     {"number": 14, "name": "Curva Adrian Campos", "start": 3620.0, "apex": 3740.0, "end": 3950.0, "gear": 2, "target_speed": 89.0, "turn_dir": "left"},
 ]
 
-# Authentic Sebring International Raceway 17 Corners
+# Sebring International Raceway corners (approximate distances along the 6019 m lap)
 SEBRING_CORNERS: List[Dict[str, Any]] = [
     {"number": 1, "name": "Turn 1 Sweeper", "start": 420.0, "apex": 720.0, "end": 950.0, "gear": 4, "target_speed": 172.0, "turn_dir": "left"},
     {"number": 2, "name": "Turn 2", "start": 1050.0, "apex": 1180.0, "end": 1280.0, "gear": 5, "target_speed": 210.0, "turn_dir": "right"},
@@ -120,22 +119,48 @@ def get_track_length(track_name: Optional[str] = None) -> float:
     return 4500.0
 
 
-def get_track_corners(track_name: Optional[str] = None, total_distance: float = 0.0) -> List[Dict[str, Any]]:
-    """Retrieve authentic corner definitions for known tracks or dynamically adapt."""
+def known_track_corners(track_name: Optional[str]) -> Optional[List[Dict[str, Any]]]:
+    """Corner table for tracks we have mapped, None for any other track."""
     t_norm = (track_name or "").lower()
-    if "sebring" in t_norm or total_distance > 5200.0:
+    if "sebring" in t_norm:
         return SEBRING_CORNERS
-    elif "valencia" in t_norm or "ricardo" in t_norm or "cheste" in t_norm:
+    if "valencia" in t_norm or "ricardo" in t_norm or "cheste" in t_norm:
         return VALENCIA_CORNERS
-    else:
-        if total_distance > 5000.0:
-            return SEBRING_CORNERS
-        return VALENCIA_CORNERS
+    return None
+
+
+def get_track_corners(track_name: Optional[str] = None, total_distance: float = 0.0) -> List[Dict[str, Any]]:
+    """Corner table used to shape placeholder telemetry; unmapped tracks borrow the closest-length layout."""
+    known = known_track_corners(track_name)
+    if known is not None:
+        return known
+    return SEBRING_CORNERS if total_distance > 5000.0 else VALENCIA_CORNERS
+
+
+def reconstruct_track_from_dynamics(
+    distance: np.ndarray, speed_kmh: np.ndarray, lat_accel_g: np.ndarray
+) -> Tuple[List[float], List[float]]:
+    """
+    Dead-reckon the driven line: heading changes by a_lat * ds / v^2. The heading and position
+    drift left at the line are spread evenly over the lap so the outline closes.
+    """
+    v = np.maximum(speed_kmh / 3.6, 5.0)
+    ds = np.diff(distance, prepend=distance[0])
+    heading = np.cumsum(lat_accel_g * 9.81 * ds / v**2)
+    if len(heading) > 1:
+        turned = heading[-1] - heading[0]
+        closing_turn = np.sign(turned) * 2.0 * np.pi if abs(turned) > np.pi else 0.0
+        heading -= np.linspace(0.0, turned - closing_turn, len(heading))
+    x = np.cumsum(ds * np.cos(heading))
+    y = np.cumsum(ds * np.sin(heading))
+    x -= np.linspace(0.0, x[-1] - x[0], len(x))
+    y -= np.linspace(0.0, y[-1] - y[0], len(y))
+    return x.tolist(), y.tolist()
 
 
 def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
-    Load surveyed, verified GPS/Cartesian track coordinates from local circuit dataset.
+    Load a circuit centreline from data/circuits/<slug>.json.
     Returns (coordinates_array_Nx2, cumulative_distances_N) or None if not available.
     """
     slug = circuit_slug.lower().strip()
@@ -164,9 +189,9 @@ def generate_track_coordinates(
     telemetry: Optional[Dict[str, np.ndarray]] = None,
 ) -> Tuple[List[float], List[float]]:
     """
-    Generate smooth, closed 2D track coordinates (x, y) matching circuit geometry.
-    If GPS or coordinate channels exist, uses them; otherwise generates the authentic circuit layout.
-    For Sebring International Raceway, uses verified 836-point aerial-surveyed centerline geometry.
+    Closed 2D outline (x, y) for the track map, from the first source available:
+    recorded position channels, the mapped track outline, the outline dead-reckoned
+    from speed and lateral acceleration, or a plain circle.
     """
     if telemetry and "x" in telemetry and "y" in telemetry:
         raw_x = np.array(telemetry["x"], dtype=np.float64)
@@ -179,9 +204,8 @@ def generate_track_coordinates(
             return x_out, y_out
 
     t_norm = (track_name or "").lower()
-    total_dist = float(distance[-1]) if len(distance) > 0 else 4005.0
+    total_dist = float(distance[-1]) if len(distance) > 0 else 0.0
 
-    # 1. Verified High-Fidelity Geometry Dataset (Sebring)
     if "sebring" in t_norm:
         verified = load_verified_circuit_coordinates("sebring")
         if verified is not None:
@@ -192,27 +216,31 @@ def generate_track_coordinates(
             x_interp = np.interp(norm_target, norm_dists, coords[:, 0])
             y_interp = np.interp(norm_target, norm_dists, coords[:, 1])
 
-            # Ensure exact closed loop
             if len(x_interp) > 1:
                 x_interp[-1] = x_interp[0]
                 y_interp[-1] = y_interp[0]
 
             return x_interp.tolist(), y_interp.tolist()
-
-    # 2. Reference Waypoints Layout (Valencia and Fallback)
-    if "sebring" in t_norm:
         raw_waypoints = SEBRING_WAYPOINTS
         base_len = 6019.0
     elif "valencia" in t_norm or "ricardo tormo" in t_norm or "cheste" in t_norm:
         raw_waypoints = VALENCIA_WAYPOINTS
         base_len = 4005.0
+    elif (
+        telemetry is not None
+        and "ref_speed" in telemetry
+        and "ref_lat_accel" in telemetry
+        and float(np.max(np.abs(telemetry["ref_lat_accel"]))) > 0.05
+    ):
+        return reconstruct_track_from_dynamics(
+            np.asarray(distance, dtype=np.float64),
+            np.asarray(telemetry["ref_speed"], dtype=np.float64),
+            np.asarray(telemetry["ref_lat_accel"], dtype=np.float64),
+        )
     else:
-        if total_dist > 5200.0:
-            raw_waypoints = SEBRING_WAYPOINTS
-            base_len = 6019.0
-        else:
-            raw_waypoints = VALENCIA_WAYPOINTS
-            base_len = 4005.0
+        angle = 2.0 * np.pi * np.asarray(distance) / max(total_dist, 1.0)
+        radius = max(total_dist, 1.0) / (2.0 * np.pi)
+        return (radius * np.cos(angle)).tolist(), (radius * np.sin(angle)).tolist()
 
     wp_d = np.array([w[0] for w in raw_waypoints])
     wp_x = np.array([w[1] for w in raw_waypoints])

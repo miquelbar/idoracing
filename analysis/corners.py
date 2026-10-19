@@ -6,9 +6,13 @@ Extracts apex speeds, braking points, throttle pickup points, and time loss per 
 from typing import Any, Dict, List, Optional
 import numpy as np
 from domain.session import CornerAnalysis
-from analysis.tracks import VALENCIA_CORNERS, SEBRING_CORNERS, get_track_corners
+from analysis.tracks import known_track_corners
 
-
+# A speed dip counts as a corner when it is at least this much below the speed before and after it.
+CORNER_MIN_DROP_KMH = 12.0
+CORNER_MAX_HALF_SPAN_M = 250.0
+SLOW_CORNER_KMH = 110.0
+FAST_CORNER_KMH = 160.0
 
 
 def analyze_corner(
@@ -126,8 +130,8 @@ def analyze_corner(
     # Trail Braking Analysis
     trail_eval = "Óptimo"
     trail_advice = ""
-    is_trail_corner = number in [1, 2, 4, 8, 11, 14]
-    is_fast_corner = number in [3, 7, 12, 13]
+    is_trail_corner = ref_min_speed < SLOW_CORNER_KMH
+    is_fast_corner = ref_min_speed > FAST_CORNER_KMH
 
     max_brk = float(np.max(comp_br)) if len(comp_br) > 0 else 0.0
     pre_apex_slice = comp_br[max(0, comp_apex_idx - 10) : comp_apex_idx]
@@ -174,9 +178,6 @@ def analyze_corner(
         # Caso C: Entrada muy lenta -> frenada temprana
         balance_eval = "Exceso de Frenada / Entrada Anticipada"
         balance_advice = "Frenada demasiado temprana o exceso de presión inicial que mata la inercia del vehículo antes de iniciar el viraje."
-    elif number in [7, 14] and time_delta_corner > 0.15:
-        balance_eval = "Sobreviraje en Salida (Oversteer)"
-        balance_advice = "Zaga nerviosa al aplicar acelerador en apoyo; modula el pedal derecho para evitar la intrusión abrupta del control de tracción (TC)."
     elif time_delta_corner > 0.08:
         balance_eval = "Pérdida de Inercia en Curva"
         balance_advice = "Pérdida de velocidad y tiempo acumulado en el tramo; ajusta la modulación entre frenada y aceleración."
@@ -264,7 +265,7 @@ def analyze_corner(
         gear_advice = f"Vas en {comp_gear}ª marcha (la óptima es {ref_gear}ª). El motor cae por debajo de la curva de potencia y penaliza la aceleración."
 
     # Generate Racing Line SVG Data
-    turn_dir = corner_def.get("turn_dir", "right" if number in [2, 3, 4, 8, 11] else "left")
+    turn_dir = corner_def.get("turn_dir") or ("left" if len(ref_lat) and float(np.mean(ref_lat)) > 0 else "right")
     racing_line_svg = generate_racing_line_svg(
         corner_number=number,
         turn_dir=turn_dir,
@@ -384,18 +385,52 @@ def generate_racing_line_svg(
     }
 
 
+def detect_corners(distance: np.ndarray, speed: np.ndarray) -> List[Dict[str, Any]]:
+    """
+    Find corners as dips in the reference speed trace, for tracks without a corner table.
+    A dip counts when its prominence (how far it sits below the lower of the two speed peaks
+    that bound it) is at least CORNER_MIN_DROP_KMH. Each corner spans from the peak before
+    the dip to the peak after it, capped at CORNER_MAX_HALF_SPAN_M either side of the apex.
+    """
+    if len(speed) < 5:
+        return []
+    window = max(1, int(round(20.0 / max(float(np.median(np.diff(distance))), 0.1)))) | 1
+    smooth = np.convolve(np.pad(speed, window, mode="edge"), np.ones(window) / window, mode="same")[window:-window]
+
+    corners: List[Dict[str, Any]] = []
+    for apex in range(1, len(smooth) - 1):
+        if not (smooth[apex] <= smooth[apex - 1] and smooth[apex] < smooth[apex + 1]):
+            continue
+        lower_left = np.where(smooth[:apex] < smooth[apex])[0]
+        lower_right = np.where(smooth[apex + 1:] < smooth[apex])[0]
+        left = int(lower_left[-1]) + 1 if len(lower_left) else 0
+        right = apex + 1 + int(lower_right[0]) if len(lower_right) else len(smooth)
+        before = left + int(np.argmax(smooth[left:apex]))
+        after = apex + int(np.argmax(smooth[apex:right]))
+        if min(smooth[before], smooth[after]) - smooth[apex] < CORNER_MIN_DROP_KMH:
+            continue
+        apex_d = float(distance[apex])
+        start_d = max(float(distance[before]), apex_d - CORNER_MAX_HALF_SPAN_M)
+        if corners:
+            start_d = max(start_d, corners[-1]["end"])
+        end_d = min(float(distance[after]), apex_d + CORNER_MAX_HALF_SPAN_M)
+        corners.append({"start": start_d, "apex": apex_d, "end": end_d})
+
+    return [
+        {**c, "number": i + 1, "name": f"T{i + 1}", "turn_dir": None}
+        for i, c in enumerate(corners)
+    ]
+
+
 def extract_corners_analysis(
     aligned_data: Dict[str, np.ndarray],
     corners_list: Optional[List[Dict]] = None,
     track_name: Optional[str] = None,
 ) -> List[CornerAnalysis]:
-    """Analyze all defined track corners for the specific track."""
+    """Analyze every corner: from the track's corner table if it is mapped, otherwise detected from the speed trace."""
     if corners_list is None:
-        total_dist = float(aligned_data["distance"][-1]) if "distance" in aligned_data and len(aligned_data["distance"]) > 0 else 0.0
-        corners_list = get_track_corners(track_name, total_dist)
+        corners_list = known_track_corners(track_name)
+    if corners_list is None:
+        corners_list = detect_corners(aligned_data["distance"], aligned_data["ref_speed"])
 
-    analyses: List[CornerAnalysis] = []
-    for c_def in corners_list:
-        analyses.append(analyze_corner(c_def, aligned_data))
-
-    return analyses
+    return [analyze_corner(c_def, aligned_data) for c_def in corners_list]

@@ -130,3 +130,31 @@ def test_sebring_multitrack_corners_and_telemetry():
 
 
 
+
+
+def test_detect_corners_finds_each_speed_dip():
+    from analysis.corners import detect_corners
+
+    distance = np.arange(0.0, 3000.0, 2.0)
+    speed = np.full_like(distance, 240.0)
+    for apex, v_min in ((600.0, 90.0), (1500.0, 150.0), (2400.0, 120.0)):
+        speed = np.minimum(speed, v_min + np.abs(distance - apex) * 0.6)
+    speed[1000:1005] -= 3.0  # noise on a straight is not a corner
+
+    corners = detect_corners(distance, speed)
+
+    assert [round(c["apex"]) for c in corners] == [600, 1500, 2400]
+    assert all(c["start"] < c["apex"] < c["end"] for c in corners)
+
+
+def test_unmapped_tracks_use_detected_corners_not_valencia():
+    ref = generate_lap_telemetry(is_reference=True)
+    comp = generate_lap_telemetry(is_reference=False)
+    aligned = align_laps_by_distance(
+        {k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()}
+    )
+
+    corners = extract_corners_analysis(aligned, track_name="Monza")
+
+    assert corners
+    assert all(c.corner_name.startswith("T") for c in corners)
