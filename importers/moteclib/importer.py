@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-from domain.session import Lap, LapComparison, Session, SessionSummary
+from domain.session import Lap, Session, SessionSummary
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
 logger = logging.getLogger(__name__)
@@ -130,32 +130,6 @@ class MoTeCImporter:
             average_speed=average_speed,
             lap_count=len(session.laps),
             id=session.id,
-        )
-
-    def compare_laps(self, lap1: int, lap2: int) -> LapComparison:
-        """
-        Compare two laps in the session.
-        """
-        from analysis.lap_comparison import compare_laps as do_compare_laps
-        session = self.parse()
-
-        # Check if session has segmented laps
-        l1 = next((l for l in session.laps if l.lap_number == lap1), None)
-        l2 = next((l for l in session.laps if l.lap_number == lap2), None)
-
-        if l1 and l2 and l1.telemetry and l2.telemetry:
-            return do_compare_laps(l1, l2)
-
-        # Fallback comparison object if laps have no full telemetry
-        return LapComparison(
-            reference_lap=str(lap1),
-            comparison_lap=str(lap2),
-            time_difference=0.0,
-            sector_differences={"sector1": 0.0, "sector2": 0.0, "sector3": 0.0},
-            speed_differences={"sector1": 0.0, "sector2": 0.0, "sector3": 0.0},
-            throttle_differences={"sector1": 0.0, "sector2": 0.0, "sector3": 0.0},
-            brake_differences={"sector1": 0.0, "sector2": 0.0, "sector3": 0.0},
-            gear_changes={"sector1": 0, "sector2": 0, "sector3": 0},
         )
 
     def _extract_spatial_coordinates(

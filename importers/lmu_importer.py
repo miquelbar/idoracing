@@ -8,7 +8,6 @@ import os
 from typing import List, Optional
 import xml.etree.ElementTree as ET
 from domain.session import Lap, Session
-from analysis.telemetry_generator import ensure_session_telemetry
 
 
 class LMUImporter:
@@ -88,7 +87,7 @@ class LMUImporter:
         filename = os.path.basename(self.filepath)
         session_id = f"lmu_{os.path.splitext(filename)[0]}"
 
-        session = Session(
+        return Session(
             session_id=session_id,
             car=car,
             track=track,
@@ -97,4 +96,3 @@ class LMUImporter:
             laps=laps,
             source_file=self.filepath,
         )
-        return ensure_session_telemetry(session)

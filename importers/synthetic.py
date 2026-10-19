@@ -11,8 +11,6 @@ import numpy as np
 from domain.session import Lap, Session
 from importers.motec_binary import create_synthetic_ld_bytes
 
-from analysis.tracks import VALENCIA_CORNERS
-
 
 TRACK_LENGTH = 4005.0  # meters
 
