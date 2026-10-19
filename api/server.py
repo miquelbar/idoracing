@@ -8,8 +8,10 @@ from contextlib import asynccontextmanager
 import glob
 import os
 import shutil
+import struct
 import tempfile
 from typing import Any, Dict, List, Optional
+import xml.etree.ElementTree as ET
 import numpy as np
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -795,69 +797,50 @@ def autodiscover_files():
     }
 
 
+def _parse_telemetry_file(filepath: str) -> Session:
+    ext = os.path.splitext(filepath)[1].lower()
+    try:
+        if ext == ".xml":
+            return LMUImporter(filepath).parse()
+        if ext == ".ld":
+            return MoTeCImporter(filepath).parse()
+        if ext == ".csv":
+            return CSVImporter(filepath).parse()
+    except (ValueError, KeyError, IndexError, struct.error, ET.ParseError) as e:
+        raise HTTPException(status_code=400, detail=f"Could not read {os.path.basename(filepath)}: {e}") from e
+    raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
+
+
 @app.post("/api/import/local-file")
 def import_local_file(req: LocalImportRequest):
     filepath = req.filepath
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="File not found on system")
 
-    ext = os.path.splitext(filepath)[1].lower()
-    session = None
-    if ext == ".xml":
-        imp = LMUImporter(filepath)
-        session = imp.parse()
-    elif ext == ".ld":
-        imp = MoTeCImporter()
-        session = imp.import_session(filepath)
-    elif ext == ".csv":
-        imp = CSVImporter()
-        session = imp.import_session(filepath)
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
-
-    if session:
-        storage.save_session(session)
-        return {
-            "status": "ok",
-            "session_id": session.session_id,
-            "track": session.track,
-            "car": session.car,
-            "laps": len(session.laps),
-        }
-    raise HTTPException(status_code=500, detail="Failed to import local file")
+    session = _parse_telemetry_file(filepath)
+    storage.save_session(session)
+    return {
+        "status": "ok",
+        "session_id": session.session_id,
+        "track": session.track,
+        "car": session.car,
+        "laps": len(session.laps),
+    }
 
 
 @app.post("/api/import/upload")
 async def upload_telemetry_file(file: UploadFile = File(...)):
-    filename = file.filename or "upload"
-    ext = os.path.splitext(filename)[1].lower()
+    filename = os.path.basename(file.filename or "upload")
+    stem, ext = os.path.splitext(filename)
 
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = os.path.join(tmpdir, f"{stem}{ext.lower()}")
+        with open(tmp_path, "wb") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+        session = _parse_telemetry_file(tmp_path)
 
-    try:
-        session: Optional[Session] = None
-        if ext == ".ld":
-            importer = MoTeCImporter()
-            session = importer.import_session(tmp_path)
-        elif ext == ".xml":
-            lmu_imp = LMUImporter(tmp_path)
-            session = lmu_imp.parse()
-        elif ext == ".csv":
-            csv_imp = CSVImporter()
-            session = csv_imp.import_session(tmp_path)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
-
-        if session:
-            storage.save_session(session)
-            return {"status": "ok", "session_id": session.session_id, "laps": len(session.laps)}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to parse session")
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    storage.save_session(session)
+    return {"status": "ok", "session_id": session.session_id, "laps": len(session.laps)}
 
 
 # Serve built frontend static files if available
