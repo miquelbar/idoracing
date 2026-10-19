@@ -27,3 +27,18 @@ def test_csv_importer_valid():
 def test_csv_importer_missing_file():
     with pytest.raises(FileNotFoundError):
         CSVImporter("nonexistent_telemetry.csv")
+
+
+def test_csv_laps_start_at_zero_time_and_distance(tmp_path):
+    rows = ["time,distance,speed,lap"]
+    rows += [f"{i * 0.1:.1f},{i * 4.0:.1f},144,1" for i in range(30)]
+    rows += [f"{i * 0.1:.1f},{i * 4.0:.1f},144,2" for i in range(30, 60)]
+    csv_path = tmp_path / "two_laps.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+
+    assert [lap.lap_number for lap in sess.laps] == [1, 2]
+    assert sess.laps[1].telemetry["time"][0] == 0.0
+    assert sess.laps[1].telemetry["distance"][0] == 0.0
+    assert sess.laps[1].lap_time == pytest.approx(2.9)

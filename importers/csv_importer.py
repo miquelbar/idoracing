@@ -28,7 +28,7 @@ class CSVImporter:
         "lap": ["lap", "lap number", "lap_number"],
     }
 
-    def __init__(self, filepath: str, car: str = "Porsche 911 GT3 R (992)", track: str = "Ricardo Tormo de Valencia"):
+    def __init__(self, filepath: str, car: str = "Unknown car", track: str = "Unknown track"):
         self.filepath = filepath
         self.car = car
         self.track = track
@@ -93,6 +93,10 @@ class CSVImporter:
                 if len(indices) < 20:
                     continue
                 lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
+                for channel in ("time", "distance"):
+                    if channel in lap_telemetry:
+                        origin = lap_telemetry[channel][0]
+                        lap_telemetry[channel] = [v - origin for v in lap_telemetry[channel]]
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
                 laps.append(Lap(
