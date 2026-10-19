@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Line offset in metres versus the reference lap at corner entry, apex and exit, for laps recorded with position data (LMU and AC MoTeC exports).
 
 ### Changed
+- The recorder can be started from ACC's Steam launch options on Linux () and stops by itself when ACC closes.
+- English users see the racing-line evaluation in English for all six labels.
 - Relicensed under GPL-3.0; the MoTeC reader follows gotzl/ldparser's file layout. See NOTICE.
 - Laps that only carry lap times (LMU results, the demo) are marked as synthetic, no longer get mistakes planted at fixed corners, and the UI shows a warning banner over their charts.
 - Tracks other than Valencia and Sebring get corners detected from the speed trace and an outline dead-reckoned from speed and lateral acceleration, instead of Valencia's layout.
