@@ -127,7 +127,9 @@ class MoTeCChannel:
         raw_vals = np.frombuffer(raw_bytes, dtype=self.dtype)
 
         # Calibration formula: ((raw / scale) * 10^(-dec) + shift) * mul
-        calibrated = (raw_vals.astype(np.float64) / float(self.scale) * (10.0 ** (-self.dec)) + float(self.shift)) * float(self.mul)
+        calibrated = (
+            raw_vals.astype(np.float64) / float(self.scale) * (10.0 ** (-self.dec)) + float(self.shift)
+        ) * float(self.mul)
         self.data = calibrated.astype(np.float32)
         return self.data
 
@@ -137,32 +139,32 @@ class MoTeCLDParser:
 
     HEADER_FMT = (
         "<"
-        "I4x"       # 0: ldmarker (0x40)
-        "II"        # 1,2: meta_ptr, data_ptr
-        "20x"       # padding
-        "I"         # 3: event_ptr
-        "24x"       # padding
-        "HHH"       # 4,5,6: static numbers
-        "I"         # 7: device serial
-        "8s"        # 8: device type
-        "H"         # 9: device version
-        "H"         # 10: static number
-        "I"         # 11: num_channs
-        "4x"        # padding
-        "16s"       # 12: date
-        "16x"       # padding
-        "16s"       # 13: time
-        "16x"       # padding
-        "64s"       # 14: driver
-        "64s"       # 15: vehicleid
-        "64x"       # padding
-        "64s"       # 16: venue
-        "64x"       # padding
-        "1024x"     # padding
-        "I"         # 17: pro logging flag
-        "66x"       # padding
-        "64s"       # 18: short comment
-        "126x"      # padding
+        "I4x"  # 0: ldmarker (0x40)
+        "II"  # 1,2: meta_ptr, data_ptr
+        "20x"  # padding
+        "I"  # 3: event_ptr
+        "24x"  # padding
+        "HHH"  # 4,5,6: static numbers
+        "I"  # 7: device serial
+        "8s"  # 8: device type
+        "H"  # 9: device version
+        "H"  # 10: static number
+        "I"  # 11: num_channs
+        "4x"  # padding
+        "16s"  # 12: date
+        "16x"  # padding
+        "16s"  # 13: time
+        "16x"  # padding
+        "64s"  # 14: driver
+        "64s"  # 15: vehicleid
+        "64x"  # padding
+        "64s"  # 16: venue
+        "64x"  # padding
+        "1024x"  # padding
+        "I"  # 17: pro logging flag
+        "66x"  # padding
+        "64s"  # 18: short comment
+        "126x"  # padding
     )
 
     def __init__(self, filepath: str):
@@ -241,12 +243,14 @@ class MoTeCLDXParser:
                 dist_val = float(marker_elem.attrib.get("Distance", 0.0))
                 lap_num = int(marker_elem.attrib.get("Lap", 0))
                 name = marker_elem.attrib.get("Name", "")
-                markers.append({
-                    "time": time_val,
-                    "distance": dist_val,
-                    "lap": lap_num,
-                    "name": name,
-                })
+                markers.append(
+                    {
+                        "time": time_val,
+                        "distance": dist_val,
+                        "lap": lap_num,
+                        "name": name,
+                    }
+                )
 
             # Derive lap segments from markers
             # Lap markers generally have Lap > 0
@@ -256,12 +260,14 @@ class MoTeCLDXParser:
                 for lm in lap_markers:
                     lap_time = lm["time"] - prev_time
                     if lap_time > 10.0:  # reasonable minimum lap duration
-                        self.laps.append({
-                            "lap_number": lm["lap"],
-                            "lap_time": lap_time,
-                            "start_time": prev_time,
-                            "end_time": lm["time"],
-                        })
+                        self.laps.append(
+                            {
+                                "lap_number": lm["lap"],
+                                "lap_time": lap_time,
+                                "start_time": prev_time,
+                                "end_time": lm["time"],
+                            }
+                        )
                     prev_time = lm["time"]
         except (ET.ParseError, ValueError) as e:
             logger.warning("Ignoring unreadable lap markers in %s: %s", self.filepath, e)
@@ -302,22 +308,24 @@ def create_synthetic_ld_bytes(
     time_str = date_time.strftime("%H:%M:%S")
     header_bytes = struct.pack(
         MoTeCLDParser.HEADER_FMT,
-        0x40,               # ldmarker
-        meta_start,         # meta_ptr
-        data_start,         # data_ptr
-        0,                  # event_ptr
-        1, 0x4240, 0xf,     # statics
-        0x1f44,             # serial
+        0x40,  # ldmarker
+        meta_start,  # meta_ptr
+        data_start,  # data_ptr
+        0,  # event_ptr
+        1,
+        0x4240,
+        0xF,  # statics
+        0x1F44,  # serial
         b"ADL\x00\x00\x00\x00\x00",
         420,
-        0xadb0,
+        0xADB0,
         num_chans,
         date_str.encode("ascii"),
         time_str.encode("ascii"),
         driver.encode("ascii")[:64],
         vehicle.encode("ascii")[:64],
         venue.encode("ascii")[:64],
-        0xc81a4,
+        0xC81A4,
         b"IdoRacing Analytics Synthetic Session"[:64],
     )
 
@@ -337,14 +345,14 @@ def create_synthetic_ld_bytes(
             next_p,
             p_info["ptr"],
             p_info["len"],
-            0x2ee1 + i,      # counter
-            0x07,            # dtype_a (float)
-            4,               # dtype_b (float32)
-            freq,            # freq
-            0,               # shift
-            1,               # mul
-            1,               # scale
-            0,               # dec
+            0x2EE1 + i,  # counter
+            0x07,  # dtype_a (float)
+            4,  # dtype_b (float32)
+            freq,  # freq
+            0,  # shift
+            1,  # mul
+            1,  # scale
+            0,  # dec
             name.encode("ascii")[:32],
             name[:8].encode("ascii"),
             unit.encode("ascii")[:12],

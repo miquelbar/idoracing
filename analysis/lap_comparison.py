@@ -3,7 +3,6 @@ Lap comparison engine for IdoRacing Analytics.
 Computes numerical time, speed, sector, and corner differences between two laps.
 """
 
-
 import numpy as np
 
 from analysis.alignment import align_laps_by_distance
@@ -27,7 +26,7 @@ def compare_laps(
     sector_diffs: dict[str, float] = {}
     if ref_lap.sector_times and comp_lap.sector_times:
         for i, (rs, cs) in enumerate(zip(ref_lap.sector_times, comp_lap.sector_times, strict=False)):
-            sector_diffs[f"sector{i+1}"] = round(float(cs - rs), 3)
+            sector_diffs[f"sector{i + 1}"] = round(float(cs - rs), 3)
 
     # Telemetry alignment
     aligned_data = None

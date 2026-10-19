@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class Lap(BaseModel):
     """Represents a single lap within a driving session."""
+
     lap_number: int
     lap_time: float
     sector_times: list[float] = Field(default_factory=list)
@@ -19,6 +20,7 @@ class Lap(BaseModel):
 
 class Session(BaseModel):
     """Represents an imported driving session with metadata and telemetry."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique session identifier")
     session_id: str = Field(..., description="MoTeC session ID or imported identifier")
     car: str = Field(..., description="Car model used in the session")
@@ -51,6 +53,7 @@ class Session(BaseModel):
 
 class SessionSummary(BaseModel):
     """Compact summary of a driving session."""
+
     session_id: str
     car: str
     track: str
@@ -64,6 +67,7 @@ class SessionSummary(BaseModel):
 
 class CornerAnalysis(BaseModel):
     """Analysis of driving technique through a specific corner/segment."""
+
     corner_number: int
     corner_name: str
     start_dist: float
@@ -105,6 +109,7 @@ class CornerAnalysis(BaseModel):
 
 class LapComparison(BaseModel):
     """Detailed comparison between a reference lap and a comparison lap."""
+
     reference_lap: str
     comparison_lap: str
     time_difference: float
@@ -121,11 +126,18 @@ class LapComparison(BaseModel):
 
 class CoachReport(BaseModel):
     """Structured report produced by the driving coach (numerical analysis + local AI)."""
+
     facts: list[str] = Field(default_factory=list, description="Hechos observados directamente en los datos")
     metrics: dict[str, Any] = Field(default_factory=dict, description="Métricas calculadas numéricamente")
-    hypotheses: list[str] = Field(default_factory=list, description="Hipótesis de conducción sobre por qué se pierde tiempo")
-    exercises: list[str] = Field(default_factory=list, description="Ejercicios concretos y delimitados para la siguiente sesión")
-    verification_indicator: str = Field(default="", description="Indicador numérico para comprobar si el ejercicio funcionó")
+    hypotheses: list[str] = Field(
+        default_factory=list, description="Hipótesis de conducción sobre por qué se pierde tiempo"
+    )
+    exercises: list[str] = Field(
+        default_factory=list, description="Ejercicios concretos y delimitados para la siguiente sesión"
+    )
+    verification_indicator: str = Field(
+        default="", description="Indicador numérico para comprobar si el ejercicio funcionó"
+    )
     confidence: str = Field(default="Alta", description="Nivel de confianza del análisis (Alta / Media / Baja)")
     raw_report: str = Field(default="", description="Texto completo del informe en formato Markdown")
     created_at: datetime = Field(default_factory=datetime.now)

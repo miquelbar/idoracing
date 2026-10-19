@@ -37,10 +37,13 @@ def test_ollama_client_mock_generation():
     comp = compare_laps(session.laps[1], session.laps[2])
 
     mock_client = OllamaClient(enabled=True)
-    with patch.object(mock_client, "is_available", return_value=True), patch.object(
-        mock_client,
-        "generate",
-        return_value="# Informe LLM\n\n1. Qué se ha observado\n2. Datos\n3. Hipótesis\n4. Ejercicio\n5. Indicador",
+    with (
+        patch.object(mock_client, "is_available", return_value=True),
+        patch.object(
+            mock_client,
+            "generate",
+            return_value="# Informe LLM\n\n1. Qué se ha observado\n2. Datos\n3. Hipótesis\n4. Ejercicio\n5. Indicador",
+        ),
     ):
         advisor = CoachAdvisor(mock_client)
         report = advisor.generate_report(comp, car=session.car, track=session.track)

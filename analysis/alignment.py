@@ -39,7 +39,18 @@ def align_laps_by_distance(
 
     aligned: dict[str, np.ndarray] = {"distance": common_dist}
 
-    channels_to_align = ["speed", "throttle", "brake", "gear", "steer_angle", "lat_accel", "long_accel", "rpm", "x", "y"]
+    channels_to_align = [
+        "speed",
+        "throttle",
+        "brake",
+        "gear",
+        "steer_angle",
+        "lat_accel",
+        "long_accel",
+        "rpm",
+        "x",
+        "y",
+    ]
     for ch in channels_to_align:
         if ch in ref_telemetry and len(ref_telemetry[ch]) == len(ref_dist):
             aligned[f"ref_{ch}"] = np.interp(common_dist, ref_dist, ref_telemetry[ch])
@@ -68,7 +79,7 @@ def align_laps_by_distance(
     comp_v_ms = np.maximum(aligned["comp_speed"] / 3.6, 1.0)
 
     ds = step_m
-    delta_t_increments = ds * ( (1.0 / comp_v_ms) - (1.0 / ref_v_ms) )
+    delta_t_increments = ds * ((1.0 / comp_v_ms) - (1.0 / ref_v_ms))
     time_delta = np.cumsum(delta_t_increments)
     # Start at 0.0 delta
     if len(time_delta) > 0:

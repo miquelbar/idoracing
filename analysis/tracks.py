@@ -14,97 +14,376 @@ logger = logging.getLogger(__name__)
 
 # Hand-placed outline of Circuit Ricardo Tormo (Valencia, 4005 m); approximate, not surveyed
 VALENCIA_WAYPOINTS = [
-    (0.0, 300.0, 420.0),      # Start / Finish line
-    (300.0, 600.0, 420.0),    # Main straight
-    (580.0, 800.0, 420.0),    # Turn 1 Braking
-    (780.0, 850.0, 360.0),    # Turn 1 (Aspar) Apex
-    (920.0, 810.0, 270.0),    # Turn 1 Exit / Turn 2 Entry
-    (1080.0, 720.0, 240.0),   # Turn 2 (Doohan) Apex
-    (1220.0, 640.0, 250.0),   # Turn 2 Exit / Turn 3 Entry
-    (1320.0, 600.0, 270.0),   # Turn 3 Apex
-    (1420.0, 570.0, 300.0),   # Turn 4 Braking
-    (1530.0, 540.0, 340.0),   # Turn 4 (Nico Terol) Apex
-    (1660.0, 490.0, 310.0),   # Turn 4 Exit / Turn 5 Entry
-    (1750.0, 450.0, 280.0),   # Turn 5 Apex
-    (1840.0, 420.0, 250.0),   # Turn 6 Entry
-    (1940.0, 390.0, 220.0),   # Turn 6 Apex
-    (2040.0, 380.0, 190.0),   # Turn 7 Entry
-    (2100.0, 400.0, 170.0),   # Turn 7 Apex
-    (2160.0, 430.0, 160.0),   # Turn 8 Entry
-    (2260.0, 460.0, 150.0),   # Turn 8 (Bernat Martínez) Apex
-    (2380.0, 430.0, 130.0),   # Turn 8 Exit
-    (2460.0, 370.0, 110.0),   # Turn 9 Apex
-    (2550.0, 310.0, 110.0),   # Turn 10 Entry
-    (2650.0, 250.0, 110.0),   # Turn 10 Apex
-    (2800.0, 190.0, 120.0),   # Turn 11 Braking
-    (2980.0, 150.0, 160.0),   # Turn 11 (Champi Herreros) Apex
-    (3120.0, 140.0, 220.0),   # Turn 11 Exit / Turn 12 Entry
-    (3260.0, 130.0, 280.0),   # Turn 12 Apex
-    (3400.0, 120.0, 320.0),   # Turn 13 Entry
-    (3520.0, 110.0, 350.0),   # Turn 13 Apex
-    (3620.0, 110.0, 380.0),   # Turn 14 Entry
-    (3740.0, 130.0, 410.0),   # Turn 14 (Adrián Campos) Apex
-    (3900.0, 180.0, 420.0),   # Final corner exit onto Pit Straight
-    (4005.0, 300.0, 420.0),   # Closes loop at Start / Finish line
+    (0.0, 300.0, 420.0),  # Start / Finish line
+    (300.0, 600.0, 420.0),  # Main straight
+    (580.0, 800.0, 420.0),  # Turn 1 Braking
+    (780.0, 850.0, 360.0),  # Turn 1 (Aspar) Apex
+    (920.0, 810.0, 270.0),  # Turn 1 Exit / Turn 2 Entry
+    (1080.0, 720.0, 240.0),  # Turn 2 (Doohan) Apex
+    (1220.0, 640.0, 250.0),  # Turn 2 Exit / Turn 3 Entry
+    (1320.0, 600.0, 270.0),  # Turn 3 Apex
+    (1420.0, 570.0, 300.0),  # Turn 4 Braking
+    (1530.0, 540.0, 340.0),  # Turn 4 (Nico Terol) Apex
+    (1660.0, 490.0, 310.0),  # Turn 4 Exit / Turn 5 Entry
+    (1750.0, 450.0, 280.0),  # Turn 5 Apex
+    (1840.0, 420.0, 250.0),  # Turn 6 Entry
+    (1940.0, 390.0, 220.0),  # Turn 6 Apex
+    (2040.0, 380.0, 190.0),  # Turn 7 Entry
+    (2100.0, 400.0, 170.0),  # Turn 7 Apex
+    (2160.0, 430.0, 160.0),  # Turn 8 Entry
+    (2260.0, 460.0, 150.0),  # Turn 8 (Bernat Martínez) Apex
+    (2380.0, 430.0, 130.0),  # Turn 8 Exit
+    (2460.0, 370.0, 110.0),  # Turn 9 Apex
+    (2550.0, 310.0, 110.0),  # Turn 10 Entry
+    (2650.0, 250.0, 110.0),  # Turn 10 Apex
+    (2800.0, 190.0, 120.0),  # Turn 11 Braking
+    (2980.0, 150.0, 160.0),  # Turn 11 (Champi Herreros) Apex
+    (3120.0, 140.0, 220.0),  # Turn 11 Exit / Turn 12 Entry
+    (3260.0, 130.0, 280.0),  # Turn 12 Apex
+    (3400.0, 120.0, 320.0),  # Turn 13 Entry
+    (3520.0, 110.0, 350.0),  # Turn 13 Apex
+    (3620.0, 110.0, 380.0),  # Turn 14 Entry
+    (3740.0, 130.0, 410.0),  # Turn 14 (Adrián Campos) Apex
+    (3900.0, 180.0, 420.0),  # Final corner exit onto Pit Straight
+    (4005.0, 300.0, 420.0),  # Closes loop at Start / Finish line
 ]
 
 # Hand-placed outline of Sebring International Raceway (6019 m), used if data/circuits/sebring.json is missing
 SEBRING_WAYPOINTS = [
-    (0.0, 320.0, 470.0),       # Start / Finish line
-    (420.0, 580.0, 470.0),     # Approaching Turn 1
-    (720.0, 750.0, 410.0),     # Turn 1 (High-speed sweeper left)
-    (1100.0, 760.0, 300.0),    # Turn 2 / 3 Right-hand bend
-    (1500.0, 680.0, 220.0),    # Turn 4 / 5 Complex
-    (1950.0, 560.0, 170.0),    # Big Bend entry (Turn 6)
-    (2400.0, 460.0, 130.0),    # Hairpin (Turn 7)
-    (2750.0, 410.0, 200.0),    # Fangio Chicane (T8-T9)
-    (3100.0, 360.0, 230.0),    # Cunningham (Turn 10)
-    (3450.0, 300.0, 210.0),    # Collier (Turn 11)
-    (3800.0, 240.0, 190.0),    # Tower Turn (Turn 12)
-    (4350.0, 180.0, 150.0),    # Gendebien Bend (Turn 14)
-    (4950.0, 130.0, 110.0),    # Le Mans curve (Turn 16)
-    (5400.0, 110.0, 280.0),    # Ulmann Straight
-    (5800.0, 160.0, 440.0),    # Sunset Bend (Turn 17)
-    (6019.0, 320.0, 470.0),    # Finish line (Closes loop)
+    (0.0, 320.0, 470.0),  # Start / Finish line
+    (420.0, 580.0, 470.0),  # Approaching Turn 1
+    (720.0, 750.0, 410.0),  # Turn 1 (High-speed sweeper left)
+    (1100.0, 760.0, 300.0),  # Turn 2 / 3 Right-hand bend
+    (1500.0, 680.0, 220.0),  # Turn 4 / 5 Complex
+    (1950.0, 560.0, 170.0),  # Big Bend entry (Turn 6)
+    (2400.0, 460.0, 130.0),  # Hairpin (Turn 7)
+    (2750.0, 410.0, 200.0),  # Fangio Chicane (T8-T9)
+    (3100.0, 360.0, 230.0),  # Cunningham (Turn 10)
+    (3450.0, 300.0, 210.0),  # Collier (Turn 11)
+    (3800.0, 240.0, 190.0),  # Tower Turn (Turn 12)
+    (4350.0, 180.0, 150.0),  # Gendebien Bend (Turn 14)
+    (4950.0, 130.0, 110.0),  # Le Mans curve (Turn 16)
+    (5400.0, 110.0, 280.0),  # Ulmann Straight
+    (5800.0, 160.0, 440.0),  # Sunset Bend (Turn 17)
+    (6019.0, 320.0, 470.0),  # Finish line (Closes loop)
 ]
 
 # Valencia Ricardo Tormo corners (approximate distances along the 4005 m lap)
 VALENCIA_CORNERS: list[dict[str, Any]] = [
-    {"number": 1, "name": "Curva Aspar", "start": 580.0, "apex": 780.0, "end": 900.0, "gear": 3, "target_speed": 142.0, "turn_dir": "left"},
-    {"number": 2, "name": "Curva Doohan", "start": 920.0, "apex": 1080.0, "end": 1220.0, "gear": 3, "target_speed": 128.0, "turn_dir": "right"},
-    {"number": 3, "name": "Curva 3", "start": 1220.0, "apex": 1320.0, "end": 1420.0, "gear": 4, "target_speed": 175.0, "turn_dir": "right"},
-    {"number": 4, "name": "Curva Nico Terol", "start": 1420.0, "apex": 1530.0, "end": 1660.0, "gear": 2, "target_speed": 78.0, "turn_dir": "right"},
-    {"number": 5, "name": "Curva 5", "start": 1660.0, "apex": 1750.0, "end": 1840.0, "gear": 3, "target_speed": 138.0, "turn_dir": "left"},
-    {"number": 6, "name": "Curva 6", "start": 1840.0, "apex": 1940.0, "end": 2040.0, "gear": 3, "target_speed": 145.0, "turn_dir": "left"},
-    {"number": 7, "name": "Curva 7", "start": 2040.0, "apex": 2100.0, "end": 2160.0, "gear": 3, "target_speed": 152.0, "turn_dir": "left"},
-    {"number": 8, "name": "Curva Bernat Martinez", "start": 2160.0, "apex": 2260.0, "end": 2380.0, "gear": 2, "target_speed": 92.0, "turn_dir": "right"},
-    {"number": 9, "name": "Curva 9", "start": 2380.0, "apex": 2460.0, "end": 2550.0, "gear": 3, "target_speed": 130.0, "turn_dir": "left"},
-    {"number": 10, "name": "Curva 10", "start": 2550.0, "apex": 2650.0, "end": 2800.0, "gear": 3, "target_speed": 135.0, "turn_dir": "left"},
-    {"number": 11, "name": "Curva Champi Herreros", "start": 2800.0, "apex": 2980.0, "end": 3120.0, "gear": 2, "target_speed": 85.0, "turn_dir": "right"},
-    {"number": 12, "name": "Curva 12", "start": 3120.0, "apex": 3260.0, "end": 3400.0, "gear": 3, "target_speed": 125.0, "turn_dir": "left"},
-    {"number": 13, "name": "Curva 13", "start": 3400.0, "apex": 3520.0, "end": 3620.0, "gear": 3, "target_speed": 138.0, "turn_dir": "left"},
-    {"number": 14, "name": "Curva Adrian Campos", "start": 3620.0, "apex": 3740.0, "end": 3950.0, "gear": 2, "target_speed": 89.0, "turn_dir": "left"},
+    {
+        "number": 1,
+        "name": "Curva Aspar",
+        "start": 580.0,
+        "apex": 780.0,
+        "end": 900.0,
+        "gear": 3,
+        "target_speed": 142.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 2,
+        "name": "Curva Doohan",
+        "start": 920.0,
+        "apex": 1080.0,
+        "end": 1220.0,
+        "gear": 3,
+        "target_speed": 128.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 3,
+        "name": "Curva 3",
+        "start": 1220.0,
+        "apex": 1320.0,
+        "end": 1420.0,
+        "gear": 4,
+        "target_speed": 175.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 4,
+        "name": "Curva Nico Terol",
+        "start": 1420.0,
+        "apex": 1530.0,
+        "end": 1660.0,
+        "gear": 2,
+        "target_speed": 78.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 5,
+        "name": "Curva 5",
+        "start": 1660.0,
+        "apex": 1750.0,
+        "end": 1840.0,
+        "gear": 3,
+        "target_speed": 138.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 6,
+        "name": "Curva 6",
+        "start": 1840.0,
+        "apex": 1940.0,
+        "end": 2040.0,
+        "gear": 3,
+        "target_speed": 145.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 7,
+        "name": "Curva 7",
+        "start": 2040.0,
+        "apex": 2100.0,
+        "end": 2160.0,
+        "gear": 3,
+        "target_speed": 152.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 8,
+        "name": "Curva Bernat Martinez",
+        "start": 2160.0,
+        "apex": 2260.0,
+        "end": 2380.0,
+        "gear": 2,
+        "target_speed": 92.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 9,
+        "name": "Curva 9",
+        "start": 2380.0,
+        "apex": 2460.0,
+        "end": 2550.0,
+        "gear": 3,
+        "target_speed": 130.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 10,
+        "name": "Curva 10",
+        "start": 2550.0,
+        "apex": 2650.0,
+        "end": 2800.0,
+        "gear": 3,
+        "target_speed": 135.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 11,
+        "name": "Curva Champi Herreros",
+        "start": 2800.0,
+        "apex": 2980.0,
+        "end": 3120.0,
+        "gear": 2,
+        "target_speed": 85.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 12,
+        "name": "Curva 12",
+        "start": 3120.0,
+        "apex": 3260.0,
+        "end": 3400.0,
+        "gear": 3,
+        "target_speed": 125.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 13,
+        "name": "Curva 13",
+        "start": 3400.0,
+        "apex": 3520.0,
+        "end": 3620.0,
+        "gear": 3,
+        "target_speed": 138.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 14,
+        "name": "Curva Adrian Campos",
+        "start": 3620.0,
+        "apex": 3740.0,
+        "end": 3950.0,
+        "gear": 2,
+        "target_speed": 89.0,
+        "turn_dir": "left",
+    },
 ]
 
 # Sebring International Raceway corners (approximate distances along the 6019 m lap)
 SEBRING_CORNERS: list[dict[str, Any]] = [
-    {"number": 1, "name": "Turn 1 Sweeper", "start": 420.0, "apex": 720.0, "end": 950.0, "gear": 4, "target_speed": 172.0, "turn_dir": "left"},
-    {"number": 2, "name": "Turn 2", "start": 1050.0, "apex": 1180.0, "end": 1280.0, "gear": 5, "target_speed": 210.0, "turn_dir": "right"},
-    {"number": 3, "name": "Turn 3", "start": 1280.0, "apex": 1380.0, "end": 1480.0, "gear": 4, "target_speed": 165.0, "turn_dir": "right"},
-    {"number": 4, "name": "Turn 4", "start": 1480.0, "apex": 1560.0, "end": 1660.0, "gear": 3, "target_speed": 125.0, "turn_dir": "left"},
-    {"number": 5, "name": "Turn 5", "start": 1660.0, "apex": 1780.0, "end": 1900.0, "gear": 3, "target_speed": 130.0, "turn_dir": "right"},
-    {"number": 6, "name": "Big Bend (T6)", "start": 1900.0, "apex": 2050.0, "end": 2250.0, "gear": 3, "target_speed": 140.0, "turn_dir": "left"},
-    {"number": 7, "name": "Hairpin (T7)", "start": 2280.0, "apex": 2420.0, "end": 2550.0, "gear": 2, "target_speed": 72.0, "turn_dir": "right"},
-    {"number": 8, "name": "Fangio Chicane Entry", "start": 2650.0, "apex": 2750.0, "end": 2850.0, "gear": 3, "target_speed": 135.0, "turn_dir": "left"},
-    {"number": 9, "name": "Fangio Chicane Exit", "start": 2850.0, "apex": 2950.0, "end": 3050.0, "gear": 3, "target_speed": 140.0, "turn_dir": "right"},
-    {"number": 10, "name": "Cunningham (T10)", "start": 3050.0, "apex": 3150.0, "end": 3280.0, "gear": 3, "target_speed": 130.0, "turn_dir": "right"},
-    {"number": 11, "name": "Collier (T11)", "start": 3350.0, "apex": 3460.0, "end": 3580.0, "gear": 3, "target_speed": 128.0, "turn_dir": "right"},
-    {"number": 12, "name": "Tower Turn (T12)", "start": 3680.0, "apex": 3820.0, "end": 3980.0, "gear": 2, "target_speed": 88.0, "turn_dir": "right"},
-    {"number": 13, "name": "Tower Straight Bend", "start": 4150.0, "apex": 4280.0, "end": 4400.0, "gear": 4, "target_speed": 180.0, "turn_dir": "right"},
-    {"number": 14, "name": "Gendebien Bend (T14)", "start": 4400.0, "apex": 4520.0, "end": 4650.0, "gear": 4, "target_speed": 165.0, "turn_dir": "left"},
-    {"number": 15, "name": "Turn 15 Bend", "start": 4750.0, "apex": 4880.0, "end": 5000.0, "gear": 4, "target_speed": 190.0, "turn_dir": "left"},
-    {"number": 16, "name": "Le Mans Curve (T16)", "start": 5000.0, "apex": 5150.0, "end": 5300.0, "gear": 3, "target_speed": 145.0, "turn_dir": "right"},
-    {"number": 17, "name": "Sunset Bend (T17)", "start": 5600.0, "apex": 5820.0, "end": 6000.0, "gear": 3, "target_speed": 138.0, "turn_dir": "right"},
+    {
+        "number": 1,
+        "name": "Turn 1 Sweeper",
+        "start": 420.0,
+        "apex": 720.0,
+        "end": 950.0,
+        "gear": 4,
+        "target_speed": 172.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 2,
+        "name": "Turn 2",
+        "start": 1050.0,
+        "apex": 1180.0,
+        "end": 1280.0,
+        "gear": 5,
+        "target_speed": 210.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 3,
+        "name": "Turn 3",
+        "start": 1280.0,
+        "apex": 1380.0,
+        "end": 1480.0,
+        "gear": 4,
+        "target_speed": 165.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 4,
+        "name": "Turn 4",
+        "start": 1480.0,
+        "apex": 1560.0,
+        "end": 1660.0,
+        "gear": 3,
+        "target_speed": 125.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 5,
+        "name": "Turn 5",
+        "start": 1660.0,
+        "apex": 1780.0,
+        "end": 1900.0,
+        "gear": 3,
+        "target_speed": 130.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 6,
+        "name": "Big Bend (T6)",
+        "start": 1900.0,
+        "apex": 2050.0,
+        "end": 2250.0,
+        "gear": 3,
+        "target_speed": 140.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 7,
+        "name": "Hairpin (T7)",
+        "start": 2280.0,
+        "apex": 2420.0,
+        "end": 2550.0,
+        "gear": 2,
+        "target_speed": 72.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 8,
+        "name": "Fangio Chicane Entry",
+        "start": 2650.0,
+        "apex": 2750.0,
+        "end": 2850.0,
+        "gear": 3,
+        "target_speed": 135.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 9,
+        "name": "Fangio Chicane Exit",
+        "start": 2850.0,
+        "apex": 2950.0,
+        "end": 3050.0,
+        "gear": 3,
+        "target_speed": 140.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 10,
+        "name": "Cunningham (T10)",
+        "start": 3050.0,
+        "apex": 3150.0,
+        "end": 3280.0,
+        "gear": 3,
+        "target_speed": 130.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 11,
+        "name": "Collier (T11)",
+        "start": 3350.0,
+        "apex": 3460.0,
+        "end": 3580.0,
+        "gear": 3,
+        "target_speed": 128.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 12,
+        "name": "Tower Turn (T12)",
+        "start": 3680.0,
+        "apex": 3820.0,
+        "end": 3980.0,
+        "gear": 2,
+        "target_speed": 88.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 13,
+        "name": "Tower Straight Bend",
+        "start": 4150.0,
+        "apex": 4280.0,
+        "end": 4400.0,
+        "gear": 4,
+        "target_speed": 180.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 14,
+        "name": "Gendebien Bend (T14)",
+        "start": 4400.0,
+        "apex": 4520.0,
+        "end": 4650.0,
+        "gear": 4,
+        "target_speed": 165.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 15,
+        "name": "Turn 15 Bend",
+        "start": 4750.0,
+        "apex": 4880.0,
+        "end": 5000.0,
+        "gear": 4,
+        "target_speed": 190.0,
+        "turn_dir": "left",
+    },
+    {
+        "number": 16,
+        "name": "Le Mans Curve (T16)",
+        "start": 5000.0,
+        "apex": 5150.0,
+        "end": 5300.0,
+        "gear": 3,
+        "target_speed": 145.0,
+        "turn_dir": "right",
+    },
+    {
+        "number": 17,
+        "name": "Sunset Bend (T17)",
+        "start": 5600.0,
+        "apex": 5820.0,
+        "end": 6000.0,
+        "gear": 3,
+        "target_speed": 138.0,
+        "turn_dir": "right",
+    },
 ]
 
 

@@ -35,13 +35,20 @@ class CoachAdvisor:
         facts: list[str] = []
 
         # Formatted sector summary string (prevents [object Object] in UI)
-        sector_str = " | ".join(
-            f"{k.replace('sector', 'S').upper()}: {v:+.3f}s"
-            for k, v in comparison.sector_differences.items()
-        ) if comparison.sector_differences else "Sectores equilibrados"
+        sector_str = (
+            " | ".join(
+                f"{k.replace('sector', 'S').upper()}: {v:+.3f}s" for k, v in comparison.sector_differences.items()
+            )
+            if comparison.sector_differences
+            else "Sectores equilibrados"
+        )
 
         # Trail braking evaluation across corners
-        trail_corners = [c for c in comparison.corners if c.trail_eval in ("Soltado Prematuro", "Exceso de Freno en Giro", "Trail Braking Efectivo")]
+        trail_corners = [
+            c
+            for c in comparison.corners
+            if c.trail_eval in ("Soltado Prematuro", "Exceso de Freno en Giro", "Trail Braking Efectivo")
+        ]
         effective_trail = [c for c in trail_corners if c.trail_eval == "Trail Braking Efectivo"]
 
         metrics: dict[str, Any] = {
@@ -205,7 +212,7 @@ class CoachAdvisor:
 
 ### 2. Datos y métricas que sustentan la conclusión
 - **Diferencia total de vuelta:** {comparison.time_difference:+.3f}s
-- **Desglose por sectores:** {', '.join(f'{k}: {v:+.3f}s' for k, v in comparison.sector_differences.items()) if comparison.sector_differences else 'No disponible'}
+- **Desglose por sectores:** {", ".join(f"{k}: {v:+.3f}s" for k, v in comparison.sector_differences.items()) if comparison.sector_differences else "No disponible"}
 """
             if loss_corners:
                 raw_report += "\n**Puntos clave con pérdida de tiempo:**\n"
@@ -222,7 +229,7 @@ class CoachAdvisor:
 {chr(10).join(f"- {hyp}" for hyp in hypotheses)}
 
 ### 4. Ejercicios concretos
-{chr(10).join(f"{i+1}. {ex}" for i, ex in enumerate(exercises))}
+{chr(10).join(f"{i + 1}. {ex}" for i, ex in enumerate(exercises))}
 
 ### 5. Indicador numérico de comprobación y Confianza
 - **Indicador de validación en telemetría:** {verification_indicator}
@@ -316,8 +323,12 @@ def generate_race_engineer_response(
     # 2. Topic Detection & Response Formulation
     is_trail = any(k in q_lower for k in ["trail", "freno", "frenar", "frenada", "brake", "braking"])
     is_gear = any(k in q_lower for k in ["marcha", "gear", "velocidad", "rpm"])
-    is_setup = any(k in q_lower for k in ["setup", "reparto", "bias", "presion", "arb", "suspension", "caida", "camber"])
-    is_balance = any(k in q_lower for k in ["subviraje", "sobreviraje", "understeer", "oversteer", "rotacion", "morro", "zaga"])
+    is_setup = any(
+        k in q_lower for k in ["setup", "reparto", "bias", "presion", "arb", "suspension", "caida", "camber"]
+    )
+    is_balance = any(
+        k in q_lower for k in ["subviraje", "sobreviraje", "understeer", "oversteer", "rotacion", "morro", "zaga"]
+    )
 
     if is_trail:
         if is_en:
@@ -411,4 +422,3 @@ def generate_race_engineer_response(
             f"- Modula la frenada regresiva manteniendo un 15% de presión para rotar el coche hacia el piano interior.\n"
             f"- Abre dirección con decisión al tocar el vértice para aplicar el acelerador al 100% con el coche recto.{c_info}"
         )
-

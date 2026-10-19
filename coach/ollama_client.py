@@ -57,9 +57,7 @@ class OllamaClient:
             logger.warning("Could not list Ollama models at %s: %s", self.base_url, e)
         return []
 
-    def generate(
-        self, prompt: str, system_prompt: str | None = None, timeout: float | None = None
-    ) -> str | None:
+    def generate(self, prompt: str, system_prompt: str | None = None, timeout: float | None = None) -> str | None:
         """
         Send generation request to Ollama. Returns response text or None if failed/disabled.
         """
@@ -72,8 +70,8 @@ class OllamaClient:
             "stream": False,
             "options": {
                 "temperature": 0.2,  # Low temperature for analytical consistency
-                "num_ctx": 4096,     # Fast GPU KV cache fitting, avoids 262k memory swap
-                "num_predict": 1024, # Concise racing engineer answers
+                "num_ctx": 4096,  # Fast GPU KV cache fitting, avoids 262k memory swap
+                "num_predict": 1024,  # Concise racing engineer answers
             },
         }
         if system_prompt:

@@ -31,14 +31,8 @@ class LLMClient:
         self.enabled = enabled
 
         # Ollama config
-        self.ollama_model = (
-            ollama_model
-            or os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
-        )
-        self.ollama_base_url = (
-            ollama_base_url
-            or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        )
+        self.ollama_model = ollama_model or os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
+        self.ollama_base_url = ollama_base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.ollama = OllamaClient(
             base_url=self.ollama_base_url,
             model=self.ollama_model,
@@ -49,13 +43,9 @@ class LLMClient:
         # OpenAI / OpenRouter config
         self.openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY", "")
         self.openai_base_url = (
-            openai_base_url
-            or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            openai_base_url or os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
         ).rstrip("/")
-        self.openai_model = (
-            openai_model
-            or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-        )
+        self.openai_model = openai_model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         self.timeout = timeout
 
     @property
@@ -71,9 +61,7 @@ class LLMClient:
             return bool(self.openai_api_key.strip())
         return self.ollama.is_available()
 
-    def generate(
-        self, prompt: str, system_prompt: str | None = None, timeout: float | None = None
-    ) -> str | None:
+    def generate(self, prompt: str, system_prompt: str | None = None, timeout: float | None = None) -> str | None:
         """Generate a response using the active provider."""
         if not self.enabled:
             return None
@@ -82,9 +70,7 @@ class LLMClient:
             return self._generate_openai(prompt, system_prompt, timeout=timeout)
         return self.ollama.generate(prompt, system_prompt, timeout=timeout)
 
-    def chat(
-        self, messages: list[dict[str, str]], timeout: float | None = None
-    ) -> str | None:
+    def chat(self, messages: list[dict[str, str]], timeout: float | None = None) -> str | None:
         """Multi-turn chat interaction with the race engineer."""
         if not self.enabled:
             return None
@@ -116,9 +102,7 @@ class LLMClient:
 
         return self._chat_openai(messages, timeout=timeout)
 
-    def _chat_openai(
-        self, messages: list[dict[str, str]], timeout: float | None = None
-    ) -> str | None:
+    def _chat_openai(self, messages: list[dict[str, str]], timeout: float | None = None) -> str | None:
         if not self.openai_api_key:
             return None
 

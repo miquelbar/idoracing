@@ -86,7 +86,6 @@ app = FastAPI(
 )
 
 
-
 # --- DTO Models ---
 class SystemStatus(BaseModel):
     status: str
@@ -397,8 +396,8 @@ def get_lap_comparison(
             )
         )
 
-    ref_sectors = {f"S{i+1}": t for i, t in enumerate(ref_lap.sector_times)}
-    comp_sectors = {f"S{i+1}": t for i, t in enumerate(comp_lap.sector_times)}
+    ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
+    comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
 
     detected_game = "Assetto Corsa Competizione"
     sid = matched_session.session_id.lower()
@@ -560,10 +559,16 @@ def chat_with_engineer(req: ChatRequest):
             delta_vmin = round(vmin_c - vmin_r, 1)
             v_entry_c = c.get("v_entry_comp")
             v_entry_r = c.get("v_entry_ref")
-            delta_ventry = round(float(v_entry_c) - float(v_entry_r), 1) if (v_entry_c is not None and v_entry_r is not None) else None
+            delta_ventry = (
+                round(float(v_entry_c) - float(v_entry_r), 1)
+                if (v_entry_c is not None and v_entry_r is not None)
+                else None
+            )
             v_exit_c = c.get("v_exit_comp")
             v_exit_r = c.get("v_exit_ref")
-            delta_vexit = round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+            delta_vexit = (
+                round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+            )
 
             context_prefix += (
                 f"Selected corner in telemetry: T{c_num} ({c_name}).\n"
@@ -600,10 +605,16 @@ def chat_with_engineer(req: ChatRequest):
             delta_vmin = round(vmin_c - vmin_r, 1)
             v_entry_c = c.get("v_entry_comp")
             v_entry_r = c.get("v_entry_ref")
-            delta_ventry = round(float(v_entry_c) - float(v_entry_r), 1) if (v_entry_c is not None and v_entry_r is not None) else None
+            delta_ventry = (
+                round(float(v_entry_c) - float(v_entry_r), 1)
+                if (v_entry_c is not None and v_entry_r is not None)
+                else None
+            )
             v_exit_c = c.get("v_exit_comp")
             v_exit_r = c.get("v_exit_ref")
-            delta_vexit = round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+            delta_vexit = (
+                round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
+            )
 
             context_prefix += (
                 f"Curva seleccionada en telemetría: T{c_num} ({c_name}).\n"
@@ -686,7 +697,9 @@ def import_local_file(req: LocalImportRequest):
     filepath = os.path.realpath(req.filepath)
     allowed_dirs = [os.path.realpath(d) for d in (ACC_MOTEC_DIR, LMU_RESULTS_DIR)]
     if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
-        raise HTTPException(status_code=403, detail="Only files from the simulator telemetry folders can be imported by path")
+        raise HTTPException(
+            status_code=403, detail="Only files from the simulator telemetry folders can be imported by path"
+        )
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="File not found on system")
 

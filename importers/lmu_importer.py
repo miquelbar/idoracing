@@ -74,12 +74,14 @@ class LMUImporter:
                 sectors = [s1, s2, s3] if (s1 > 0 and s2 > 0) else []
 
                 if lap_time > 15.0:  # valid lap threshold
-                    laps.append(Lap(
-                        lap_number=lap_num,
-                        lap_time=round(lap_time, 3),
-                        sector_times=sectors,
-                        is_valid=True,
-                    ))
+                    laps.append(
+                        Lap(
+                            lap_number=lap_num,
+                            lap_time=round(lap_time, 3),
+                            sector_times=sectors,
+                            is_valid=True,
+                        )
+                    )
 
         filename = os.path.basename(self.filepath)
         session_id = f"lmu_{os.path.splitext(filename)[0]}"

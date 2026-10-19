@@ -58,6 +58,7 @@ class MoTeCImporter:
         """
         if self.file_path.lower().endswith(".csv"):
             from importers.csv_importer import CSVImporter
+
             return CSVImporter(self.file_path).parse()
 
         if not self.file_path.lower().endswith(".ld"):
@@ -139,14 +140,16 @@ class MoTeCImporter:
             if "distance" in lap_telemetry:
                 d0 = lap_telemetry["distance"][0]
                 lap_telemetry["distance"] = [d - d0 for d in lap_telemetry["distance"]]
-            laps.append(Lap(
-                lap_number=lap_number,
-                lap_time=round(float(time[end - 1] - time[start]), 3),
-                is_valid=True,
-                telemetry=lap_telemetry,
-                start_time=float(time[start]),
-                end_time=float(time[end - 1]),
-            ))
+            laps.append(
+                Lap(
+                    lap_number=lap_number,
+                    lap_time=round(float(time[end - 1] - time[start]), 3),
+                    is_valid=True,
+                    telemetry=lap_telemetry,
+                    start_time=float(time[start]),
+                    end_time=float(time[end - 1]),
+                )
+            )
         return laps
 
     def get_session_summary(self) -> SessionSummary:
@@ -178,9 +181,7 @@ class MoTeCImporter:
             id=session.id,
         )
 
-    def _extract_spatial_coordinates(
-        self, channels: dict[str, Any]
-    ) -> tuple[list[float] | None, list[float] | None]:
+    def _extract_spatial_coordinates(self, channels: dict[str, Any]) -> tuple[list[float] | None, list[float] | None]:
         """
         Auto-detect GPS latitude/longitude or local world position (X, Y, Z) channels from MoTeC logs.
         Converts GPS spherical coordinates into local planar Cartesian (x, y) in meters.

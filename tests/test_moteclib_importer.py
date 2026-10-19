@@ -74,10 +74,12 @@ class _Chan:
 
 def test_gps_channels_are_projected_to_local_metres(ld_file):
     importer = MoTeCImporter(ld_file)
-    x, y = importer._extract_spatial_coordinates({
-        "GPS_Lat": _Chan([39.485, 39.486, 39.487]),
-        "GPS_Long": _Chan([-0.625, -0.624, -0.623]),
-    })
+    x, y = importer._extract_spatial_coordinates(
+        {
+            "GPS_Lat": _Chan([39.485, 39.486, 39.487]),
+            "GPS_Long": _Chan([-0.625, -0.624, -0.623]),
+        }
+    )
 
     assert len(x) == 3 and len(y) == 3
     assert y[2] - y[0] == pytest.approx(222.4, abs=0.5)
@@ -85,11 +87,13 @@ def test_gps_channels_are_projected_to_local_metres(ld_file):
 
 def test_world_position_uses_the_flattest_axis_as_elevation(ld_file):
     importer = MoTeCImporter(ld_file)
-    x, y = importer._extract_spatial_coordinates({
-        "Position X": _Chan([100.0, 110.0, 120.0]),
-        "Position Y": _Chan([12.0, 12.1, 12.0]),
-        "Position Z": _Chan([500.0, 520.0, 540.0]),
-    })
+    x, y = importer._extract_spatial_coordinates(
+        {
+            "Position X": _Chan([100.0, 110.0, 120.0]),
+            "Position Y": _Chan([12.0, 12.1, 12.0]),
+            "Position Z": _Chan([500.0, 520.0, 540.0]),
+        }
+    )
 
     assert x[1] == pytest.approx(0.0)
     assert y == pytest.approx([-20.0, 0.0, 20.0])
@@ -123,11 +127,11 @@ def test_laps_are_cut_from_ldx_markers(tmp_path):
     ld = tmp_path / "stint.ld"
     _write_ld(ld, _flat_channels(1200), freq=20)
     (tmp_path / "stint.ldx").write_text(
-        '<LDXFile><Layers><Layer><Markers>'
+        "<LDXFile><Layers><Layer><Markers>"
         '<Marker Time="0.0" Lap="0" />'
         '<Marker Time="25.0" Lap="1" />'
         '<Marker Time="55.0" Lap="2" />'
-        '</Markers></Layer></Layers></LDXFile>'
+        "</Markers></Layer></Layers></LDXFile>"
     )
 
     session = MoTeCImporter(str(ld)).parse()

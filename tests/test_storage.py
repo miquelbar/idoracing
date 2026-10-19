@@ -68,8 +68,12 @@ def test_existing_databases_get_their_generated_laps_flagged(tmp_path):
     INSERT INTO sessions VALUES ('b', 'stint', 'car', 'track', '2026-10-01T10:00:00', '/x/stint.ld', 90, 0, 0, '2026-10-01T10:00:00');
     """)
     trace = json.dumps({ch: [1.0] for ch in ("speed", "throttle", "brake", "gear", "lat_accel", "long_accel")})
-    conn.execute("INSERT INTO laps (session_id, lap_number, lap_time, is_valid, telemetry) VALUES ('a', 1, 90, 1, ?)", (trace,))
-    conn.execute("INSERT INTO laps (session_id, lap_number, lap_time, is_valid, telemetry) VALUES ('b', 1, 90, 1, ?)", (trace,))
+    conn.execute(
+        "INSERT INTO laps (session_id, lap_number, lap_time, is_valid, telemetry) VALUES ('a', 1, 90, 1, ?)", (trace,)
+    )
+    conn.execute(
+        "INSERT INTO laps (session_id, lap_number, lap_time, is_valid, telemetry) VALUES ('b', 1, 90, 1, ?)", (trace,)
+    )
     conn.commit()
     conn.close()
 

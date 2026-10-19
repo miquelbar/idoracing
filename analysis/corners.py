@@ -111,10 +111,16 @@ def analyze_corner(
         th_delta_dist = float(comp_th_pt - ref_th_pt)
 
     # Steering & dynamic lateral acceleration analysis
-    ref_st = aligned_data.get("ref_steer_angle", np.array([]))[mask] if "ref_steer_angle" in aligned_data else np.array([])
-    comp_st = aligned_data.get("comp_steer_angle", np.array([]))[mask] if "comp_steer_angle" in aligned_data else np.array([])
+    ref_st = (
+        aligned_data.get("ref_steer_angle", np.array([]))[mask] if "ref_steer_angle" in aligned_data else np.array([])
+    )
+    comp_st = (
+        aligned_data.get("comp_steer_angle", np.array([]))[mask] if "comp_steer_angle" in aligned_data else np.array([])
+    )
     ref_lat = aligned_data.get("ref_lat_accel", np.array([]))[mask] if "ref_lat_accel" in aligned_data else np.array([])
-    comp_lat = aligned_data.get("comp_lat_accel", np.array([]))[mask] if "comp_lat_accel" in aligned_data else np.array([])
+    comp_lat = (
+        aligned_data.get("comp_lat_accel", np.array([]))[mask] if "comp_lat_accel" in aligned_data else np.array([])
+    )
 
     has_subviraje = False
     if len(comp_st) > 0 and len(ref_st) > 0:
@@ -151,13 +157,17 @@ def analyze_corner(
         else:
             trail_eval = "Frenada Inconsistente"
             trail_code = "inconsistent"
-            trail_advice = "La modulación del freno no acompaña la rotación del chasis, provocando pérdida de tiempo en el tramo."
+            trail_advice = (
+                "La modulación del freno no acompaña la rotación del chasis, provocando pérdida de tiempo en el tramo."
+            )
     else:
         if max_brk > 0.20:
             if is_trail_corner:
                 trail_eval = "Trail Braking Efectivo"
                 trail_code = "effective"
-                trail_advice = "Desvanecimiento regresivo adecuado: mantienes 15-20% de freno cargando el morro hasta el ápice."
+                trail_advice = (
+                    "Desvanecimiento regresivo adecuado: mantienes 15-20% de freno cargando el morro hasta el ápice."
+                )
             elif is_fast_corner:
                 trail_eval = "Paso Estable en Apoyo"
                 trail_code = "fast_corner"
@@ -175,7 +185,9 @@ def analyze_corner(
     if time_delta_corner <= 0.05 and abs(delta_vmin_kmh) <= 2.0:
         balance_eval = "Equilibrio Neutro (Grip Óptimo)"
         balance_code = "neutral"
-        balance_advice = "Transferencia de pesos equilibrada y rotación limpia hacia el vértice sin deslizamiento parásito."
+        balance_advice = (
+            "Transferencia de pesos equilibrada y rotación limpia hacia el vértice sin deslizamiento parásito."
+        )
     elif (delta_entry_kmh > -4.0 and delta_vmin_kmh <= -5.0) or has_subviraje or delta_vmin_kmh <= -3.0:
         # Caso A: Entrada normal pero caída fuerte en Vmin -> problema de giro/vértice
         balance_eval = "Pérdida de paso por curva / Subviraje en vértice"
@@ -194,14 +206,20 @@ def analyze_corner(
     elif time_delta_corner > 0.08:
         balance_eval = "Pérdida de Inercia en Curva"
         balance_code = "momentum_loss"
-        balance_advice = "Pérdida de velocidad y tiempo acumulado en el tramo; ajusta la modulación entre frenada y aceleración."
+        balance_advice = (
+            "Pérdida de velocidad y tiempo acumulado en el tramo; ajusta la modulación entre frenada y aceleración."
+        )
     else:
         balance_eval = "Equilibrio Estable"
         balance_code = "stable"
         balance_advice = "Paso consistente con margen menor de optimización en vértice."
 
     # Racing line (Trazada) evaluation
-    apex_dist_delta = float(sub_dist[comp_apex_idx] - sub_dist[ref_apex_idx]) if len(sub_dist) > max(comp_apex_idx, ref_apex_idx) else 0.0
+    apex_dist_delta = (
+        float(sub_dist[comp_apex_idx] - sub_dist[ref_apex_idx])
+        if len(sub_dist) > max(comp_apex_idx, ref_apex_idx)
+        else 0.0
+    )
 
     if time_delta_corner <= 0.05 and abs(delta_vmin_kmh) <= 2.0:
         racing_line_eval = "Trazada Geométrica Óptima"
@@ -214,7 +232,9 @@ def analyze_corner(
     elif apex_dist_delta > 10.0 or (brake_delta_dist and brake_delta_dist > 15.0):
         racing_line_eval = "Vértice Pasado / Abierto"
         racing_line_code = "late_apex"
-        racing_line_advice = "Llegas pasado a la frenada y el coche se abre demasiado, perdiendo el contacto con el piano del vértice."
+        racing_line_advice = (
+            "Llegas pasado a la frenada y el coche se abre demasiado, perdiendo el contacto con el piano del vértice."
+        )
     elif delta_vmin_kmh <= -4.0:
         racing_line_eval = "Trazada Cerrada / Pérdida de Vértice"
         racing_line_code = "missed_apex"
@@ -222,7 +242,9 @@ def analyze_corner(
     elif delta_exit_kmh <= -4.0:
         racing_line_eval = "Salida Estrangulada / Falta de Ancho"
         racing_line_code = "pinched_exit"
-        racing_line_advice = "Salida cerrada que compromete la tracción hacia la recta posterior; aprovecha hasta el piano exterior."
+        racing_line_advice = (
+            "Salida cerrada que compromete la tracción hacia la recta posterior; aprovecha hasta el piano exterior."
+        )
     else:
         racing_line_eval = "Trazada Subóptima en Curva"
         racing_line_code = "suboptimal"
@@ -245,7 +267,9 @@ def analyze_corner(
         diagnosis_parts.append(f"Velocidad de salida penalizada ({delta_exit_kmh:.1f} km/h).")
 
     if th_delta_dist is not None and th_delta_dist > 12.0:
-        diagnosis_parts.append(f"Aceleración retrasada {th_delta_dist:.1f}m en la salida comprometiendo la recta posterior.")
+        diagnosis_parts.append(
+            f"Aceleración retrasada {th_delta_dist:.1f}m en la salida comprometiendo la recta posterior."
+        )
 
     if abs(time_delta_corner) < 0.04:
         timing_summary = f"Paso consistente (delta {time_delta_corner:+.3f}s)."
@@ -431,7 +455,7 @@ def detect_corners(distance: np.ndarray, speed: np.ndarray) -> list[dict[str, An
         if not (smooth[apex] <= smooth[apex - 1] and smooth[apex] < smooth[apex + 1]):
             continue
         lower_left = np.where(smooth[:apex] < smooth[apex])[0]
-        lower_right = np.where(smooth[apex + 1:] < smooth[apex])[0]
+        lower_right = np.where(smooth[apex + 1 :] < smooth[apex])[0]
         left = int(lower_left[-1]) + 1 if len(lower_left) else 0
         right = apex + 1 + int(lower_right[0]) if len(lower_right) else len(smooth)
         before = left + int(np.argmax(smooth[left:apex]))
@@ -445,10 +469,7 @@ def detect_corners(distance: np.ndarray, speed: np.ndarray) -> list[dict[str, An
         end_d = min(float(distance[after]), apex_d + CORNER_MAX_HALF_SPAN_M)
         corners.append({"start": start_d, "apex": apex_d, "end": end_d})
 
-    return [
-        {**c, "number": i + 1, "name": f"T{i + 1}", "turn_dir": None}
-        for i, c in enumerate(corners)
-    ]
+    return [{**c, "number": i + 1, "name": f"T{i + 1}", "turn_dir": None} for i, c in enumerate(corners)]
 
 
 def extract_corners_analysis(

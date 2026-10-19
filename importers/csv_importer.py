@@ -100,22 +100,26 @@ class CSVImporter:
                         lap_telemetry[channel] = [v - origin for v in lap_telemetry[channel]]
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
-                laps.append(Lap(
-                    lap_number=int(l_num),
-                    lap_time=lap_time,
-                    is_valid=True,
-                    telemetry=lap_telemetry,
-                ))
+                laps.append(
+                    Lap(
+                        lap_number=int(l_num),
+                        lap_time=lap_time,
+                        is_valid=True,
+                        telemetry=lap_telemetry,
+                    )
+                )
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:
             total_time = float(telemetry["time"][-1] - telemetry["time"][0]) if len(telemetry["time"]) > 1 else 0.0
-            laps.append(Lap(
-                lap_number=1,
-                lap_time=total_time,
-                is_valid=True,
-                telemetry=telemetry,
-            ))
+            laps.append(
+                Lap(
+                    lap_number=1,
+                    lap_time=total_time,
+                    is_valid=True,
+                    telemetry=telemetry,
+                )
+            )
 
         filename = os.path.basename(self.filepath)
         session_id = os.path.splitext(filename)[0]

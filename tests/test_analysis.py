@@ -72,7 +72,7 @@ def test_strict_no_false_praise_on_time_loss():
 
 def test_compare_laps_full():
     session = create_synthetic_session()
-    ref_lap = session.laps[1]   # Reference lap
+    ref_lap = session.laps[1]  # Reference lap
     comp_lap = session.laps[2]  # Comparison lap
 
     comp = compare_laps(ref_lap, comp_lap)
@@ -121,15 +121,13 @@ def test_sebring_multitrack_corners_and_telemetry():
 
     # Test verified track coordinates generation
     from analysis.tracks import generate_track_coordinates
+
     tx, ty = generate_track_coordinates("Sebring International Raceway", aligned["distance"])
     assert len(tx) == len(aligned["distance"])
     assert len(ty) == len(aligned["distance"])
     assert abs(tx[0] - tx[-1]) < 1e-4  # Closed loop
     assert abs(ty[0] - ty[-1]) < 1e-4  # Closed loop
-    assert max(tx) - min(tx) > 500.0   # Real dimensions (span > 500m)
-
-
-
+    assert max(tx) - min(tx) > 500.0  # Real dimensions (span > 500m)
 
 
 def test_detect_corners_finds_each_speed_dip():
@@ -150,9 +148,7 @@ def test_detect_corners_finds_each_speed_dip():
 def test_unmapped_tracks_use_detected_corners_not_valencia():
     ref = generate_lap_telemetry(is_reference=True)
     comp = generate_lap_telemetry(is_reference=False)
-    aligned = align_laps_by_distance(
-        {k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()}
-    )
+    aligned = align_laps_by_distance({k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()})
 
     corners = extract_corners_analysis(aligned, track_name="Monza")
 

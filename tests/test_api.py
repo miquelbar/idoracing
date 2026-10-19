@@ -183,7 +183,10 @@ def test_changing_the_provider_url_drops_the_stored_key(client, restore_llm_sett
     llm_client = restore_llm_settings
     llm_client.openai_api_key = "sk-test"
     llm_client.openai_base_url = "https://api.openai.com/v1"
-    res = client.post("/api/settings", json={"provider": "openai", "openai_api_key": "***", "openai_base_url": "https://elsewhere.example/v1"})
+    res = client.post(
+        "/api/settings",
+        json={"provider": "openai", "openai_api_key": "***", "openai_base_url": "https://elsewhere.example/v1"},
+    )
 
     assert res.status_code == 200
     assert llm_client.openai_api_key == ""

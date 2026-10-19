@@ -109,22 +109,25 @@ class Storage:
                 cursor.execute("DELETE FROM laps WHERE session_id = ?", (session.id,))
 
             # Insert or replace session
-            cursor.execute("""
+            cursor.execute(
+                """
             INSERT OR REPLACE INTO sessions (
                 id, session_id, car, track, date, source_file, best_lap_time, duration, average_speed, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session.id,
-                session.session_id,
-                session.car,
-                session.track,
-                session.date.isoformat(),
-                session.source_file,
-                best_lap,
-                duration,
-                avg_speed,
-                datetime.now().isoformat(),
-            ))
+            """,
+                (
+                    session.id,
+                    session.session_id,
+                    session.car,
+                    session.track,
+                    session.date.isoformat(),
+                    session.source_file,
+                    best_lap,
+                    duration,
+                    avg_speed,
+                    datetime.now().isoformat(),
+                ),
+            )
 
             # Delete any previous laps for this session ID
             cursor.execute("DELETE FROM laps WHERE session_id = ?", (session.id,))
@@ -132,18 +135,21 @@ class Storage:
             for lap in session.laps:
                 telemetry_json = json.dumps(lap.telemetry) if lap.telemetry else None
                 sector_json = json.dumps(lap.sector_times) if lap.sector_times else None
-                cursor.execute("""
+                cursor.execute(
+                    """
                 INSERT INTO laps (session_id, lap_number, lap_time, sector_times, is_valid, telemetry, synthetic)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    session.id,
-                    lap.lap_number,
-                    lap.lap_time,
-                    sector_json,
-                    1 if lap.is_valid else 0,
-                    telemetry_json,
-                    1 if lap.synthetic else 0,
-                ))
+                """,
+                    (
+                        session.id,
+                        lap.lap_number,
+                        lap.lap_time,
+                        sector_json,
+                        1 if lap.is_valid else 0,
+                        telemetry_json,
+                        1 if lap.synthetic else 0,
+                    ),
+                )
 
             conn.commit()
         return session.id
@@ -164,14 +170,16 @@ class Storage:
             for lr in lap_rows:
                 l_telemetry = json.loads(lr["telemetry"]) if lr["telemetry"] else None
                 l_sectors = json.loads(lr["sector_times"]) if lr["sector_times"] else []
-                laps.append(Lap(
-                    lap_number=lr["lap_number"],
-                    lap_time=lr["lap_time"],
-                    sector_times=l_sectors,
-                    is_valid=bool(lr["is_valid"]),
-                    telemetry=l_telemetry,
-                    synthetic=bool(lr["synthetic"]),
-                ))
+                laps.append(
+                    Lap(
+                        lap_number=lr["lap_number"],
+                        lap_time=lr["lap_time"],
+                        sector_times=l_sectors,
+                        is_valid=bool(lr["is_valid"]),
+                        telemetry=l_telemetry,
+                        synthetic=bool(lr["synthetic"]),
+                    )
+                )
 
             # Reconstruct session telemetry from reference lap or best lap if empty
             session_telemetry = {}
@@ -221,17 +229,19 @@ class Storage:
 
             summaries = []
             for r in rows:
-                summaries.append(SessionSummary(
-                    id=r["id"],
-                    session_id=r["session_id"],
-                    car=r["car"],
-                    track=r["track"],
-                    date=datetime.fromisoformat(r["date"]),
-                    duration=float(r["duration"] or 0.0),
-                    best_lap_time=float(r["best_lap_time"] or 0.0),
-                    average_speed=float(r["average_speed"] or 0.0),
-                    lap_count=int(r["lap_count"] or 0),
-                ))
+                summaries.append(
+                    SessionSummary(
+                        id=r["id"],
+                        session_id=r["session_id"],
+                        car=r["car"],
+                        track=r["track"],
+                        date=datetime.fromisoformat(r["date"]),
+                        duration=float(r["duration"] or 0.0),
+                        best_lap_time=float(r["best_lap_time"] or 0.0),
+                        average_speed=float(r["average_speed"] or 0.0),
+                        lap_count=int(r["lap_count"] or 0),
+                    )
+                )
             return summaries
 
     def delete_session(self, session_id: str):
@@ -246,36 +256,42 @@ class Storage:
         """Persist generated coaching report."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
             INSERT INTO coach_reports (
                 session_id, ref_lap, comp_lap, facts, metrics, hypotheses, exercises,
                 verification_indicator, confidence, raw_report, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session_id,
-                ref_lap,
-                comp_lap,
-                json.dumps(report.facts),
-                json.dumps(report.metrics),
-                json.dumps(report.hypotheses),
-                json.dumps(report.exercises),
-                report.verification_indicator,
-                report.confidence,
-                report.raw_report,
-                report.created_at.isoformat(),
-            ))
+            """,
+                (
+                    session_id,
+                    ref_lap,
+                    comp_lap,
+                    json.dumps(report.facts),
+                    json.dumps(report.metrics),
+                    json.dumps(report.hypotheses),
+                    json.dumps(report.exercises),
+                    report.verification_indicator,
+                    report.confidence,
+                    report.raw_report,
+                    report.created_at.isoformat(),
+                ),
+            )
             conn.commit()
 
     def get_coach_report(self, session_id: str, ref_lap: int, comp_lap: int) -> CoachReport | None:
         """Fetch previously stored coaching report."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
             SELECT * FROM coach_reports
             WHERE (session_id = ? OR session_id IN (SELECT id FROM sessions WHERE session_id = ?))
               AND ref_lap = ? AND comp_lap = ?
             ORDER BY created_at DESC LIMIT 1
-            """, (session_id, session_id, ref_lap, comp_lap))
+            """,
+                (session_id, session_id, ref_lap, comp_lap),
+            )
             row = cursor.fetchone()
             if not row:
                 return None
