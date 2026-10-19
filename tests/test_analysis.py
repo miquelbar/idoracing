@@ -154,3 +154,37 @@ def test_unmapped_tracks_use_detected_corners_not_valencia():
 
     assert corners
     assert all(c.corner_name.startswith("T") for c in corners)
+
+
+def _sebring_lateral_accel(noise_g=0.0, bias_g=0.0, seed=0):
+    import json
+    import pathlib
+
+    data = json.loads((pathlib.Path(__file__).parent.parent / "data/circuits/sebring.json").read_text())
+    xy, dist = np.array(data["coordinates"]), np.array(data["distances"])
+    grid = np.arange(0.0, dist[-1], 2.0)
+    x, y = np.interp(grid, dist, xy[:, 0]), np.interp(grid, dist, xy[:, 1])
+    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
+    speed_ms = 30.0
+    lat_g = speed_ms**2 * np.gradient(heading) / np.gradient(grid) / 9.81
+    lat_g = lat_g + bias_g + np.random.default_rng(seed).normal(0.0, noise_g, len(grid))
+    return grid, np.full_like(grid, speed_ms * 3.6), lat_g, x, y
+
+
+def _max_shape_error(x, y, rx, ry):
+    def to_local(px, py):
+        px, py = np.asarray(px) - px[0], np.asarray(py) - py[0]
+        a = np.arctan2(py[5], px[5])
+        return np.cos(-a) * px - np.sin(-a) * py, np.sin(-a) * px + np.cos(-a) * py
+
+    (ox, oy), (qx, qy) = to_local(x, y), to_local(rx, ry)
+    return float(np.max(np.hypot(ox - qx, oy - qy)))
+
+
+def test_track_outline_is_recovered_from_speed_and_lateral_accel():
+    from analysis.tracks import reconstruct_track_from_dynamics
+
+    grid, speed, lat_g, x, y = _sebring_lateral_accel()
+    rx, ry = reconstruct_track_from_dynamics(grid, speed, lat_g)
+
+    assert _max_shape_error(x, y, rx, ry) < 10.0
