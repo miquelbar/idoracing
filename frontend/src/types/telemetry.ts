@@ -84,7 +84,7 @@ export interface CornerDTO {
     apex_ref: { x: number; y: number; label: string };
     apex_comp: { x: number; y: number; label: string };
     exit_pt: { x: number; y: number; label: string };
-    has_subviraje: boolean;
+    has_understeer: boolean;
   };
 }
 

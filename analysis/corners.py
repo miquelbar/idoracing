@@ -443,7 +443,7 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
         racing_line_svg=generate_racing_line_svg(
             corner_number=number,
             turn_dir=turn_dir,
-            has_subviraje=s.understeer,
+            has_understeer=s.understeer,
             apex_dist_delta=s.apex_dist_delta,
             speed_delta=abs(s.delta_vmin),
             ref_min_speed=s.ref_min_speed,
@@ -458,7 +458,7 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
 def generate_racing_line_svg(
     corner_number: int,
     turn_dir: str,
-    has_subviraje: bool,
+    has_understeer: bool,
     apex_dist_delta: float,
     speed_delta: float,
     ref_min_speed: float,
@@ -480,7 +480,7 @@ def generate_racing_line_svg(
         apex_ref = {"x": 205, "y": 94, "label": f"Ápice Óptimo ({ref_min_speed:.0f} km/h)"}
         exit_pt = {"x": 65, "y": 38, "label": "Salida Óptima"}
 
-        if has_subviraje:
+        if has_understeer:
             # Subviraje: entra bien pero morro desliza hacia fuera del ápice
             actual_line = "M 380,210 C 370,140 240,65 58,55"
             apex_comp = {"x": 242, "y": 70, "label": f"Ápice Desplazado {comp_min_speed:.0f} km/h"}
@@ -502,7 +502,7 @@ def generate_racing_line_svg(
         apex_ref = {"x": 235, "y": 94, "label": f"Ápice Óptimo ({ref_min_speed:.0f} km/h)"}
         exit_pt = {"x": 375, "y": 38, "label": "Salida Óptima"}
 
-        if has_subviraje:
+        if has_understeer:
             actual_line = "M 60,210 C 70,140 200,65 382,55"
             apex_comp = {"x": 198, "y": 70, "label": f"Ápice Desplazado {comp_min_speed:.0f} km/h"}
         elif apex_dist_delta < -8.0:
@@ -524,7 +524,7 @@ def generate_racing_line_svg(
         "apex_ref": apex_ref,
         "apex_comp": apex_comp,
         "exit_pt": exit_pt,
-        "has_subviraje": has_subviraje,
+        "has_understeer": has_understeer,
     }
 
 

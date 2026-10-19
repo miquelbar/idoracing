@@ -369,7 +369,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   // Active Corner geometry for zoomed view
   const cornerSvgData = selectedCorner?.racing_line_svg;
   const isLeft = cornerSvgData?.turn_dir === 'left';
-  const hasSubviraje = cornerSvgData?.has_subviraje;
+  const hasUndersteer = cornerSvgData?.has_understeer;
   const isEarlyApex = selectedCorner?.racing_line_code === 'early_apex';
   const isOptimal = selectedCorner?.racing_line_code === 'optimal';
 
@@ -441,7 +441,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     const trailCode = selectedCorner.trail_braking_code;
 
     // 3. Línea y Ápice (Track position)
-    const isSubviraje = cornerSvgData?.has_subviraje || selectedCorner.balance_code === 'understeer';
+    const isUndersteer = cornerSvgData?.has_understeer || selectedCorner.balance_code === 'understeer';
     const isEarly = selectedCorner.racing_line_code === 'early_apex';
     const isLineOptimal = selectedCorner.racing_line_code === 'optimal';
 
@@ -486,7 +486,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         code: trailCode,
       },
       position: {
-        isSubviraje,
+        isUndersteer,
         isEarly,
         isLineOptimal,
         offsets:
@@ -534,7 +534,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         entryText = `Braking ${Math.abs(Math.round(braking.delta))}m too early. Delay initial brake hit towards the 100m marker and stretch progressive release into the apex.`;
       } else if (braking.delta > 8) {
         entryText = `Braking ${Math.round(braking.delta)}m late and arriving overloaded. Move braking point back to stabilize front tyres before turn-in.`;
-      } else if (position.isSubviraje) {
+      } else if (position.isUndersteer) {
         entryText = 'The car pushes wide on turn-in. Open up against the outer kerb and keep some brake pressure into the apex to help the nose rotate.';
       } else if (trail.code === 'early_release' || trail.compPct < 8) {
         entryText = 'Releasing the brake abruptly before turn-in. Smoothly bleed off brake pressure (trail braking) to keep front axle loaded.';
@@ -548,7 +548,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         entryText = `Frenas ${Math.abs(Math.round(braking.delta))}m antes de la referencia. Retrasa el punto de frenada aprovechando las marcas de 100m y alarga la suelta progresiva.`;
       } else if (braking.delta > 8) {
         entryText = `Frenas ${Math.round(braking.delta)}m más tarde y entras pasado. Anticipa la presión de freno para no saturar el tren delantero al girar.`;
-      } else if (position.isSubviraje) {
+      } else if (position.isUndersteer) {
         entryText = 'El morro se abre al girar. Ábrete pegado al piano exterior y mantén algo de freno hasta el vértice (trail braking) para rotar el morro.';
       } else if (trail.code === 'early_release' || trail.compPct < 8) {
         entryText = 'Sueltas el freno bruscamente antes de girar. Modula el pedal en regresión (trail braking) para no aligerar el eje delantero en la entrada.';
@@ -565,7 +565,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
           position.offsets.apex > 0
             ? `You reach the apex ${position.offsets.apex.toFixed(1)} m wider than on your reference lap${min.delta < 0 ? ` and ${Math.abs(min.delta).toFixed(0)} km/h slower` : ''}. Turn in a touch later and aim for the inside kerb.`
             : `You reach the apex ${Math.abs(position.offsets.apex).toFixed(1)} m tighter than on your reference lap. Check you are not turning in too early and pinching the exit.`;
-      } else if (position.isSubviraje) {
+      } else if (position.isUndersteer) {
         apexText = `You run wide of the inside kerb and lose ${Math.abs(min.delta).toFixed(0)} km/h of apex speed to understeer.`;
       } else if (position.isEarly) {
         apexText = 'Turning in too early (early apex). You pinch the trajectory at the apex and are forced to hesitate before applying throttle.';
@@ -582,7 +582,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
           position.offsets.apex > 0
             ? `Llegas al ápice ${position.offsets.apex.toFixed(1)} m más abierto que en tu vuelta de referencia${min.delta < 0 ? ` y ${Math.abs(min.delta).toFixed(0)} km/h más lento` : ''}. Gira un poco más tarde y busca el piano interior.`
             : `Llegas al ápice ${Math.abs(position.offsets.apex).toFixed(1)} m más cerrado que en tu vuelta de referencia. Revisa que no estés girando antes de tiempo y estrangulando la salida.`;
-      } else if (position.isSubviraje) {
+      } else if (position.isUndersteer) {
         apexText = `No llegas al piano interior y pierdes ${Math.abs(min.delta).toFixed(0)} km/h de paso por curva por subviraje.`;
       } else if (position.isEarly) {
         apexText = 'Te tiras al vértice demasiado pronto (vértice prematuro). Estrangulas la salida y te ves forzado a esperar para acelerar.';
@@ -902,7 +902,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                               {t('offset_exit_short')} {formatOffset(phaseMetrics.position.offsets.exit)}
                             </span>
                           </>
-                        ) : phaseMetrics.position.isSubviraje ? (
+                        ) : phaseMetrics.position.isUndersteer ? (
                           lang === 'en' ? 'Wide of the apex' : 'Abierto en el ápice'
                         ) : phaseMetrics.position.isEarly ? (
                           lang === 'en' ? 'Early turn-in' : 'Cierra antes'
@@ -925,7 +925,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                               {t('tighter_by')} {Math.abs(phaseMetrics.position.offsets.apex).toFixed(1)} m
                             </span>
                           )
-                        ) : phaseMetrics.position.isSubviraje ? (
+                        ) : phaseMetrics.position.isUndersteer ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
                             {t('understeer_offset')}
                           </span>
@@ -1095,7 +1095,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
 
               <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
-                {hasSubviraje ? (
+                {hasUndersteer ? (
                   <>
                     <AlertTriangle className="w-3 h-3 text-[#FF1801]" />
                     <span className="text-[#FF7B72] font-bold">{t('understeer')}</span>
@@ -1204,10 +1204,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               <path
                 d={cornerSvgData.actual_line}
                 fill="none"
-                stroke={hasSubviraje ? '#FF385C' : '#B138FE'}
+                stroke={hasUndersteer ? '#FF385C' : '#B138FE'}
                 strokeWidth="3.5"
                 strokeLinecap="round"
-                filter={hasSubviraje ? 'url(#glow-under)' : 'url(#glow-act)'}
+                filter={hasUndersteer ? 'url(#glow-under)' : 'url(#glow-act)'}
               />
 
               {/* Turn-In Marker */}
@@ -1254,11 +1254,11 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 
               {/* Actual Apex Marker (Desplazamiento hacia el exterior/abajo para evitar colisión de texto) */}
               <g transform={`translate(${cornerSvgData.apex_comp.x}, ${cornerSvgData.apex_comp.y})`}>
-                <circle r="5" fill={hasSubviraje ? '#FF1801' : '#B138FE'} />
+                <circle r="5" fill={hasUndersteer ? '#FF1801' : '#B138FE'} />
                 <circle
                   r="9"
                   fill="none"
-                  stroke={hasSubviraje ? '#FF1801' : '#B138FE'}
+                  stroke={hasUndersteer ? '#FF1801' : '#B138FE'}
                   strokeWidth="1.5"
                   strokeDasharray="2 2"
                 />
@@ -1266,7 +1266,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                   y="20"
                   x={isLeft ? -8 : 8}
                   textAnchor={isLeft ? 'end' : 'start'}
-                  fill={hasSubviraje ? '#FF7B72' : '#E9D5FF'}
+                  fill={hasUndersteer ? '#FF7B72' : '#E9D5FF'}
                   fontSize="9px"
                   fontFamily="monospace"
                   fontWeight="bold"
