@@ -70,7 +70,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
             {trackName}
           </span>
           <span className="text-gray-500 hidden md:inline">·</span>
-          <span className="text-[#00D2BE] font-bold text-xs truncate hidden md:inline">
+          <span className="text-brand font-bold text-xs truncate hidden md:inline">
             {carName}
           </span>
         </div>
@@ -100,7 +100,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
           <>
             <div className="flex items-center gap-2 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
+                <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand font-bold text-[10px] border border-brand/30">
                   P1 V{refLapNumber}
                 </span>
                 <span className="text-white font-bold tracking-tight">
@@ -111,7 +111,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
               <span className="text-gray-600 text-[10px]">vs</span>
 
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] font-bold text-[10px] border border-[#B138FE]/30">
+                <span className="px-1.5 py-0.5 rounded bg-comp/20 text-[#D8B4FE] font-bold text-[10px] border border-comp/30">
                   P2 V{compLapNumber}
                 </span>
                 <span className="text-white font-bold tracking-tight">
@@ -123,8 +123,8 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
               <span
                 className={`px-2 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
                   comparison.delta_time_total > 0
-                    ? 'bg-[#E10600]/20 text-[#FF453A] border border-[#E10600]/40'
-                    : 'bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/40'
+                    ? 'bg-accent/20 text-[#FF453A] border border-accent/40'
+                    : 'bg-brand/20 text-brand border border-brand/40'
                 }`}
               >
                 {t('gap')} {formatDelta(comparison.delta_time_total)}
@@ -135,21 +135,21 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
             <div className="hidden xl:flex items-center gap-2 text-[11px] border-l border-white/10 pl-3">
               <span className="text-gray-400">
                 S1:{' '}
-                <strong className={deltaS1 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                <strong className={deltaS1 <= 0 ? 'text-brand' : 'text-amber-400'}>
                   {formatDelta(deltaS1)}
                 </strong>
               </span>
               <span className="text-gray-600">•</span>
               <span className="text-gray-400">
                 S2:{' '}
-                <strong className={deltaS2 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                <strong className={deltaS2 <= 0 ? 'text-brand' : 'text-amber-400'}>
                   {formatDelta(deltaS2)}
                 </strong>
               </span>
               <span className="text-gray-600">•</span>
               <span className="text-gray-400">
                 S3:{' '}
-                <strong className={deltaS3 <= 0 ? 'text-[#00D2BE]' : 'text-amber-400'}>
+                <strong className={deltaS3 <= 0 ? 'text-brand' : 'text-amber-400'}>
                   {formatDelta(deltaS3)}
                 </strong>
               </span>
@@ -158,7 +158,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         ) : bestLapTime && bestLapTime > 0 ? (
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="px-1.5 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] font-bold text-[10px] border border-[#00D2BE]/30">
+              <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand font-bold text-[10px] border border-brand/30">
                 {t('best_lap')}
               </span>
               <span className="text-white font-bold tracking-tight">
@@ -177,12 +177,12 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         {onOpenDebrief && (
           <button
             onClick={onOpenDebrief}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#00D2BE]/20 hover:bg-[#00D2BE] text-[#00D2BE] hover:text-black border border-[#00D2BE]/40 hover:border-[#00D2BE] text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 hover:border-brand text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
             title={t('open_debrief_hint')}
           >
             <Bot className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">{t('debrief_radio')}</span>
-            {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-ping" />}
+            {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-brand animate-ping" />}
           </button>
         )}
       </div>

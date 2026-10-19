@@ -1,17 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,300;0,400;0,600;0,700;0,900;1,700&family=JetBrains+Mono:wght@400;500;700;800&family=Racing+Sans+One&display=swap');
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --racing-red: #E10600;
-    --racing-purple: #B138FE;
-    --racing-green: #00D2BE;
-    --racing-yellow: #FFD700;
-    --racing-bg-dark: #08090C;
-    --racing-surface: #12161F;
-    --racing-border: #1E2638;
-  }
+@theme {
+  --color-brand: #00D2BE;
+  --color-brand-light: #00E5CF;
+  --color-comp: #B138FE;
+  --color-gain: #00FF7F;
+  --color-loss: #FF1801;
+  --color-loss-soft: #FF7B72;
+  --color-loss-light: #FF4D4D;
+  --color-best: #FFD700;
+  --color-accent: #E10600;
+  --color-muted: #718096;
+  --color-night-1: #05070B;
+  --color-night-2: #07090E;
+  --color-night-3: #080B11;
+  --color-night-4: #090D15;
+  --color-night-5: #0C101A;
+  --color-night-6: #0E121B;
+  --color-night-7: #0E131E;
+  --color-night-8: #121622;
+}
 
+@layer base {
   body {
     background-color: #08090C;
     color: #E2E8F0;

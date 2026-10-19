@@ -1,4 +1,5 @@
 import type { ComparisonResponse } from '../../types/telemetry';
+import { COLORS } from '../../theme';
 
 /** Track outline scaled into a tight SVG box, with the speed-delta heatmap, corner badges and corner arcs. */
 export function buildTrackGeometry(comparison: ComparisonResponse) {
@@ -46,10 +47,10 @@ export function buildTrackGeometry(comparison: ComparisonResponse) {
     const avgDelta = deltas[i] || 0;
 
     let color = '#798299';
-    if (avgDelta > 8) color = '#00FF7F';
-    else if (avgDelta > 2) color = '#00D2BE';
-    else if (avgDelta < -8) color = '#FF1801';
-    else if (avgDelta < -2) color = '#FF7B72';
+    if (avgDelta > 8) color = COLORS.gain;
+    else if (avgDelta > 2) color = COLORS.brand;
+    else if (avgDelta < -8) color = COLORS.loss;
+    else if (avgDelta < -2) color = COLORS.lossSoft;
 
     segments.push({
       d: `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`,

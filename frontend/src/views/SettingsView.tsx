@@ -76,7 +76,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
-          <Cpu className="w-5 h-5 text-[#00D2BE]" />
+          <Cpu className="w-5 h-5 text-brand" />
           {t('ai_engine_title')}
         </h3>
         <p className="text-xs text-gray-400">
@@ -99,17 +99,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             onClick={() => setProvider('ollama')}
             className={`p-5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
               provider === 'ollama'
-                ? 'bg-[#151D2C] border-[#00D2BE] shadow-[0_0_20px_rgba(0,210,190,0.15)] ring-1 ring-[#00D2BE]'
-                : 'bg-[#0E121B] hover:bg-[#121722] border-white/5'
+                ? 'bg-[#151D2C] border-brand shadow-[0_0_20px_rgba(0,210,190,0.15)] ring-1 ring-brand'
+                : 'bg-night-6 hover:bg-[#121722] border-white/5'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-sm text-white flex items-center gap-2">
-                  <Server className="w-4 h-4 text-[#00D2BE]" />
+                  <Server className="w-4 h-4 text-brand" />
                   {t('ollama_local_title')}
                 </span>
-                {provider === 'ollama' && <span className="text-[10px] text-[#00D2BE] font-bold">{t('ollama_active_badge')}</span>}
+                {provider === 'ollama' && <span className="text-[10px] text-brand font-bold">{t('ollama_active_badge')}</span>}
               </div>
               <p className="text-xs text-gray-400">
                 {t('ollama_desc')}
@@ -125,17 +125,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             onClick={() => setProvider('openai')}
             className={`p-5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${
               provider === 'openai'
-                ? 'bg-[#1D172E] border-[#B138FE] shadow-[0_0_20px_rgba(177,56,254,0.15)] ring-1 ring-[#B138FE]'
-                : 'bg-[#0E121B] hover:bg-[#121722] border-white/5'
+                ? 'bg-[#1D172E] border-comp shadow-[0_0_20px_rgba(177,56,254,0.15)] ring-1 ring-comp'
+                : 'bg-night-6 hover:bg-[#121722] border-white/5'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-sm text-white flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-[#B138FE]" />
+                  <Globe className="w-4 h-4 text-comp" />
                   {t('openai_compatible_title')}
                 </span>
-                {provider === 'openai' && <span className="text-[10px] text-[#B138FE] font-bold">{t('ollama_active_badge')}</span>}
+                {provider === 'openai' && <span className="text-[10px] text-comp font-bold">{t('ollama_active_badge')}</span>}
               </div>
               <p className="text-xs text-gray-400">
                 {t('openai_desc')}
@@ -160,7 +160,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                 <select
                   value={ollamaModel}
                   onChange={(e) => setOllamaModel(e.target.value)}
-                  className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#00D2BE]"
+                  className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-brand"
                 >
                   {status.ollama_models.map((m) => (
                     <option key={m} value={m}>
@@ -174,7 +174,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                   value={ollamaModel}
                   onChange={(e) => setOllamaModel(e.target.value)}
                   placeholder="qwen3.8:27b"
-                  className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#00D2BE]"
+                  className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-brand"
                 />
               )}
             </div>
@@ -186,7 +186,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                 value={ollamaBaseUrl}
                 onChange={(e) => setOllamaBaseUrl(e.target.value)}
                 placeholder="http://localhost:11434"
-                className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#00D2BE]"
+                className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-brand"
               />
             </div>
           </div>
@@ -206,7 +206,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                   value={openaiApiKey}
                   onChange={(e) => setOpenaiApiKey(e.target.value)}
                   placeholder="sk-or-v1-... o sk-..."
-                  className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 pr-10 text-xs text-white font-telemetry focus:outline-none focus:border-[#B138FE]"
+                  className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 pr-10 text-xs text-white font-telemetry focus:outline-none focus:border-comp"
                 />
                 <button
                   type="button"
@@ -225,7 +225,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                 value={openaiBaseUrl}
                 onChange={(e) => setOpenaiBaseUrl(e.target.value)}
                 placeholder="https://openrouter.ai/api/v1 o https://api.openai.com/v1"
-                className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#B138FE]"
+                className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-comp"
               />
             </div>
 
@@ -236,7 +236,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                 value={openaiModel}
                 onChange={(e) => setOpenaiModel(e.target.value)}
                 placeholder="gpt-4o, deepseek/deepseek-chat, anthropic/claude-3.5-sonnet"
-                className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#B138FE]"
+                className="w-full bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-comp"
               />
             </div>
           </div>
@@ -245,7 +245,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md disabled:opacity-50"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           <span>{saving ? t('saving_btn') : t('save_config_btn')}</span>

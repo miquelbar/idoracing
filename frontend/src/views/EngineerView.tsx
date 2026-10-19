@@ -101,14 +101,14 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
       <div className="lg:col-span-7 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-[#B138FE]" />
+            <Cpu className="w-5 h-5 text-comp" />
             <h3 className="text-base font-bold text-white uppercase tracking-wider">
               Informe Técnico del Ingeniero
             </h3>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-telemetry px-2.5 py-1 rounded-full bg-[#121622] text-[#00D2BE] border border-[#242D40]">
+            <span className="text-[11px] font-telemetry px-2.5 py-1 rounded-full bg-night-8 text-brand border border-[#242D40]">
               {activeModel}
             </span>
             <button
@@ -116,7 +116,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
               disabled={loadingReport || !comparison}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#18202F] hover:bg-[#202B3F] border border-[#2D3A52] text-xs text-gray-300 transition cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#00D2BE] ${loadingReport ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-brand ${loadingReport ? 'animate-spin' : ''}`} />
               <span>{report ? 'Regenerar' : 'Generar Informe'}</span>
             </button>
           </div>
@@ -132,7 +132,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         {/* Loading Spinner */}
         {loadingReport && (
           <div className="py-20 text-center flex flex-col items-center justify-center space-y-3 glass-panel rounded-xl">
-            <div className="w-10 h-10 border-3 border-[#00D2BE] border-t-transparent rounded-full animate-spin" />
+            <div className="w-10 h-10 border-3 border-brand border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-gray-300 font-telemetry">
               Procesando telemetría e inferencia con {activeModel}...
             </p>
@@ -142,7 +142,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         {/* Empty State */}
         {!report && !loadingReport && (
           <div className="p-8 text-center glass-panel rounded-xl flex flex-col items-center justify-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-[#B138FE]/10 border border-[#B138FE]/30 flex items-center justify-center text-[#B138FE]">
+            <div className="w-14 h-14 rounded-full bg-comp/10 border border-comp/30 flex items-center justify-center text-comp">
               <Sparkles className="w-7 h-7" />
             </div>
             <div>
@@ -154,7 +154,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
             </div>
             <button
               onClick={() => handleGenerateReport(false)}
-              className="px-5 py-2.5 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md"
+              className="px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md"
             >
               Generar Debrief Ahora
             </button>
@@ -166,7 +166,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
           <div className="space-y-4">
             {/* Executive Summary */}
             <div className="p-4 rounded-xl bg-[#131926] border border-[#2D3A52] text-xs text-gray-200 leading-relaxed font-sans shadow-sm">
-              <span className="font-bold text-[#00D2BE] block mb-1 uppercase tracking-wider text-[11px]">
+              <span className="font-bold text-brand block mb-1 uppercase tracking-wider text-[11px]">
                 Diagnóstico del Ingeniero ({report.confidence || 'Alta'} Confianza):
               </span>
               {report.raw_report ? report.raw_report.split('\n\n')[0] : 'Informe telemétrico disponible.'}
@@ -174,7 +174,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
             {/* Section 1: Facts */}
             <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#FFD700] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-bold text-best uppercase tracking-wider">
                 <FileText className="w-4 h-4" />
                 <span>1. Hechos Observados (Datos Directos)</span>
               </div>
@@ -187,7 +187,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
             {/* Section 2: Metrics */}
             <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#00D2BE] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-bold text-brand uppercase tracking-wider">
                 <Target className="w-4 h-4" />
                 <span>2. Métricas de Apoyo (Cálculos de Telemetría)</span>
               </div>
@@ -203,7 +203,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
             {/* Section 3: Technical Hypothesis */}
             <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#B138FE] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-bold text-comp uppercase tracking-wider">
                 <Lightbulb className="w-4 h-4" />
                 <span>3. Hipótesis Técnica de Conducción</span>
               </div>
@@ -216,7 +216,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
             {/* Section 4: Practical Exercises */}
             <div className="p-4 rounded-xl bg-[#0D1017] border border-white/5 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#00FF7F] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-xs font-bold text-gain uppercase tracking-wider">
                 <CheckCircle className="w-4 h-4" />
                 <span>4. Ejercicios Concretos para la Pista</span>
               </div>
@@ -228,8 +228,8 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
             </div>
 
             {/* Section 5: Verification Indicator */}
-            <div className="p-4 rounded-xl bg-[#00D2BE]/10 border border-[#00D2BE]/30">
-              <span className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider block mb-1">
+            <div className="p-4 rounded-xl bg-brand/10 border border-brand/30">
+              <span className="text-xs font-bold text-brand uppercase tracking-wider block mb-1">
                 5. Indicador Numérico de Verificación:
               </span>
               <p className="text-xs text-gray-200">{report.verification_indicator}</p>
@@ -243,7 +243,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         {/* Chat Header */}
         <div className="p-4 border-b border-white/10 bg-[#111624] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE]">
+            <div className="w-8 h-8 rounded-lg bg-brand/20 border border-brand/40 flex items-center justify-center text-brand">
               <Bot className="w-4 h-4" />
             </div>
             <div>
@@ -267,15 +267,15 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
                 className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <div className="w-6 h-6 rounded-full bg-[#182133] border border-white/10 flex items-center justify-center text-[#00D2BE] shrink-0 mt-0.5">
+                  <div className="w-6 h-6 rounded-full bg-[#182133] border border-white/10 flex items-center justify-center text-brand shrink-0 mt-0.5">
                     <Bot className="w-3.5 h-3.5" />
                   </div>
                 )}
                 <div
                   className={`max-w-[85%] p-3 rounded-xl leading-relaxed ${
                     isUser
-                      ? 'bg-[#00D2BE] text-black font-medium shadow-sm'
-                      : 'bg-[#121622] text-gray-200 border border-white/5'
+                      ? 'bg-brand text-black font-medium shadow-sm'
+                      : 'bg-night-8 text-gray-200 border border-white/5'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.content}</p>
@@ -291,25 +291,25 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
           {chatLoading && (
             <div className="flex gap-2 items-center text-gray-400 text-xs italic">
-              <Bot className="w-4 h-4 text-[#00D2BE] animate-spin" />
+              <Bot className="w-4 h-4 text-brand animate-spin" />
               <span>El ingeniero está analizando la telemetría...</span>
             </div>
           )}
         </div>
 
         {/* Chat Input */}
-        <form onSubmit={handleSendMessage} className="p-3 border-t border-white/10 bg-[#0C101A] flex gap-2">
+        <form onSubmit={handleSendMessage} className="p-3 border-t border-white/10 bg-night-5 flex gap-2">
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="Ej: ¿Por qué pierdo tiempo en la Curva 11?"
-            className="flex-1 bg-[#141A28] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE]"
+            className="flex-1 bg-[#141A28] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand"
           />
           <button
             type="submit"
             disabled={chatLoading || !inputMessage.trim()}
-            className="px-3.5 py-2 bg-[#00D2BE] hover:bg-[#00E5CF] text-black rounded-lg transition cursor-pointer disabled:opacity-40"
+            className="px-3.5 py-2 bg-brand hover:bg-brand-light text-black rounded-lg transition cursor-pointer disabled:opacity-40"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

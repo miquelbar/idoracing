@@ -54,8 +54,8 @@ export const CornerSelectorBar: React.FC<CornerSelectorBarProps> = ({ corners, s
         onClick={() => onSelectCorner(null)}
         className={`px-2.5 py-1 rounded-lg text-xs font-telemetry font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
           selectedCorner === null
-            ? 'bg-[#00D2BE] text-[#07090E] shadow-[0_0_12px_rgba(0,210,190,0.4)] ring-1 ring-white/20'
-            : 'bg-[#0E121B] hover:bg-[#151B27] text-gray-300 hover:text-white border border-white/5'
+            ? 'bg-brand text-night-2 shadow-[0_0_12px_rgba(0,210,190,0.4)] ring-1 ring-white/20'
+            : 'bg-night-6 hover:bg-[#151B27] text-gray-300 hover:text-white border border-white/5'
         }`}
         title={t('view_full_circuit')}
       >
@@ -70,7 +70,7 @@ export const CornerSelectorBar: React.FC<CornerSelectorBarProps> = ({ corners, s
         <button
           onClick={scrollLeft}
           type="button"
-          className="w-5 h-6 rounded bg-black/60 hover:bg-[#B138FE] text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 mr-1"
+          className="w-5 h-6 rounded bg-black/60 hover:bg-comp text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 mr-1"
           title={t('scroll_left_hint')}
         >
           <ChevronLeft className="w-3 h-3" />
@@ -96,14 +96,14 @@ export const CornerSelectorBar: React.FC<CornerSelectorBarProps> = ({ corners, s
                 onClick={() => onSelectCorner(c)}
                 className={`px-2 py-0.5 rounded-md text-[11px] font-telemetry font-bold transition flex items-center gap-1 shrink-0 cursor-pointer ${
                   isSelected
-                    ? 'bg-[#B138FE] text-white shadow-[0_0_10px_rgba(177,56,254,0.4)] ring-1 ring-white/30'
-                    : 'bg-[#0E121B] hover:bg-[#151B27] text-gray-400 hover:text-white border border-white/5'
+                    ? 'bg-comp text-white shadow-[0_0_10px_rgba(177,56,254,0.4)] ring-1 ring-white/30'
+                    : 'bg-night-6 hover:bg-[#151B27] text-gray-400 hover:text-white border border-white/5'
                 }`}
               >
                 <span>T{c.corner_number}</span>
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
-                    gained ? 'bg-[#00FF7F]' : lost ? 'bg-[#FF1801]' : 'bg-gray-500'
+                    gained ? 'bg-gain' : lost ? 'bg-loss' : 'bg-gray-500'
                   }`}
                 />
               </button>
@@ -114,7 +114,7 @@ export const CornerSelectorBar: React.FC<CornerSelectorBarProps> = ({ corners, s
         <button
           onClick={scrollRight}
           type="button"
-          className="w-5 h-6 rounded bg-black/60 hover:bg-[#B138FE] text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 ml-1"
+          className="w-5 h-6 rounded bg-black/60 hover:bg-comp text-white flex items-center justify-center text-xs opacity-70 hover:opacity-100 transition cursor-pointer shrink-0 ml-1"
           title={t('scroll_right_hint')}
         >
           <ChevronRight className="w-3 h-3" />

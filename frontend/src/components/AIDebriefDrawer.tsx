@@ -54,7 +54,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
           <ul key={`ul-${elements.length}`} className="space-y-1.5 my-2">
             {currentList.items.map((item, idx) => (
               <li key={idx} className="flex items-start gap-2">
-                <span className="text-[#00D2BE] font-bold mt-0.5">•</span>
+                <span className="text-brand font-bold mt-0.5">•</span>
                 <span className="flex-1 leading-relaxed text-xs">{item}</span>
               </li>
             ))}
@@ -97,7 +97,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
         parts.push(
           <code
             key={match.index}
-            className="font-mono text-[#00D2BE] bg-white/10 px-1 py-0.5 rounded text-[11px]"
+            className="font-mono text-brand bg-white/10 px-1 py-0.5 rounded text-[11px]"
           >
             {token.slice(1, -1)}
           </code>
@@ -128,7 +128,7 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
     if (trimmed.startsWith('### ')) {
       flushList();
       elements.push(
-        <h4 key={`h4-${lineIdx}`} className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider mt-3 mb-1 font-telemetry">
+        <h4 key={`h4-${lineIdx}`} className="text-xs font-bold text-brand uppercase tracking-wider mt-3 mb-1 font-telemetry">
           {formatInline(trimmed.substring(4))}
         </h4>
       );
@@ -329,7 +329,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
         {/* Drawer Header */}
         <div className="p-3.5 border-b border-white/10 bg-[#0E121E] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE]">
+            <div className="w-8 h-8 rounded-lg bg-brand/20 border border-brand/40 flex items-center justify-center text-brand">
               <Bot className="w-4 h-4" />
             </div>
             <div>
@@ -337,7 +337,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 {t('engineer_panel_title')}
               </h2>
               <p className="text-[11px] text-gray-400 font-telemetry">
-                {trackName} • <strong className="text-[#00D2BE]">{activeModel}</strong>
+                {trackName} • <strong className="text-brand">{activeModel}</strong>
               </p>
             </div>
           </div>
@@ -351,8 +351,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               >
                 {reportCopied ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-[#00D2BE]" />
-                    <span className="text-[#00D2BE] font-bold">{t('copied')}</span>
+                    <Check className="w-3.5 h-3.5 text-brand" />
+                    <span className="text-brand font-bold">{t('copied')}</span>
                   </>
                 ) : (
                   <>
@@ -366,7 +366,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
             <button
               onClick={() => onGenerateDebrief(true)}
               disabled={loadingReport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50 shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50 shadow-sm"
               title={report ? t('update') : t('analyze')}
             >
               {loadingReport ? (
@@ -399,19 +399,19 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               onClick={() => setActiveTab('debrief')}
               className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
                 activeTab === 'debrief'
-                  ? 'border-[#00D2BE] text-[#00D2BE]'
+                  ? 'border-brand text-brand'
                   : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>{t('debrief_tab')}</span>
-              {report && <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE]" />}
+              {report && <span className="w-1.5 h-1.5 rounded-full bg-brand" />}
             </button>
             <button
               onClick={() => setActiveTab('radio')}
               className={`py-2.5 px-4 border-b-2 flex items-center gap-2 transition cursor-pointer ${
                 activeTab === 'radio'
-                  ? 'border-[#B138FE] text-[#D8B4FE]'
+                  ? 'border-comp text-[#D8B4FE]'
                   : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
@@ -427,7 +427,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 onClick={() => setDebriefViewMode('structured')}
                 className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold transition cursor-pointer ${
                   debriefViewMode === 'structured'
-                    ? 'bg-[#00D2BE] text-black shadow-sm'
+                    ? 'bg-brand text-black shadow-sm'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -437,7 +437,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 onClick={() => setDebriefViewMode('full')}
                 className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold transition cursor-pointer ${
                   debriefViewMode === 'full'
-                    ? 'bg-[#00D2BE] text-black shadow-sm'
+                    ? 'bg-brand text-black shadow-sm'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -461,9 +461,9 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               {report ? (
                 debriefViewMode === 'full' && report.raw_report ? (
                   /* Full Markdown Technical Report View */
-                  <div className="p-4 rounded-xl bg-[#0E131E] border border-white/5 font-sans space-y-2">
+                  <div className="p-4 rounded-xl bg-night-7 border border-white/5 font-sans space-y-2">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
-                      <span className="text-[11px] font-bold text-[#00D2BE] uppercase font-telemetry tracking-wider">
+                      <span className="text-[11px] font-bold text-brand uppercase font-telemetry tracking-wider">
                         {t('full_report')} • {activeModel}
                       </span>
                       <button
@@ -485,7 +485,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                         {Object.entries(report.metrics).map(([k, v]) => (
                           <div
                             key={k}
-                            className="p-2.5 rounded-lg bg-[#0E131E] border border-white/5 font-telemetry"
+                            className="p-2.5 rounded-lg bg-night-7 border border-white/5 font-telemetry"
                           >
                             <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-0.5">
                               {formatMetricKey(k, lang)}
@@ -499,16 +499,16 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     )}
 
                     {/* 1. Hechos Observados */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-night-7 border border-white/5 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                        <CheckCircle className="w-4 h-4 text-[#00D2BE]" />
+                        <CheckCircle className="w-4 h-4 text-brand" />
                         <span>{t('facts_title')}</span>
                       </div>
                       <ul className="space-y-1.5 text-xs text-gray-300">
                         {report.facts && report.facts.length > 0 ? (
                           report.facts.map((fact, idx) => (
                             <li key={idx} className="flex items-start gap-2">
-                              <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
+                              <span className="text-brand mt-0.5 font-bold">•</span>
                               <span className="leading-relaxed">{fact}</span>
                             </li>
                           ))
@@ -519,7 +519,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     </div>
 
                     {/* 2. Diagnóstico Técnico */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-night-7 border border-white/5 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
                         <Lightbulb className="w-4 h-4 text-amber-400" />
                         <span>{t('diagnosis_title')}</span>
@@ -539,16 +539,16 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     </div>
 
                     {/* 5. Plan de Ejercicios */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-night-7 border border-white/5 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                        <Target className="w-4 h-4 text-[#FF1801]" />
+                        <Target className="w-4 h-4 text-loss" />
                         <span>{t('exercises_title')}</span>
                       </div>
                       <ul className="space-y-1.5 text-xs text-gray-300">
                         {report.exercises && report.exercises.length > 0 ? (
                           report.exercises.map((ex, idx) => (
                             <li key={idx} className="flex items-start gap-2">
-                              <span className="text-[#FF1801] mt-0.5 font-bold">{idx + 1}.</span>
+                              <span className="text-loss mt-0.5 font-bold">{idx + 1}.</span>
                               <span className="leading-relaxed">{ex}</span>
                             </li>
                           ))
@@ -559,14 +559,14 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     </div>
 
                     {/* 6. Indicador Objetivo y Confianza */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
+                    <div className="p-3.5 rounded-xl bg-night-7 border border-white/5 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                          <FileText className="w-4 h-4 text-[#B138FE]" />
+                          <FileText className="w-4 h-4 text-comp" />
                           <span>{t('kpi_title')}</span>
                         </div>
                         {report.confidence && (
-                          <span className="text-[10px] font-telemetry px-2 py-0.5 rounded bg-[#00D2BE]/20 text-[#00D2BE] border border-[#00D2BE]/30">
+                          <span className="text-[10px] font-telemetry px-2 py-0.5 rounded bg-brand/20 text-brand border border-brand/30">
                             {t('confidence_level')}: {report.confidence}
                           </span>
                         )}
@@ -579,8 +579,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 )
               ) : (
                 !loadingReport && (
-                  <div className="p-8 rounded-xl bg-[#0E131E] border border-white/5 text-center space-y-3 my-6">
-                    <Sparkles className="w-10 h-10 text-[#00D2BE] mx-auto opacity-80" />
+                  <div className="p-8 rounded-xl bg-night-7 border border-white/5 text-center space-y-3 my-6">
+                    <Sparkles className="w-10 h-10 text-brand mx-auto opacity-80" />
                     <h3 className="text-sm font-bold text-white">
                       {isEn ? 'Want a comprehensive AI telemetry debrief?' : '¿Quieres un debrief integral con IA?'}
                     </h3>
@@ -591,7 +591,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     </p>
                     <button
                       onClick={() => onGenerateDebrief(false)}
-                      className="px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md inline-flex items-center gap-2"
+                      className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md inline-flex items-center gap-2"
                     >
                       <Zap className="w-3.5 h-3.5" />
                       <span>{isEn ? 'Generate Lap Analysis' : 'Generar Análisis de Vuelta'}</span>
@@ -605,20 +605,20 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
           {activeTab === 'radio' && (
             <div className="flex flex-col h-full space-y-3">
               {/* Circuit & Corner Awareness Banner */}
-              <div className="px-3 py-1.5 rounded-lg bg-[#0E131E] border border-white/5 flex items-center justify-between text-xs font-telemetry">
+              <div className="px-3 py-1.5 rounded-lg bg-night-7 border border-white/5 flex items-center justify-between text-xs font-telemetry">
                 <div className="flex items-center gap-2 truncate">
                   <span className="text-gray-400">{isEn ? 'Track:' : 'Pista:'}</span>
                   <span className="text-white font-bold truncate">{trackName}</span>
                   <span className="text-gray-600">·</span>
-                  <span className="text-[#00D2BE] font-semibold truncate">{carName}</span>
+                  <span className="text-brand font-semibold truncate">{carName}</span>
                 </div>
                 {selectedCorner && (
                   <div className="flex items-center gap-1.5 shrink-0 pl-2 border-l border-white/10">
-                    <span className="w-2 h-2 rounded-full bg-[#B138FE] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-comp animate-pulse" />
                     <span className="text-[#D8B4FE] font-bold">
                       T{selectedCorner.corner_number}: {selectedCorner.name}
                     </span>
-                    <span className={`text-[10px] font-bold ${selectedCorner.delta_time > 0 ? 'text-[#FF4D4D]' : 'text-[#00FF7F]'}`}>
+                    <span className={`text-[10px] font-bold ${selectedCorner.delta_time > 0 ? 'text-loss-light' : 'text-gain'}`}>
                       ({selectedCorner.delta_time > 0 ? '+' : ''}{selectedCorner.delta_time.toFixed(3)}s)
                     </span>
                   </div>
@@ -636,7 +636,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       key={idx}
                       onClick={() => onSendMessage(q)}
                       disabled={chatLoading}
-                      className="text-[11px] px-2.5 py-1 rounded bg-[#0E131E] hover:bg-[#161D2E] text-gray-300 hover:text-white border border-white/5 transition text-left cursor-pointer disabled:opacity-50"
+                      className="text-[11px] px-2.5 py-1 rounded bg-night-7 hover:bg-[#161D2E] text-gray-300 hover:text-white border border-white/5 transition text-left cursor-pointer disabled:opacity-50"
                     >
                       {q}
                     </button>
@@ -657,7 +657,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       }`}
                     >
                       {m.role === 'assistant' && (
-                        <div className="w-6 h-6 rounded-md bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE] shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-md bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shrink-0 mt-0.5">
                           <Bot className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -665,8 +665,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       <div
                         className={`p-3 rounded-xl leading-relaxed text-xs relative ${
                           m.role === 'user'
-                            ? 'bg-[#B138FE]/20 border border-[#B138FE]/40 text-purple-100 font-sans'
-                            : 'bg-[#0E131E] border border-white/5 text-gray-300 font-sans'
+                            ? 'bg-comp/20 border border-comp/40 text-purple-100 font-sans'
+                            : 'bg-night-7 border border-white/5 text-gray-300 font-sans'
                         }`}
                       >
                         {/* Markdown Formatter */}
@@ -682,8 +682,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                           >
                             {copiedIdx === idx ? (
                               <>
-                                <Check className="w-3 h-3 text-[#00D2BE]" />
-                                <span className="text-[#00D2BE]">{t('copied')}</span>
+                                <Check className="w-3 h-3 text-brand" />
+                                <span className="text-brand">{t('copied')}</span>
                               </>
                             ) : (
                               <>
@@ -696,7 +696,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       </div>
 
                       {m.role === 'user' && (
-                        <div className="w-6 h-6 rounded-md bg-[#B138FE]/20 border border-[#B138FE]/40 flex items-center justify-center text-[#B138FE] shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-md bg-comp/20 border border-comp/40 flex items-center justify-center text-comp shrink-0 mt-0.5">
                           <User className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -704,8 +704,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                   </div>
                 ))}
                 {chatLoading && (
-                  <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-[#0E131E]/60 border border-white/5">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#00D2BE]" />
+                  <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-night-7/60 border border-white/5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                     <span>
                       {isEn
                         ? `Pep is inspecting telemetry channels for ${trackName}...`
@@ -737,12 +737,12 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     ? `Ask Pep about ${trackName}, braking points or technique...`
                     : `Pregunta a Pep sobre ${trackName}, puntos de frenada o técnica...`
                 }
-                className="flex-1 bg-[#090D15] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#00D2BE] font-telemetry"
+                className="flex-1 bg-night-4 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand font-telemetry"
               />
               <button
                 onClick={handleSend}
                 disabled={chatLoading || !inputMessage.trim()}
-                className="px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+                className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{t('transmit')}</span>

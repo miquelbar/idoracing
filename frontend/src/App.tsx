@@ -246,7 +246,7 @@ export const App: React.FC = () => {
 
   return (
     <div
-      className={`bg-[#08090C] text-[#E2E8F0] flex flex-col font-sans selection:bg-[#00D2BE] selection:text-black ${
+      className={`bg-[#08090C] text-[#E2E8F0] flex flex-col font-sans selection:bg-brand selection:text-black ${
         currentTab === 'telemetry' ? 'h-screen overflow-hidden' : 'min-h-screen'
       }`}
     >
@@ -288,7 +288,7 @@ export const App: React.FC = () => {
         {/* Loading Spinner */}
         {loading && (
           <div className="py-24 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-12 h-12 border-4 border-[#00D2BE] border-t-transparent rounded-full animate-spin shadow-[0_0_25px_rgba(0,210,190,0.4)]" />
+            <div className="w-12 h-12 border-4 border-brand border-t-transparent rounded-full animate-spin shadow-[0_0_25px_rgba(0,210,190,0.4)]" />
             <div className="space-y-1">
               <h2 className="text-base font-bold text-white tracking-wide font-telemetry">
                 SINCRONIZANDO TELEMETRÍA IDORACING ANALYTICS
@@ -399,8 +399,8 @@ export const App: React.FC = () => {
             <span className="text-gray-400">
               {activeTrack} • {activeCar}
             </span>
-            <span className="text-[#00D2BE] font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+            <span className="text-brand font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
               ACTIVO
             </span>
           </div>

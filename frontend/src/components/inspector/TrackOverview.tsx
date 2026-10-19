@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { ComparisonResponse, CornerDTO } from '../../types/telemetry';
 import { useLanguage } from '../../i18n';
 import type { TrackGeometry } from './trackGeometry';
+import { COLORS } from '../../theme';
 
 interface TrackOverviewProps {
   comparison: ComparisonResponse;
@@ -176,11 +177,11 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
       {/* Leyenda Heatmap Flotante Superior Derecha */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#00FF7F]" />
+          <span className="w-2 h-2 rounded-full bg-gain" />
           <span className="text-gray-300">{t('fast')}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#FF1801]" />
+          <span className="w-2 h-2 rounded-full bg-loss" />
           <span className="text-gray-300">{t('slow')}</span>
         </div>
       </div>
@@ -188,8 +189,8 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
       {/* Hint Flotante Inferior Izquierda */}
       <div className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded bg-black/70 backdrop-blur-md border border-white/5 text-[9px] font-telemetry text-gray-400">
         {hoveredCorner ? (
-          <span className="text-[#00D2BE] font-bold flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+          <span className="text-brand font-bold flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
             T{hoveredCorner.corner_number}: {hoveredCorner.name} • {t('click_to_open_corner')}
           </span>
         ) : (
@@ -241,7 +242,7 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
                 <path
                   d={c.pathD}
                   fill="none"
-                  stroke="#B138FE"
+                  stroke={COLORS.comp}
                   strokeWidth="11"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -266,7 +267,7 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
         {staticTrack.cornerPoints.map((c) => {
           const lost = c.delta_time > 0.05;
           const gained = c.delta_time < -0.05;
-          const badgeColor = gained ? '#00FF7F' : lost ? '#FF1801' : '#94A3B8';
+          const badgeColor = gained ? COLORS.gain : lost ? COLORS.loss : '#94A3B8';
           const isHovered = hoveredCornerNum === c.corner_number;
 
           return (
@@ -286,13 +287,13 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
 
               {/* Hover Pulse Ring */}
               {isHovered && (
-                <circle r="13" fill="#B138FE" opacity="0.35" className="animate-ping" />
+                <circle r="13" fill={COLORS.comp} opacity="0.35" className="animate-ping" />
               )}
 
               <circle
                 r={isHovered ? 9 : 7}
-                fill="#090D15"
-                stroke={isHovered ? '#B138FE' : badgeColor}
+                fill={COLORS.night4}
+                stroke={isHovered ? COLORS.comp : badgeColor}
                 strokeWidth={isHovered ? 2.5 : 1.5}
                 className="transition-all duration-150"
               />
@@ -313,8 +314,8 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
         {/* Synchronized Car Position Indicator */}
         {carPoint && (
           <g transform={`translate(${carPoint.x}, ${carPoint.y})`}>
-            <circle r="9" fill="#00D2BE" opacity="0.3" className="animate-ping" />
-            <circle r="5" fill="#00D2BE" stroke="#FFFFFF" strokeWidth="1.5" />
+            <circle r="9" fill={COLORS.brand} opacity="0.3" className="animate-ping" />
+            <circle r="5" fill={COLORS.brand} stroke="#FFFFFF" strokeWidth="1.5" />
           </g>
         )}
       </svg>

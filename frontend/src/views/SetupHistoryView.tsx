@@ -52,7 +52,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
   if (loading && !historyData) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <RefreshCw className="w-8 h-8 text-[#00D2BE] animate-spin mb-3" />
+        <RefreshCw className="w-8 h-8 text-brand animate-spin mb-3" />
         <p className="text-sm text-gray-400">{t('loading_history_setup')}</p>
       </div>
     );
@@ -80,10 +80,10 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. Header: Comparative Overview */}
-      <div className="glass-panel rounded-xl p-5 border-l-4 border-l-[#FFD700] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="glass-panel rounded-xl p-5 border-l-4 border-l-best flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Trophy className="w-4 h-4 text-[#FFD700]" />
+            <Trophy className="w-4 h-4 text-best" />
             <h3 className="text-lg font-black text-white uppercase tracking-wide">
               {t('pb_vs_history_title')}
             </h3>
@@ -95,7 +95,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
 
         <button
           onClick={onGoToTelemetry}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md self-start md:self-auto"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md self-start md:self-auto"
         >
           <span>{t('open_in_telemetry')}</span>
           <ChevronRight className="w-4 h-4" />
@@ -105,9 +105,9 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
       {/* 2. Top Split: PB Card vs Comparison Lap Card + Sector Deltas */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* PB Lap Card (4 cols) */}
-        <div className="md:col-span-4 p-5 rounded-xl bg-gradient-to-b from-[#141C29] to-[#0A0D14] border border-[#FFD700]/40 shadow-lg relative overflow-hidden">
+        <div className="md:col-span-4 p-5 rounded-xl bg-gradient-to-b from-[#141C29] to-[#0A0D14] border border-best/40 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="px-2 py-0.5 rounded bg-[#FFD700]/20 text-[#FFD700] font-telemetry font-bold text-[10px] tracking-wider uppercase border border-[#FFD700]/30 flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded bg-best/20 text-best font-telemetry font-bold text-[10px] tracking-wider uppercase border border-best/30 flex items-center gap-1">
               <Trophy className="w-3 h-3" />
               {t('pb_title')}
             </span>
@@ -140,9 +140,9 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
         </div>
 
         {/* Comparison Lap Card (4 cols) */}
-        <div className="md:col-span-4 p-5 rounded-xl bg-gradient-to-b from-[#181528] to-[#0A0D14] border border-[#B138FE]/40 shadow-lg relative overflow-hidden">
+        <div className="md:col-span-4 p-5 rounded-xl bg-gradient-to-b from-[#181528] to-[#0A0D14] border border-comp/40 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="px-2 py-0.5 rounded bg-[#B138FE]/20 text-[#B138FE] font-telemetry font-bold text-[10px] tracking-wider uppercase border border-[#B138FE]/30 flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded bg-comp/20 text-comp font-telemetry font-bold text-[10px] tracking-wider uppercase border border-comp/30 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {t('comp_lap_title')}
             </span>
@@ -186,8 +186,8 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                   isSelf
                     ? 'text-gray-400'
                     : historyData.delta_total > 0
-                    ? 'text-[#FF4D4D]'
-                    : 'text-[#00FF7F]'
+                    ? 'text-loss-light'
+                    : 'text-gain'
                 }`}
               >
                 {isSelf ? '0.000s' : `${historyData.delta_total > 0 ? '+' : ''}${historyData.delta_total.toFixed(3)}s`}
@@ -202,19 +202,19 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10 font-telemetry text-xs">
             <div className="p-2 rounded bg-black/40 border border-white/5 text-center">
               <span className="text-[9px] text-gray-400 block">Δ S1</span>
-              <span className={historyData.delta_s1 > 0 ? 'text-[#FF4D4D] font-bold' : 'text-[#00FF7F] font-bold'}>
+              <span className={historyData.delta_s1 > 0 ? 'text-loss-light font-bold' : 'text-gain font-bold'}>
                 {historyData.delta_s1 > 0 ? '+' : ''}{historyData.delta_s1.toFixed(3)}s
               </span>
             </div>
             <div className="p-2 rounded bg-black/40 border border-white/5 text-center">
               <span className="text-[9px] text-gray-400 block">Δ S2</span>
-              <span className={historyData.delta_s2 > 0 ? 'text-[#FF4D4D] font-bold' : 'text-[#00FF7F] font-bold'}>
+              <span className={historyData.delta_s2 > 0 ? 'text-loss-light font-bold' : 'text-gain font-bold'}>
                 {historyData.delta_s2 > 0 ? '+' : ''}{historyData.delta_s2.toFixed(3)}s
               </span>
             </div>
             <div className="p-2 rounded bg-black/40 border border-white/5 text-center">
               <span className="text-[9px] text-gray-400 block">Δ S3</span>
-              <span className={historyData.delta_s3 > 0 ? 'text-[#FF4D4D] font-bold' : 'text-[#00FF7F] font-bold'}>
+              <span className={historyData.delta_s3 > 0 ? 'text-loss-light font-bold' : 'text-gain font-bold'}>
                 {historyData.delta_s3 > 0 ? '+' : ''}{historyData.delta_s3.toFixed(3)}s
               </span>
             </div>
@@ -225,7 +225,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
       {/* 3. Laps History Table */}
       <div className="glass-panel rounded-xl p-4 overflow-hidden">
         <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Calendar className="w-3.5 h-3.5 text-[#00D2BE]" />
+          <Calendar className="w-3.5 h-3.5 text-brand" />
           {t('laps_history_title')}
         </h4>
 
@@ -240,16 +240,16 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                 onClick={() => setSelectedCompLapNum(lap.lap_number)}
                 className={`p-3 rounded-lg border transition flex items-center justify-between gap-4 cursor-pointer ${
                   isSelected
-                    ? 'bg-[#B138FE]/15 border-[#B138FE]/50 shadow-sm'
+                    ? 'bg-comp/15 border-comp/50 shadow-sm'
                     : isPB
-                    ? 'bg-[#FFD700]/10 border-[#FFD700]/40'
+                    ? 'bg-best/10 border-best/40'
                     : 'bg-[#0A0E17] border-white/5 hover:border-white/15'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <span
                     className={`w-7 h-7 rounded-lg flex items-center justify-center font-telemetry font-bold text-xs ${
-                      isPB ? 'bg-[#FFD700] text-black' : 'bg-black/50 text-white border border-white/10'
+                      isPB ? 'bg-best text-black' : 'bg-black/50 text-white border border-white/10'
                     }`}
                   >
                     #{lap.lap_number}
@@ -258,7 +258,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="font-telemetry text-sm font-bold text-white">{lap.lap_time_str}</span>
                       {isPB && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#FFD700]/20 text-[#FFD700] border border-[#FFD700]/40">
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-best/20 text-best border border-best/40">
                           PB
                         </span>
                       )}
@@ -273,12 +273,12 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3 font-telemetry text-xs">
-                  <span className={lap.gap_to_pb === 0 ? 'text-[#FFD700] font-bold' : 'text-[#FF7B72]'}>
+                  <span className={lap.gap_to_pb === 0 ? 'text-best font-bold' : 'text-loss-soft'}>
                     {lap.gap_to_pb === 0 ? '0.000s' : `+${lap.gap_to_pb.toFixed(3)}s`}
                   </span>
                   <button
                     className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
-                      isSelected ? 'bg-[#B138FE] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                      isSelected ? 'bg-comp text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
                     }`}
                   >
                     {isSelected ? t('comparing_btn') : t('compare_btn')}

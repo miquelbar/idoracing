@@ -33,7 +33,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
       {/* Bloque Superior: Subtítulo */}
       <div className="flex items-center justify-between pb-1.5 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-2">
-          <Sliders className="w-3.5 h-3.5 text-[#00D2BE]" />
+          <Sliders className="w-3.5 h-3.5 text-brand" />
           <span className="text-xs text-gray-300 font-medium tracking-wide">
             {t('corner_performance_sub')}
           </span>
@@ -67,11 +67,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                 </td>
                 <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                   {phaseMetrics.braking.isFlatOut ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                       ✓ {t('optimal_gear')}
                     </span>
                   ) : Math.abs(phaseMetrics.braking.delta) < 3 ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                       ✓ {t('synchronized_label')}
                     </span>
                   ) : phaseMetrics.braking.delta < -3 ? (
@@ -79,7 +79,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       {phaseMetrics.braking.delta.toFixed(0)}m ({t('early_braking')})
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-loss/15 text-loss-soft font-bold text-[10px]">
                       +{phaseMetrics.braking.delta.toFixed(0)}m ({t('late_braking')})
                     </span>
                   )}
@@ -103,11 +103,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       {t('lack_rotation')}
                     </span>
                   ) : phaseMetrics.trail.code === 'over_braking' ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-loss/15 text-loss-soft font-bold text-[10px]">
                       {t('front_overload')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                       ✓ {t('efficient_trail')}
                     </span>
                   )}
@@ -143,11 +143,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                 <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                   {phaseMetrics.position.offsets ? (
                     Math.abs(phaseMetrics.position.offsets.apex) < LINE_OFFSET_NOTE_M ? (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                         ✓ {t('on_reference_line')}
                       </span>
                     ) : phaseMetrics.position.offsets.apex > 0 ? (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-loss/15 text-loss-soft font-bold text-[10px]">
                         {t('wider_by')} {Math.abs(phaseMetrics.position.offsets.apex).toFixed(1)} m
                       </span>
                     ) : (
@@ -156,7 +156,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       </span>
                     )
                   ) : phaseMetrics.position.isUndersteer ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-loss/15 text-loss-soft font-bold text-[10px]">
                       {t('understeer_offset')}
                     </span>
                   ) : phaseMetrics.position.isEarly ? (
@@ -164,7 +164,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       {t('early_apex_offset')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                       ✓ {t('optimal_line_badge')}
                     </span>
                   )}
@@ -180,15 +180,15 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                 </td>
                 <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
                   {phaseMetrics.min.comp} km/h{' '}
-                  <span className="text-[#00D2BE] font-bold">({formatGear(phaseMetrics.min.compGear, lang)})</span>
+                  <span className="text-brand font-bold">({formatGear(phaseMetrics.min.compGear, lang)})</span>
                 </td>
                 <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                   <span
                     className={
                       phaseMetrics.min.delta > 0.5
-                        ? 'text-[#00FF7F]'
+                        ? 'text-gain'
                         : phaseMetrics.min.delta < -0.5
-                        ? 'text-[#FF1801]'
+                        ? 'text-loss'
                         : 'text-gray-400'
                     }
                   >
@@ -214,15 +214,15 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                   {phaseMetrics.throttle.delta === null ? (
                     <span className="text-gray-500">—</span>
                   ) : Math.abs(phaseMetrics.throttle.delta) < 2 ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gain/15 text-gain font-bold text-[10px]">
                       ✓ {t('synchronized_label')}
                     </span>
                   ) : phaseMetrics.throttle.delta > 0 ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-loss/15 text-loss-soft font-bold text-[10px]">
                       +{phaseMetrics.throttle.delta.toFixed(0)}m ({t('delayed_label')})
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00D2BE]/15 text-[#00D2BE] font-bold text-[10px]">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-brand/15 text-brand font-bold text-[10px]">
                       {phaseMetrics.throttle.delta.toFixed(0)}m ({t('early_label')})
                     </span>
                   )}
@@ -238,9 +238,9 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                   <span
                     className={
                       phaseMetrics.exit.delta > 0.5
-                        ? 'text-[#00FF7F]'
+                        ? 'text-gain'
                         : phaseMetrics.exit.delta < -0.5
-                        ? 'text-[#FF1801]'
+                        ? 'text-loss'
                         : 'text-gray-400'
                     }
                   >
@@ -258,11 +258,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
       {actionPlan && (
         <div className="pt-2 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider flex items-center gap-1">
-              <Zap className="w-3 h-3 text-[#00D2BE]" />
+            <span className="text-[10px] font-bold text-brand uppercase tracking-wider flex items-center gap-1">
+              <Zap className="w-3 h-3 text-brand" />
               {t('primary_rec_label')}
             </span>
-            <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-[#00D2BE]">
+            <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-brand">
               {lang === 'en' && selectedCorner.racing_line_eval === 'Trazada Cerrada / Pérdida de Vértice'
                 ? 'Tight Trajectory / Apex Loss'
                 : (selectedCorner.racing_line_eval || t('optimal_badge'))}
@@ -300,7 +300,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
               <button
                 type="button"
                 onClick={() => onAskEngineerAboutCorner(selectedCorner)}
-                className="inline-flex items-center gap-1.5 text-[11px] font-telemetry font-bold text-[#00D2BE] hover:text-white bg-[#00D2BE]/10 hover:bg-[#00D2BE]/25 px-2.5 py-1.5 rounded-md border border-[#00D2BE]/30 transition cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-1.5 text-[11px] font-telemetry font-bold text-brand hover:text-white bg-brand/10 hover:bg-brand/25 px-2.5 py-1.5 rounded-md border border-brand/30 transition cursor-pointer shadow-sm"
               >
                 <span>🎧</span>
                 <span>

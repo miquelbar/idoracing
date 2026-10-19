@@ -70,7 +70,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       />
 
       {/* Main viewer: phase table, corner diagram or the whole-track map */}
-      <div className="relative flex-1 min-h-0 bg-[#05070B] rounded-xl border border-white/5 overflow-hidden flex items-center justify-center">
+      <div className="relative flex-1 min-h-0 bg-night-1 rounded-xl border border-white/5 overflow-hidden flex items-center justify-center">
         {selectedCorner && cornerViewMode === 'phase' ? (
           <CornerPhasePanel
             selectedCorner={selectedCorner}

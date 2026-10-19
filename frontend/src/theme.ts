@@ -1,0 +1,22 @@
+// Palette for SVG attributes and computed styles. Keep in sync with the @theme block in index.css,
+// which gives Tailwind the same colours as classes (bg-brand, text-loss/80...).
+export const COLORS = {
+  brand: '#00D2BE',
+  brandLight: '#00E5CF',
+  comp: '#B138FE',
+  gain: '#00FF7F',
+  loss: '#FF1801',
+  lossSoft: '#FF7B72',
+  lossLight: '#FF4D4D',
+  best: '#FFD700',
+  accent: '#E10600',
+  muted: '#718096',
+  night1: '#05070B',
+  night2: '#07090E',
+  night3: '#080B11',
+  night4: '#090D15',
+  night5: '#0C101A',
+  night6: '#0E121B',
+  night7: '#0E131E',
+  night8: '#121622',
+} as const;

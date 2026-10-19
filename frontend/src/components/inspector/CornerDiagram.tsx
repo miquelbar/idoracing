@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, CornerDownRight, Zap } from 'lucide-react'
 import type { CornerDTO } from '../../types/telemetry';
 import { useLanguage } from '../../i18n';
 import type { TrackGeometry } from './trackGeometry';
+import { COLORS } from '../../theme';
 
 interface CornerDiagramProps {
   selectedCorner: CornerDTO;
@@ -25,7 +26,7 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 select-none">
         <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry text-white font-bold shadow-md">
           <CornerDownRight
-            className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-[#00D2BE]' : 'text-[#00D2BE]'}`}
+            className={`w-3.5 h-3.5 ${isLeft ? '-scale-x-100 text-brand' : 'text-brand'}`}
           />
           <span>{isLeft ? t('turn_left') : t('turn_right')}</span>
         </div>
@@ -33,8 +34,8 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
         <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
           {hasUndersteer ? (
             <>
-              <AlertTriangle className="w-3 h-3 text-[#FF1801]" />
-              <span className="text-[#FF7B72] font-bold">{t('understeer')}</span>
+              <AlertTriangle className="w-3 h-3 text-loss" />
+              <span className="text-loss-soft font-bold">{t('understeer')}</span>
             </>
           ) : isEarlyApex ? (
             <>
@@ -43,13 +44,13 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
             </>
           ) : isOptimal ? (
             <>
-              <CheckCircle2 className="w-3 h-3 text-[#00FF7F]" />
-              <span className="text-[#00FF7F] font-bold">{t('optimal_line')}</span>
+              <CheckCircle2 className="w-3 h-3 text-gain" />
+              <span className="text-gain font-bold">{t('optimal_line')}</span>
             </>
           ) : (
             <>
-              <Zap className="w-3 h-3 text-[#00D2BE]" />
-              <span className="text-[#00D2BE] font-bold">{t('neutral_apex')}</span>
+              <Zap className="w-3 h-3 text-brand" />
+              <span className="text-brand font-bold">{t('neutral_apex')}</span>
             </>
           )}
         </div>
@@ -58,11 +59,11 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       {/* Legend */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md select-none">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
+          <span className="w-2.5 h-0.5 bg-gain border-b border-dashed border-gain" />
           <span className="text-gray-300 font-medium">{t('optimal_badge')}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-0.5 bg-[#B138FE]" />
+          <span className="w-2.5 h-0.5 bg-comp" />
           <span className="text-gray-300 font-medium">{t('your_line')}</span>
         </div>
       </div>
@@ -77,17 +78,17 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(45)"
           >
-            <rect width="8" height="16" fill="#E10600" />
+            <rect width="8" height="16" fill={COLORS.accent} />
             <rect x="8" width="8" height="16" fill="#F0F0F0" />
           </pattern>
           <filter id="glow-opt" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#00FF7F" floodOpacity="0.8" />
+            <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor={COLORS.gain} floodOpacity="0.8" />
           </filter>
           <filter id="glow-act" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#B138FE" floodOpacity="0.9" />
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={COLORS.comp} floodOpacity="0.9" />
           </filter>
           <filter id="glow-under" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#FF4D4D" floodOpacity="0.8" />
+            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor={COLORS.lossLight} floodOpacity="0.8" />
           </filter>
         </defs>
 
@@ -128,7 +129,7 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
         <path
           d={cornerSvgData.optimal_line}
           fill="none"
-          stroke="#00FF7F"
+          stroke={COLORS.gain}
           strokeWidth="3"
           strokeDasharray="6 4"
           strokeLinecap="round"
@@ -140,7 +141,7 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
         <path
           d={cornerSvgData.actual_line}
           fill="none"
-          stroke={hasUndersteer ? '#FF385C' : '#B138FE'}
+          stroke={hasUndersteer ? '#FF385C' : COLORS.comp}
           strokeWidth="3.5"
           strokeLinecap="round"
           filter={hasUndersteer ? 'url(#glow-under)' : 'url(#glow-act)'}
@@ -148,8 +149,8 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
 
         {/* Turn-In Marker */}
         <g transform={`translate(${cornerSvgData.turn_in.x}, ${cornerSvgData.turn_in.y})`}>
-          <circle r="4" fill="#00D2BE" />
-          <circle r="7" fill="none" stroke="#00D2BE" strokeWidth="1" opacity="0.6" />
+          <circle r="4" fill={COLORS.brand} />
+          <circle r="7" fill="none" stroke={COLORS.brand} strokeWidth="1" opacity="0.6" />
           <text
             y={14}
             x={isLeft ? 8 : -8}
@@ -159,7 +160,7 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
             fontFamily="monospace"
             fontWeight="bold"
             paintOrder="stroke"
-            stroke="#05070B"
+            stroke={COLORS.night1}
             strokeWidth="3px"
             strokeLinejoin="round"
           >
@@ -169,18 +170,18 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
 
         {/* Optimal Apex Marker (Desplazamiento hacia el interior/arriba con halo oscuro protector) */}
         <g transform={`translate(${cornerSvgData.apex_ref.x}, ${cornerSvgData.apex_ref.y})`}>
-          <circle r="4.5" fill="#00FF7F" />
-          <circle r="8" fill="none" stroke="#00FF7F" strokeWidth="1" opacity="0.5" />
+          <circle r="4.5" fill={COLORS.gain} />
+          <circle r="8" fill="none" stroke={COLORS.gain} strokeWidth="1" opacity="0.5" />
           <text
             y="-14"
             x={isLeft ? 8 : -8}
             textAnchor={isLeft ? 'start' : 'end'}
-            fill="#00FF7F"
+            fill={COLORS.gain}
             fontSize="9px"
             fontFamily="monospace"
             fontWeight="bold"
             paintOrder="stroke"
-            stroke="#05070B"
+            stroke={COLORS.night1}
             strokeWidth="3px"
             strokeLinejoin="round"
           >
@@ -190,11 +191,11 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
 
         {/* Actual Apex Marker (Desplazamiento hacia el exterior/abajo para evitar colisión de texto) */}
         <g transform={`translate(${cornerSvgData.apex_comp.x}, ${cornerSvgData.apex_comp.y})`}>
-          <circle r="5" fill={hasUndersteer ? '#FF1801' : '#B138FE'} />
+          <circle r="5" fill={hasUndersteer ? COLORS.loss : COLORS.comp} />
           <circle
             r="9"
             fill="none"
-            stroke={hasUndersteer ? '#FF1801' : '#B138FE'}
+            stroke={hasUndersteer ? COLORS.loss : COLORS.comp}
             strokeWidth="1.5"
             strokeDasharray="2 2"
           />
@@ -202,12 +203,12 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
             y="20"
             x={isLeft ? -8 : 8}
             textAnchor={isLeft ? 'end' : 'start'}
-            fill={hasUndersteer ? '#FF7B72' : '#E9D5FF'}
+            fill={hasUndersteer ? COLORS.lossSoft : '#E9D5FF'}
             fontSize="9px"
             fontFamily="monospace"
             fontWeight="bold"
             paintOrder="stroke"
-            stroke="#05070B"
+            stroke={COLORS.night1}
             strokeWidth="3px"
             strokeLinejoin="round"
           >
@@ -217,16 +218,16 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
 
         {/* Track-out Exit Marker */}
         <g transform={`translate(${cornerSvgData.exit_pt.x}, ${cornerSvgData.exit_pt.y})`}>
-          <circle r="4" fill="#FFD700" />
+          <circle r="4" fill={COLORS.best} />
           <text
             y={-7}
             textAnchor="middle"
-            fill="#FFD700"
+            fill={COLORS.best}
             fontSize="9px"
             fontFamily="monospace"
             fontWeight="bold"
             paintOrder="stroke"
-            stroke="#05070B"
+            stroke={COLORS.night1}
             strokeWidth="3px"
             strokeLinejoin="round"
           >
@@ -239,12 +240,12 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       {staticTrack && (
         <button
           onClick={() => onSelectCorner(null)}
-          className="absolute bottom-2 right-2 z-10 w-28 h-20 bg-[#090D15]/90 hover:bg-[#0E131F] border border-white/15 hover:border-[#00D2BE]/60 rounded-lg p-1.5 cursor-pointer transition shadow-xl group backdrop-blur-md flex flex-col justify-between"
+          className="absolute bottom-2 right-2 z-10 w-28 h-20 bg-night-4/90 hover:bg-[#0E131F] border border-white/15 hover:border-brand/60 rounded-lg p-1.5 cursor-pointer transition shadow-xl group backdrop-blur-md flex flex-col justify-between"
           title={t('return_to_circuit')}
         >
-          <div className="flex items-center justify-between w-full text-[8px] font-telemetry text-gray-400 group-hover:text-[#00D2BE] px-0.5">
+          <div className="flex items-center justify-between w-full text-[8px] font-telemetry text-gray-400 group-hover:text-brand px-0.5">
             <span className="font-bold">{t('circuit_label')}</span>
-            <span className="text-[7px] text-[#00D2BE] opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[7px] text-brand opacity-0 group-hover:opacity-100 transition-opacity">
               {t('view_all')}
             </span>
           </div>
@@ -265,8 +266,8 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
                 if (!activePt) return null;
                 return (
                   <g transform={`translate(${activePt.svgX}, ${activePt.svgY})`}>
-                    <circle r="9" fill="#B138FE" opacity="0.4" className="animate-ping" />
-                    <circle r="5" fill="#B138FE" stroke="#FFFFFF" strokeWidth="1.5" />
+                    <circle r="9" fill={COLORS.comp} opacity="0.4" className="animate-ping" />
+                    <circle r="5" fill={COLORS.comp} stroke="#FFFFFF" strokeWidth="1.5" />
                   </g>
                 );
               })()}

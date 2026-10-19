@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef } from 'react';
 import { Activity, RotateCcw } from 'lucide-react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
 import { useLanguage } from '../i18n';
+import { COLORS } from '../theme';
 
 interface TelemetryChartsProps {
   comparison: ComparisonResponse;
@@ -299,14 +300,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         {/* Left: Title + Inline Live Values */}
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
           <div className="flex items-center gap-1.5 shrink-0">
-            <Activity className="w-4 h-4 text-[#00D2BE]" />
+            <Activity className="w-4 h-4 text-brand" />
             <h3 className="font-bold text-xs sm:text-sm text-white tracking-wide uppercase font-sans">
               {t('telemetry_header')}
             </h3>
           </div>
 
           {selectedCorner && (
-            <span className="px-2 py-0.5 rounded bg-[#B138FE]/20 text-[#D8B4FE] border border-[#B138FE]/40 text-[10px] font-telemetry shrink-0">
+            <span className="px-2 py-0.5 rounded bg-comp/20 text-[#D8B4FE] border border-comp/40 text-[10px] font-telemetry shrink-0">
               T{selectedCorner.corner_number}: {selectedCorner.name}
             </span>
           )}
@@ -319,23 +320,23 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   {t('dist')}: <strong className="text-white">{Math.round(hoverData.distance)}m</strong>
                 </span>
                 <span>
-                  {t('vel')}: <strong className="text-[#00D2BE]">{Math.round(hoverData.refSpeed)}</strong> /{' '}
-                  <strong className="text-[#B138FE]">{Math.round(hoverData.compSpeed)}</strong>{' '}
-                  <span className={`text-[10px] font-bold ${hoverData.deltaSpeed >= 0 ? 'text-[#00FF7F]' : 'text-[#FF1801]'}`}>
+                  {t('vel')}: <strong className="text-brand">{Math.round(hoverData.refSpeed)}</strong> /{' '}
+                  <strong className="text-comp">{Math.round(hoverData.compSpeed)}</strong>{' '}
+                  <span className={`text-[10px] font-bold ${hoverData.deltaSpeed >= 0 ? 'text-gain' : 'text-loss'}`}>
                     ({hoverData.deltaSpeed >= 0 ? '+' : ''}{Math.round(hoverData.deltaSpeed)})
                   </span>
                 </span>
                 <span>
                   Δt:{' '}
-                  <strong className={hoverData.deltaTime > 0 ? 'text-[#FF1801]' : 'text-[#00FF7F]'}>
+                  <strong className={hoverData.deltaTime > 0 ? 'text-loss' : 'text-gain'}>
                     {hoverData.deltaTime > 0 ? '+' : ''}{hoverData.deltaTime.toFixed(3)}s
                   </strong>
                 </span>
                 <span className="hidden sm:inline">
-                  {t('throttle')}: <strong className="text-[#00FF7F]">{Math.round(hoverData.compThr)}%</strong>
+                  {t('throttle')}: <strong className="text-gain">{Math.round(hoverData.compThr)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
-                  {t('brake')}: <strong className="text-[#FF1801]">{Math.round(hoverData.compBrk)}%</strong>
+                  {t('brake')}: <strong className="text-loss">{Math.round(hoverData.compBrk)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
                   {t('gear_label')}: <strong className="text-white">{hoverData.compGear}</strong>
@@ -343,7 +344,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               </>
             ) : (
               <span className="text-gray-500 text-[10px] flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00D2BE] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
                 {t('hover_hint')}
               </span>
             )}
@@ -358,34 +359,34 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#18202F] hover:bg-[#222E42] border border-[#2D3A52] text-[10px] text-gray-300 transition cursor-pointer"
               title={t('reset_lap_title')}
             >
-              <RotateCcw className="w-3 h-3 text-[#00D2BE]" />
+              <RotateCcw className="w-3 h-3 text-brand" />
               <span>{t('reset_lap')}</span>
             </button>
           )}
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <span className="w-2 h-1 bg-[#00D2BE] rounded" />
-              <span className="text-[#00D2BE] font-bold">P1</span>
+              <span className="w-2 h-1 bg-brand rounded" />
+              <span className="text-brand font-bold">P1</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-2 h-1 bg-[#B138FE] rounded" />
-              <span className="text-[#B138FE] font-bold">P2</span>
+              <span className="w-2 h-1 bg-comp rounded" />
+              <span className="text-comp font-bold">P2</span>
             </div>
             <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF1801]" />
-              <span className="text-[#FF1801]">{t('brake')}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-loss" />
+              <span className="text-loss">{t('brake')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00FF7F]" />
-              <span className="text-[#00FF7F]">{t('throttle')}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-gain" />
+              <span className="text-gain">{t('throttle')}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* SVG Stack Chart Canvas */}
-      <div className="relative flex-1 bg-[#07090E]/60 rounded-lg border border-white/5 overflow-hidden">
+      <div className="relative flex-1 bg-night-2/60 rounded-lg border border-white/5 overflow-hidden">
         <svg
           viewBox={`0 0 ${width} ${totalHeight}`}
           preserveAspectRatio="none"
@@ -395,9 +396,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         >
           <defs>
             <linearGradient id="delta-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF1801" stopOpacity="0.4" />
-              <stop offset="50%" stopColor="#00D2BE" stopOpacity="0.1" />
-              <stop offset="100%" stopColor="#00FF7F" stopOpacity="0.4" />
+              <stop offset="0%" stopColor={COLORS.loss} stopOpacity="0.4" />
+              <stop offset="50%" stopColor={COLORS.brand} stopOpacity="0.1" />
+              <stop offset="100%" stopColor={COLORS.gain} stopOpacity="0.4" />
             </linearGradient>
           </defs>
 
@@ -418,7 +419,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                 <text
                   x={x}
                   y={totalHeight - 3}
-                  fill="#718096"
+                  fill={COLORS.muted}
                   fontSize="9px"
                   fontFamily="'JetBrains Mono', monospace"
                   textAnchor="middle"
@@ -435,16 +436,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <line x1={padLeft} y1={hSpeed} x2={width - padRight} y2={hSpeed} stroke="rgba(255,255,255,0.1)" />
 
             {/* Y-Axis Labels for Speed */}
-            <text x={padLeft - 6} y={16} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{maxSpeed}</text>
-            <text x={padLeft - 6} y={hSpeed / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
-            <text x={padLeft - 6} y={hSpeed - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
+            <text x={padLeft - 6} y={16} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{maxSpeed}</text>
+            <text x={padLeft - 6} y={hSpeed / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
+            <text x={padLeft - 6} y={hSpeed - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
             <text x={padLeft + 8} y={16} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               {t('speed_ch')}
             </text>
 
-            <path d={speedRefPath} fill="none" stroke="#00D2BE" strokeWidth="2" strokeOpacity="0.85" />
-            <path d={speedCompPath} fill="none" stroke="#B138FE" strokeWidth="2.5" />
+            <path d={speedRefPath} fill="none" stroke={COLORS.brand} strokeWidth="2" strokeOpacity="0.85" />
+            <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.5" />
           </g>
 
           {/* Cumulative time delta */}
@@ -454,9 +455,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <line x1={padLeft} y1={hDelta} x2={width - padRight} y2={hDelta} stroke="rgba(255,255,255,0.1)" />
 
             {/* Y-Axis Labels for Delta */}
-            <text x={padLeft - 6} y={14} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
-            <text x={padLeft - 6} y={hDelta / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
-            <text x={padLeft - 6} y={hDelta - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
+            <text x={padLeft - 6} y={14} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
+            <text x={padLeft - 6} y={hDelta / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
+            <text x={padLeft - 6} y={hDelta - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
 
             <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               {t('delta_ch')}
@@ -465,7 +466,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {/* Delta Area Fill */}
             <path d={deltaFillPath} fill="url(#delta-gradient)" />
             {/* Delta Line */}
-            <path d={deltaPath} fill="none" stroke="#FFD700" strokeWidth="1.8" />
+            <path d={deltaPath} fill="none" stroke={COLORS.best} strokeWidth="1.8" />
           </g>
 
           {/* Throttle and brake, with the trail-braking overlap */}
@@ -475,9 +476,9 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <line x1={padLeft} y1={hPedals / 2} x2={width - padRight} y2={hPedals / 2} stroke="rgba(255,255,255,0.06)" strokeDasharray="2,2" />
 
             {/* Y-Axis Labels */}
-            <text x={padLeft - 6} y={15} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">100%</text>
-            <text x={padLeft - 6} y={hPedals / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
-            <text x={padLeft - 6} y={hPedals - 5} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
+            <text x={padLeft - 6} y={15} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">100%</text>
+            <text x={padLeft - 6} y={hPedals / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
+            <text x={padLeft - 6} y={hPedals - 5} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
 
             <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               {t('pedals_ch')}
@@ -488,11 +489,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             {/* Throttle traces: Ref (dashed emerald) & Comp (solid neon green) */}
             <path d={thrRefPath} fill="none" stroke="#10B981" strokeWidth="1.2" strokeDasharray="3,3" strokeOpacity="0.75" />
-            <path d={thrCompPath} fill="none" stroke="#00FF7F" strokeWidth="2.2" />
+            <path d={thrCompPath} fill="none" stroke={COLORS.gain} strokeWidth="2.2" />
 
             {/* Brake traces: Ref (dashed cyan) & Comp (solid red) */}
-            <path d={brkRefPath} fill="none" stroke="#00D2BE" strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.8" />
-            <path d={brkCompPath} fill="none" stroke="#FF1801" strokeWidth="2.4" />
+            <path d={brkRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.8" />
+            <path d={brkCompPath} fill="none" stroke={COLORS.loss} strokeWidth="2.4" />
           </g>
 
           {/* Gear */}
@@ -500,15 +501,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <rect x={padLeft} y={0} width={chartWidth} height={hGear} fill="rgba(0,0,0,0.3)" />
 
             {/* Y-Axis Labels for Gear */}
-            <text x={padLeft - 6} y={16} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
-            <text x={padLeft - 6} y={hGear / 2 + 3} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
-            <text x={padLeft - 6} y={hGear - 6} fill="#718096" fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
+            <text x={padLeft - 6} y={16} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
+            <text x={padLeft - 6} y={hGear / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
+            <text x={padLeft - 6} y={hGear - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
 
             <text x={padLeft + 8} y={14} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
               {t('gear_ch')}
             </text>
 
-            <path d={gearRefPath} fill="none" stroke="#00D2BE" strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
+            <path d={gearRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
             <path d={gearCompPath} fill="none" stroke="#E2E8F0" strokeWidth="2" />
           </g>
 
@@ -519,7 +520,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               y1={0}
               x2={hoverData.x}
               y2={totalHeight}
-              stroke="#00D2BE"
+              stroke={COLORS.brand}
               strokeWidth="1.5"
               strokeDasharray="4,2"
               className="pointer-events-none"

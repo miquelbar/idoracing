@@ -101,12 +101,12 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. Header & Vision Banner */}
-      <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-[#0C101A]">
+      <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-night-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-brand text-lg font-black italic tracking-wider text-white">
-                IDORACING <span className="text-[#00D2BE]">ANALYTICS</span>
+                IDORACING <span className="text-brand">ANALYTICS</span>
               </span>
               <span className="text-[10px] text-gray-500 font-telemetry uppercase tracking-widest hidden sm:inline">
                 • {t('sessions_view_title')}
@@ -126,7 +126,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               disabled={loading}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10 transition cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#00D2BE]" />
+              <Sparkles className="w-3.5 h-3.5 text-brand" />
               <span>{t('load_valencia_demo')}</span>
             </button>
           </div>
@@ -139,7 +139,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               onClick={() => setActiveSubTab('sessions')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                 activeSubTab === 'sessions'
-                  ? 'bg-[#00D2BE] text-black shadow-lg shadow-[#00D2BE]/20'
+                  ? 'bg-brand text-black shadow-lg shadow-brand/20'
                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
               }`}
             >
@@ -151,7 +151,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               onClick={() => setActiveSubTab('import')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                 activeSubTab === 'import'
-                  ? 'bg-[#00D2BE] text-black shadow-lg shadow-[#00D2BE]/20'
+                  ? 'bg-brand text-black shadow-lg shadow-brand/20'
                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
               }`}
             >
@@ -176,7 +176,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 onClick={() => setFilterGame('acc')}
                 className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
                   filterGame === 'acc'
-                    ? 'bg-[#E10600] text-white'
+                    ? 'bg-accent text-white'
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
@@ -239,7 +239,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           <div className="lg:col-span-6 space-y-3">
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider font-telemetry flex items-center gap-2">
-                <Flag className="w-4 h-4 text-[#00D2BE]" />
+                <Flag className="w-4 h-4 text-brand" />
                 {t('available_sessions')} ({filteredSessions.length})
               </h3>
               <span className="text-[11px] text-gray-500 font-telemetry">
@@ -258,8 +258,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     key={sess.session_id}
                     className={`p-5 rounded-2xl border transition-all duration-200 ${
                       isActive
-                        ? 'bg-[#101726] border-[#00D2BE] shadow-[0_0_25px_rgba(0,210,190,0.18)] ring-2 ring-[#00D2BE]/40'
-                        : 'bg-[#0E121B] hover:bg-[#131924] border-white/5 hover:border-white/10'
+                        ? 'bg-[#101726] border-brand shadow-[0_0_25px_rgba(0,210,190,0.18)] ring-2 ring-brand/40'
+                        : 'bg-night-6 hover:bg-[#131924] border-white/5 hover:border-white/10'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">
@@ -275,7 +275,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         <h4 className="text-base font-bold text-white tracking-wide font-brand">
                           {sess.track}
                         </h4>
-                        <p className="text-xs text-[#00D2BE] font-semibold mt-0.5">
+                        <p className="text-xs text-brand font-semibold mt-0.5">
                           {sess.car}
                         </p>
                       </div>
@@ -283,7 +283,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       {/* Active Status Badge */}
                       <div>
                         {isActive ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00D2BE]/20 border border-[#00D2BE]/60 text-[#00D2BE] text-[11px] font-bold tracking-wider uppercase font-telemetry animate-pulse">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/20 border border-brand/60 text-brand text-[11px] font-bold tracking-wider uppercase font-telemetry animate-pulse">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>{t('active_in_workspace')}</span>
                           </span>
@@ -328,7 +328,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         <div className="flex items-center gap-2">
                           <button
                             onClick={onGoToTelemetry}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
                           >
                             <Zap className="w-3.5 h-3.5" />
                             <span>{t('view_telemetry_arrow')}</span>
@@ -338,9 +338,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         <button
                           onClick={() => onSelectSession(sess.session_id)}
                           disabled={loading}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-[#00D2BE] text-white hover:text-black border border-white/10 hover:border-[#00D2BE] text-xs font-bold tracking-wide transition cursor-pointer"
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold tracking-wide transition cursor-pointer"
                         >
-                          <Zap className="w-3.5 h-3.5 text-[#00D2BE] group-hover:text-black" />
+                          <Zap className="w-3.5 h-3.5 text-brand group-hover:text-black" />
                           <span>{t('load_in_workspace')}</span>
                         </button>
                       )}
@@ -350,7 +350,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               })}
 
               {filteredSessions.length === 0 && (
-                <div className="text-center py-12 p-6 rounded-2xl bg-[#0E121B] border border-white/5">
+                <div className="text-center py-12 p-6 rounded-2xl bg-night-6 border border-white/5">
                   <p className="text-xs text-gray-400 mb-3">{t('no_sessions_for_filter')}</p>
                   <button
                     onClick={() => setFilterGame('all')}
@@ -368,10 +368,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             {activeSessionSummary && (
               <>
                 {/* Active Workspace Banner */}
-                <div className="glass-panel rounded-2xl p-5 border-l-4 border-l-[#00D2BE] bg-[#0C101A]">
+                <div className="glass-panel rounded-2xl p-5 border-l-4 border-l-brand bg-night-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <span className="text-[10px] font-bold text-[#00D2BE] uppercase tracking-wider font-telemetry block mb-0.5">
+                      <span className="text-[10px] font-bold text-brand uppercase tracking-wider font-telemetry block mb-0.5">
                         {t('active_track_workspace')}
                       </span>
                       <h3 className="text-lg font-bold text-white font-brand">
@@ -384,7 +384,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
                     <button
                       onClick={onGoToTelemetry}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#00D2BE] hover:bg-[#00E5CF] text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg self-start sm:self-auto"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg self-start sm:self-auto"
                     >
                       <span>{t('analyze_telemetry')}</span>
                       <ChevronRight className="w-4 h-4" />
@@ -394,13 +394,13 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   {/* Lap Pair Indicator */}
                   <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center gap-4 text-xs font-telemetry">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-[#00D2BE]" />
+                      <span className="w-3 h-3 rounded-full bg-brand" />
                       <span className="text-gray-300">
                         {t('ref_lap_header')}: <strong>{t('lap_word')} {refLapNumber}</strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-[#B138FE]" />
+                      <span className="w-3 h-3 rounded-full bg-comp" />
                       <span className="text-gray-300">
                         {t('comp_lap_header')}: <strong>{t('lap_word')} {compLapNumber}</strong>
                       </span>
@@ -409,7 +409,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </div>
 
                 {/* Laps List */}
-                <div className="glass-panel rounded-2xl p-5 bg-[#0C101A] border border-white/5">
+                <div className="glass-panel rounded-2xl p-5 bg-night-5 border border-white/5">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider font-telemetry">
                       {t('registered_laps')} ({lapsToDisplay.length})
@@ -432,19 +432,19 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                           key={`lap-${lap.lap_number}`}
                           className={`p-3.5 rounded-xl border transition flex items-center justify-between gap-4 ${
                             isRef
-                              ? 'bg-[#00D2BE]/10 border-[#00D2BE]/50 shadow-sm'
+                              ? 'bg-brand/10 border-brand/50 shadow-sm'
                               : isComp
-                              ? 'bg-[#B138FE]/10 border-[#B138FE]/50 shadow-sm'
-                              : 'bg-[#080B11] border-white/5 hover:border-white/10'
+                              ? 'bg-comp/10 border-comp/50 shadow-sm'
+                              : 'bg-night-3 border-white/5 hover:border-white/10'
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <span
                               className={`w-9 h-9 rounded-lg border flex items-center justify-center font-telemetry font-bold text-xs ${
                                 isRef
-                                  ? 'bg-[#00D2BE] text-black border-[#00D2BE]'
+                                  ? 'bg-brand text-black border-brand'
                                   : isComp
-                                  ? 'bg-[#B138FE] text-white border-[#B138FE]'
+                                  ? 'bg-comp text-white border-comp'
                                   : 'bg-black/40 border-white/5 text-white'
                               }`}
                             >
@@ -467,7 +467,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                               onClick={() => onSelectRefLap(lap.lap_number)}
                               className={`px-3 py-1.5 rounded-lg text-xs font-telemetry font-bold transition cursor-pointer ${
                                 isRef
-                                  ? 'bg-[#00D2BE] text-black shadow-sm'
+                                  ? 'bg-brand text-black shadow-sm'
                                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
                               }`}
                             >
@@ -477,7 +477,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                               onClick={() => onSelectCompLap(lap.lap_number)}
                               className={`px-3 py-1.5 rounded-lg text-xs font-telemetry font-bold transition cursor-pointer ${
                                 isComp
-                                  ? 'bg-[#B138FE] text-white shadow-sm'
+                                  ? 'bg-comp text-white shadow-sm'
                                   : 'bg-white/5 hover:bg-white/10 text-gray-300'
                               }`}
                             >
@@ -508,9 +508,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Manual File Upload Card */}
-            <div className="glass-panel rounded-2xl p-6 space-y-4 border border-white/10 bg-[#0C101A]">
+            <div className="glass-panel rounded-2xl p-6 space-y-4 border border-white/10 bg-night-5">
               <div className="flex items-center gap-3 pb-3 border-b border-white/5">
-                <div className="w-10 h-10 rounded-xl bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE]">
+                <div className="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-brand">
                   <Upload className="w-5 h-5" />
                 </div>
                 <div>
@@ -523,7 +523,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </div>
               </div>
 
-              <div className="border-2 border-dashed border-white/10 hover:border-[#00D2BE]/50 rounded-xl p-8 text-center transition cursor-pointer relative group bg-black/20">
+              <div className="border-2 border-dashed border-white/10 hover:border-brand/50 rounded-xl p-8 text-center transition cursor-pointer relative group bg-black/20">
                 <input
                   type="file"
                   accept=".ld,.xml,.csv"
@@ -531,7 +531,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   disabled={uploading}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
-                <Upload className="w-8 h-8 text-gray-400 group-hover:text-[#00D2BE] mx-auto mb-2 transition" />
+                <Upload className="w-8 h-8 text-gray-400 group-hover:text-brand mx-auto mb-2 transition" />
                 <p className="text-sm font-bold text-white mb-1">
                   {t('drag_drop_click')}
                 </p>
@@ -539,7 +539,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   {t('upload_types_note')}
                 </p>
                 {uploading && (
-                  <p className="text-xs text-[#00D2BE] font-bold mt-3 animate-pulse">
+                  <p className="text-xs text-brand font-bold mt-3 animate-pulse">
                     {t('processing_telemetry')}
                   </p>
                 )}
@@ -547,7 +547,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             </div>
 
             {/* Local Simulators Auto-discovery */}
-            <div className="glass-panel rounded-2xl p-6 space-y-4 border border-white/10 bg-[#0C101A]">
+            <div className="glass-panel rounded-2xl p-6 space-y-4 border border-white/10 bg-night-5">
               <div className="flex items-center justify-between pb-3 border-b border-white/5">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
@@ -577,7 +577,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               {autoData && (
                 <div className="space-y-3">
                   {/* LMU Sessions list */}
-                  <div className="p-3.5 rounded-xl bg-[#080B11] border border-white/5">
+                  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-white flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -597,7 +597,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                           <span className="truncate max-w-[220px] text-gray-300">{f.filename}</span>
                           <button
                             onClick={() => onImportLocal(f.path)}
-                            className="px-2 py-0.5 rounded bg-[#00D2BE] text-black font-bold text-[10px] hover:bg-[#00E5CF] cursor-pointer"
+                            className="px-2 py-0.5 rounded bg-brand text-black font-bold text-[10px] hover:bg-brand-light cursor-pointer"
                           >
                             {t('load_action')}
                           </button>
@@ -607,9 +607,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   </div>
 
                   {/* ACC Files info */}
-                  <div className="p-3.5 rounded-xl bg-[#080B11] border border-white/5 flex items-center justify-between text-xs">
+                  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5 flex items-center justify-between text-xs">
                     <span className="font-bold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#E10600]" />
+                      <span className="w-2 h-2 rounded-full bg-accent" />
                       Assetto Corsa Competizione
                     </span>
                     <span className="text-gray-400 font-telemetry">
@@ -622,15 +622,15 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           </div>
 
           {/* Quick Setup Guide for Amateur Simracers */}
-          <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-[#0C101A] space-y-3">
+          <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-night-5 space-y-3">
             <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-[#FFD700]" />
+              <HelpCircle className="w-4 h-4 text-best" />
               {t('how_to_record_title')}
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs text-gray-300">
-              <div className="p-4 rounded-xl bg-[#080B11] border border-white/5 space-y-1.5">
-                <span className="font-bold text-[#E10600] block text-sm">Assetto Corsa Competizione</span>
+              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
+                <span className="font-bold text-accent block text-sm">Assetto Corsa Competizione</span>
                 <p className="text-gray-400">
                   Abre el setup del coche en el garaje del juego. En la pestaña <strong>Electrónica</strong> o <strong>Setup</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99).
                 </p>
@@ -639,7 +639,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#080B11] border border-white/5 space-y-1.5">
+              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
                 <span className="font-bold text-blue-400 block text-sm">Le Mans Ultimate</span>
                 <p className="text-gray-400">
                   LMU registra automáticamente cada tanda en archivos XML en tu carpeta de Steam.
@@ -649,7 +649,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#080B11] border border-white/5 space-y-1.5">
+              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
                 <span className="font-bold text-red-400 block text-sm">iRacing & Otros</span>
                 <p className="text-gray-400">
                   Pulsa <strong>Alt + L</strong> dentro del simulador para iniciar la grabación de telemetría en formato IBT o exporta a CSV.
