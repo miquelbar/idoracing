@@ -181,3 +181,18 @@ def test_laps_follow_the_lap_number_channel_and_partial_laps_are_invalid(tmp_pat
     session = MoTeCImporter(str(ld)).parse()
 
     assert [(lap.lap_number, lap.is_valid) for lap in session.laps] == [(2, False), (3, True), (4, False)]
+
+
+def test_a_lap_started_from_the_grid_keeps_its_track_position(tmp_path):
+    n = 300
+    channels = _flat_channels(n)
+    channels["Lap Number"] = np.concatenate([np.full(150, 0.0), np.full(150, 1.0)])
+    lap0 = np.concatenate([np.linspace(260, 4000, 148), [2.0, 4.0]])
+    channels["Lap Distance"] = np.concatenate([lap0, np.linspace(6, 4000, 150)])
+    ld = tmp_path / "race.ld"
+    _write_ld(ld, channels)
+
+    lap0_distance = MoTeCImporter(str(ld)).parse().laps[0].telemetry["distance"]
+
+    assert lap0_distance[0] == pytest.approx(260.0)
+    assert lap0_distance[-1] > lap0_distance[-3]

@@ -188,3 +188,13 @@ def test_track_outline_is_recovered_from_speed_and_lateral_accel():
     rx, ry = reconstruct_track_from_dynamics(grid, speed, lat_g)
 
     assert _max_shape_error(x, y, rx, ry) < 10.0
+
+
+def test_alignment_only_covers_the_stretch_both_laps_drove():
+    ref = {"distance": [0.0, 1000.0, 2000.0], "speed": [100.0, 100.0, 100.0]}
+    comp = {"distance": [500.0, 1500.0, 2500.0], "speed": [100.0, 100.0, 100.0]}
+
+    aligned = align_laps_by_distance(ref, comp, step_m=100.0)
+
+    assert aligned["distance"][0] == 500.0
+    assert aligned["distance"][-1] == 1900.0

@@ -37,15 +37,21 @@ def _distance_covered(telemetry: dict[str, list[float]]) -> float:
     return float(np.sum(speed_ms[1:] * np.diff(telemetry["time"])))
 
 
-def _continuous_from_zero(distance: list[float]) -> list[float]:
+def _without_boundary_wrap(distance: list[float]) -> list[float]:
     """
-    Lap distance starting at 0 with no backwards jumps. The lap-number and lap-distance channels are
-    logged at different rates, so the distance reset can land a few samples inside the neighbouring lap.
+    Lap distance is the car's position along the track, so it is kept as recorded: a lap that starts
+    from the grid or the pit exit starts mid-track. The lap-number and lap-distance channels are logged
+    at different rates, so the reset at the line can land a few samples inside the neighbouring lap;
+    those samples are moved back next to their lap.
     """
     d = np.asarray(distance, dtype=np.float64)
     for i in np.where(np.diff(d) < -LAP_RESET_DROP_M)[0]:
-        d[i + 1 :] += d[i] - d[i + 1]
-    return (d - d[0]).tolist()
+        jump = d[i] - d[i + 1]
+        if i < len(d) / 2:
+            d[: i + 1] -= jump
+        else:
+            d[i + 1 :] += jump
+    return d.tolist()
 
 
 def _resample(values: np.ndarray, n: int) -> np.ndarray:
@@ -169,7 +175,7 @@ class MoTeCImporter:
             t0 = lap_telemetry["time"][0]
             lap_telemetry["time"] = [t - t0 for t in lap_telemetry["time"]]
             if "distance" in lap_telemetry:
-                lap_telemetry["distance"] = _continuous_from_zero(lap_telemetry["distance"])
+                lap_telemetry["distance"] = _without_boundary_wrap(lap_telemetry["distance"])
             laps.append(
                 Lap(
                     lap_number=lap_number,
