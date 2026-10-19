@@ -11,6 +11,7 @@ import type {
   ComparisonResponse,
   CornerDTO,
 } from '../types/telemetry';
+import { errorMessage } from '../utils/formatters';
 
 interface TelemetryViewProps {
   comparison: ComparisonResponse;
@@ -66,8 +67,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         comparison.session_id
       );
       onReportGenerated(rep);
-    } catch (err: any) {
-      setReportError(err?.message || (lang === 'en' ? 'Error generating technical report' : 'Error al generar el informe'));
+    } catch (err) {
+      setReportError(errorMessage(err, lang === 'en' ? 'Error generating technical report' : 'Error al generar el informe'));
     } finally {
       setLoadingReport(false);
     }
@@ -113,7 +114,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         lang
       );
       setChatMessages((prev) => [...prev, { role: 'assistant', content: res.content }]);
-    } catch (err: any) {
+    } catch {
       setChatMessages((prev) => [
         ...prev,
         {

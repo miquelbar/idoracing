@@ -15,14 +15,14 @@ import {
   Zap,
 } from 'lucide-react';
 import { uploadTelemetryFile } from '../services/api';
-import type { AutoDiscoverData, ComparisonResponse, SessionSummary } from '../types/telemetry';
-import { detectSimGame, formatDate, formatLapTime } from '../utils/formatters';
+import type { AutoDiscoverData, ComparisonResponse, SessionDetail, SessionSummary } from '../types/telemetry';
+import { detectSimGame, errorMessage, formatDate, formatLapTime } from '../utils/formatters';
 import { useLanguage } from '../i18n';
 
 interface SessionsViewProps {
   sessions: SessionSummary[];
   selectedSessionId: string | null;
-  activeFullSession: any | null;
+  activeFullSession: SessionDetail | null;
   onSelectSession: (id: string) => void;
   refLapNumber: number;
   compLapNumber: number;
@@ -91,8 +91,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       if (res.session_id) {
         onSelectSession(res.session_id);
       }
-    } catch (err: any) {
-      setStatusMsg({ type: 'error', text: err?.message || 'Error al procesar el archivo subido' });
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: errorMessage(err, 'Error al procesar el archivo subido') });
     } finally {
       setUploading(false);
     }
@@ -427,7 +427,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   </div>
 
                   <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                    {lapsToDisplay.map((lap: any) => {
+                    {lapsToDisplay.map((lap) => {
                       const isRef = lap.lap_number === refLapNumber;
                       const isComp = lap.lap_number === compLapNumber;
                       const s1 = lap.sector_times?.[0];

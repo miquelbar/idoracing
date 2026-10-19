@@ -131,6 +131,38 @@ export interface LapSummary {
   lap_time: number;
   sector_times?: number[];
   is_valid: boolean;
+  synthetic?: boolean;
+}
+
+export interface SessionDetail {
+  id: string;
+  session_id: string;
+  car: string;
+  track: string;
+  date: string;
+  laps: LapSummary[];
+  source_file?: string | null;
+}
+
+export interface ImportResult {
+  status: string;
+  session_id: string;
+  laps: number;
+  track?: string;
+  car?: string;
+}
+
+export interface SaveSettingsResult {
+  status: string;
+  provider: string;
+  active_model: string;
+}
+
+export interface ChatReply {
+  role: 'assistant';
+  content: string;
+  source: 'llm' | 'rules';
+  model: string | null;
 }
 
 export interface SessionSummary {

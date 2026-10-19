@@ -1,8 +1,14 @@
 import type {
   AutoDiscoverData,
   ChatMessage,
+  ChatReply,
   CoachReport,
   ComparisonResponse,
+  CornerDTO,
+  ImportResult,
+  LapHistoryData,
+  SaveSettingsResult,
+  SessionDetail,
   SessionSummary,
   SettingsDTO,
   SystemStatus,
@@ -10,58 +16,64 @@ import type {
 
 const API_BASE = '/api';
 
+async function failure(res: Response, fallback: string): Promise<never> {
+  const body = await res.json().catch(() => null);
+  throw new Error(typeof body?.detail === 'string' ? body.detail : fallback);
+}
+
 export async function fetchHealth(): Promise<SystemStatus> {
   const res = await fetch(`${API_BASE}/health`);
-  if (!res.ok) throw new Error('Failed to fetch system status');
+  if (!res.ok) await failure(res, 'Failed to fetch system status');
   return res.json();
 }
 
 export async function fetchSettings(): Promise<SettingsDTO> {
   const res = await fetch(`${API_BASE}/settings`);
-  if (!res.ok) throw new Error('Failed to fetch settings');
+  if (!res.ok) await failure(res, 'Failed to fetch settings');
   return res.json();
 }
 
-export async function saveSettings(settings: SettingsDTO): Promise<any> {
+export async function saveSettings(settings: SettingsDTO): Promise<SaveSettingsResult> {
   const res = await fetch(`${API_BASE}/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings),
   });
-  if (!res.ok) throw new Error('Failed to save settings');
+  if (!res.ok) await failure(res, 'Failed to save settings');
   return res.json();
 }
 
 export async function fetchSessions(): Promise<SessionSummary[]> {
   const res = await fetch(`${API_BASE}/sessions`);
-  if (!res.ok) throw new Error('Failed to fetch sessions');
+  if (!res.ok) await failure(res, 'Failed to fetch sessions');
   return res.json();
 }
 
-export async function fetchSession(sessionId: string): Promise<any> {
+export async function fetchSession(sessionId: string): Promise<SessionDetail> {
   const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
-  if (!res.ok) throw new Error('Failed to fetch session details');
+  if (!res.ok) await failure(res, 'Failed to fetch session details');
   return res.json();
 }
 
 export async function fetchComparison(
   refLapId?: string,
   compLapId?: string,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal
 ): Promise<ComparisonResponse> {
   const params = new URLSearchParams();
   if (refLapId) params.append('ref_lap_id', refLapId);
   if (compLapId) params.append('comp_lap_id', compLapId);
   if (sessionId) params.append('session_id', sessionId);
 
-  const res = await fetch(`${API_BASE}/comparison?${params.toString()}`);
-  if (!res.ok) throw new Error('Failed to fetch comparison');
+  const res = await fetch(`${API_BASE}/comparison?${params.toString()}`, { signal });
+  if (!res.ok) await failure(res, 'Failed to fetch comparison');
   return res.json();
 }
 
 export async function generateDemoSession(): Promise<{ session_id: string }> {
   const res = await fetch(`${API_BASE}/sessions/demo`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to create demo session');
+  if (!res.ok) await failure(res, 'Failed to create demo session');
   return res.json();
 }
 
@@ -81,7 +93,7 @@ export async function fetchCoachReport(
       force_refresh: forceRefresh,
     }),
   });
-  if (!res.ok) throw new Error('Failed to generate coach debrief');
+  if (!res.ok) await failure(res, 'Failed to generate coach debrief');
   return res.json();
 }
 
@@ -91,9 +103,9 @@ export async function sendChatMessage(
   compLapId?: string,
   trackName?: string,
   carName?: string,
-  selectedCorner?: any,
+  selectedCorner?: Partial<CornerDTO>,
   lang?: string
-): Promise<{ role: string; content: string; source: 'llm' | 'rules'; model: string | null }> {
+): Promise<ChatReply> {
   const res = await fetch(`${API_BASE}/coach/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -107,42 +119,42 @@ export async function sendChatMessage(
       lang: lang || 'es',
     }),
   });
-  if (!res.ok) throw new Error('Failed to communicate with Race Engineer');
+  if (!res.ok) await failure(res, 'Failed to communicate with Race Engineer');
   return res.json();
 }
 
 export async function autodiscoverSims(): Promise<AutoDiscoverData> {
   const res = await fetch(`${API_BASE}/autodiscover`);
-  if (!res.ok) throw new Error('Failed to autodiscover sim files');
+  if (!res.ok) await failure(res, 'Failed to autodiscover sim files');
   return res.json();
 }
 
-export async function importLocalFile(filepath: string): Promise<any> {
+export async function importLocalFile(filepath: string): Promise<ImportResult> {
   const res = await fetch(`${API_BASE}/import/local-file`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filepath }),
   });
-  if (!res.ok) throw new Error('Failed to import local file');
+  if (!res.ok) await failure(res, 'Failed to import local file');
   return res.json();
 }
 
-export async function uploadTelemetryFile(file: File): Promise<any> {
+export async function uploadTelemetryFile(file: File): Promise<ImportResult> {
   const formData = new FormData();
   formData.append('file', file);
   const res = await fetch(`${API_BASE}/import/upload`, {
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) throw new Error('Failed to upload file');
+  if (!res.ok) await failure(res, 'Failed to upload file');
   return res.json();
 }
 
-export async function fetchLapHistory(sessionId?: string, compLapNumber?: number): Promise<any> {
+export async function fetchLapHistory(sessionId?: string, compLapNumber?: number): Promise<LapHistoryData> {
   const params = new URLSearchParams();
   if (sessionId) params.append('session_id', sessionId);
   if (compLapNumber !== undefined) params.append('comp_lap_number', String(compLapNumber));
   const res = await fetch(`${API_BASE}/lap-history?${params.toString()}`);
-  if (!res.ok) throw new Error('Failed to fetch lap history');
+  if (!res.ok) await failure(res, 'Failed to fetch lap history');
   return res.json();
 }

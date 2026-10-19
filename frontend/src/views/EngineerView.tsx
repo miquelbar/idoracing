@@ -15,7 +15,7 @@ import {
 import { fetchCoachReport, sendChatMessage } from '../services/api';
 import { useLanguage } from '../i18n';
 import type { ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
-import { formatMetricKey, formatMetricValue } from '../utils/formatters';
+import { formatMetricKey, formatMetricValue, errorMessage } from '../utils/formatters';
 
 interface EngineerViewProps {
   comparison: ComparisonResponse | null;
@@ -54,8 +54,8 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
       setErrorReport(null);
       const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh, comparison.session_id);
       onReportGenerated(rep);
-    } catch (err: any) {
-      setErrorReport(err?.message || (lang === 'en' ? 'Error generating debrief' : 'Error generando debrief técnico'));
+    } catch (err) {
+      setErrorReport(errorMessage(err, lang === 'en' ? 'Error generating debrief' : 'Error generando debrief técnico'));
     } finally {
       setLoadingReport(false);
     }
@@ -82,7 +82,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         lang
       );
       setChatMessages([...newMessages, { role: 'assistant', content: res.content }]);
-    } catch (err: any) {
+    } catch {
       setChatMessages([
         ...newMessages,
         {

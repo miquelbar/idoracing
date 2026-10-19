@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Header, type NavTab } from './components/Header';
 import { TelemetryHeaderBar } from './components/TelemetryHeaderBar';
@@ -16,15 +16,24 @@ import type {
   CoachReport,
   ComparisonResponse,
   CornerDTO,
+  SessionDetail,
   SessionSummary,
   SystemStatus,
 } from './types/telemetry';
-import { detectSimGame } from './utils/formatters';
+import { detectSimGame, errorMessage } from './utils/formatters';
 import { EngineerView } from './views/EngineerView';
 import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
 import { SetupHistoryView } from './views/SetupHistoryView';
 import { TelemetryView } from './views/TelemetryView';
+
+/** Fastest two valid laps, or the first two laps when fewer than two are valid. */
+function pickDefaultLaps(session: SessionDetail | null): [number, number] {
+  if (!session || session.laps.length < 2) return [1, 2];
+  const valid = session.laps.filter((l) => l.lap_time > 0 && l.is_valid).sort((a, b) => a.lap_time - b.lap_time);
+  const [ref, comp] = valid.length >= 2 ? valid : session.laps;
+  return [ref.lap_number, comp.lap_number];
+}
 
 function getTabFromHash(): NavTab {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
@@ -39,7 +48,7 @@ export const App: React.FC = () => {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [activeFullSession, setActiveFullSession] = useState<any | null>(null);
+  const [activeFullSession, setActiveFullSession] = useState<SessionDetail | null>(null);
   const [refLapNumber, setRefLapNumber] = useState<number>(1);
   const [compLapNumber, setCompLapNumber] = useState<number>(2);
 
@@ -54,6 +63,34 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const comparisonRequest = useRef<AbortController | null>(null);
+
+  /** Fetch a comparison, cancelling any earlier one still in flight so a slow reply cannot overwrite a newer one. */
+  const loadComparison = async (refLap: number, compLap: number, sessionId: string | null) => {
+    comparisonRequest.current?.abort();
+    const controller = new AbortController();
+    comparisonRequest.current = controller;
+    try {
+      const comp = await fetchComparison(String(refLap), String(compLap), sessionId || undefined, controller.signal);
+      setComparison(comp);
+      setSelectedCorner(null);
+      setCoachReport(null);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      throw err;
+    }
+  };
+
+  const loadSessionDetail = async (sessionId: string): Promise<SessionDetail | null> => {
+    try {
+      const detail = await fetchSession(sessionId);
+      setActiveFullSession(detail);
+      return detail;
+    } catch (e) {
+      console.warn('Could not load full session:', e);
+      return null;
+    }
+  };
 
   // Sync state with URL hash routing
   useEffect(() => {
@@ -98,43 +135,15 @@ export const App: React.FC = () => {
       const activeSessionId = activeSession?.session_id || null;
       setSelectedSessionId(activeSessionId);
 
-      let fullSess = null;
-      if (activeSessionId) {
-        try {
-          fullSess = await fetchSession(activeSessionId);
-          setActiveFullSession(fullSess);
-        } catch (e) {
-          console.warn('Could not load full session:', e);
-        }
-      }
-
-      // Determine default lap numbers to compare
-      let p1 = 1;
-      let p2 = 2;
-      if (fullSess && fullSess.laps && fullSess.laps.length >= 2) {
-        const valid = [...fullSess.laps]
-          .filter((l: any) => l.lap_time > 0 && l.is_valid)
-          .sort((a: any, b: any) => a.lap_time - b.lap_time);
-        if (valid.length >= 2) {
-          p1 = valid[0].lap_number;
-          p2 = valid[1].lap_number;
-        } else {
-          p1 = fullSess.laps[0].lap_number;
-          p2 = fullSess.laps[1].lap_number;
-        }
-      }
+      const fullSess = activeSessionId ? await loadSessionDetail(activeSessionId) : null;
+      const [p1, p2] = pickDefaultLaps(fullSess);
       setRefLapNumber(p1);
       setCompLapNumber(p2);
 
       // 4. Fetch telemetry comparison
-      const comp = await fetchComparison(
-        String(p1),
-        String(p2),
-        activeSessionId || undefined
-      );
-      setComparison(comp);
-    } catch (err: any) {
-      setError(err?.message || 'Error inicializando el sistema de telemetría');
+      await loadComparison(p1, p2, activeSessionId);
+    } catch (err) {
+      setError(errorMessage(err, 'Error inicializando el sistema de telemetría'));
     } finally {
       setLoading(false);
     }
@@ -149,37 +158,13 @@ export const App: React.FC = () => {
       setLoading(true);
       setSelectedSessionId(sessionId);
 
-      let fullSess = null;
-      try {
-        fullSess = await fetchSession(sessionId);
-        setActiveFullSession(fullSess);
-      } catch (e) {
-        console.warn('Could not load full session:', e);
-      }
-
-      let p1 = 1;
-      let p2 = 2;
-      if (fullSess && fullSess.laps && fullSess.laps.length >= 2) {
-        const valid = [...fullSess.laps]
-          .filter((l: any) => l.lap_time > 0 && l.is_valid)
-          .sort((a: any, b: any) => a.lap_time - b.lap_time);
-        if (valid.length >= 2) {
-          p1 = valid[0].lap_number;
-          p2 = valid[1].lap_number;
-        } else {
-          p1 = fullSess.laps[0].lap_number;
-          p2 = fullSess.laps[1].lap_number;
-        }
-      }
+      const fullSess = await loadSessionDetail(sessionId);
+      const [p1, p2] = pickDefaultLaps(fullSess);
       setRefLapNumber(p1);
       setCompLapNumber(p2);
-
-      const comp = await fetchComparison(String(p1), String(p2), sessionId);
-      setComparison(comp);
-      setSelectedCorner(null);
-      setCoachReport(null);
-    } catch (err: any) {
-      setError(err?.message || 'Error cambiando de sesión');
+      await loadComparison(p1, p2, sessionId);
+    } catch (err) {
+      setError(errorMessage(err, 'Error cambiando de sesión'));
     } finally {
       setLoading(false);
     }
@@ -189,15 +174,9 @@ export const App: React.FC = () => {
     if (lapNumber === refLapNumber) return;
     try {
       setRefLapNumber(lapNumber);
-      const comp = await fetchComparison(
-        String(lapNumber),
-        String(compLapNumber),
-        selectedSessionId || undefined
-      );
-      setComparison(comp);
-      setSelectedCorner(null);
-    } catch (err: any) {
-      setError(err?.message || 'Error seleccionando vuelta de referencia');
+      await loadComparison(lapNumber, compLapNumber, selectedSessionId);
+    } catch (err) {
+      setError(errorMessage(err, 'Error seleccionando vuelta de referencia'));
     }
   };
 
@@ -205,15 +184,9 @@ export const App: React.FC = () => {
     if (lapNumber === compLapNumber) return;
     try {
       setCompLapNumber(lapNumber);
-      const comp = await fetchComparison(
-        String(refLapNumber),
-        String(lapNumber),
-        selectedSessionId || undefined
-      );
-      setComparison(comp);
-      setSelectedCorner(null);
-    } catch (err: any) {
-      setError(err?.message || 'Error seleccionando vuelta comparada');
+      await loadComparison(refLapNumber, lapNumber, selectedSessionId);
+    } catch (err) {
+      setError(errorMessage(err, 'Error seleccionando vuelta comparada'));
     }
   };
 
@@ -222,8 +195,8 @@ export const App: React.FC = () => {
       setLoadingDemo(true);
       await generateDemoSession();
       await loadInitialData();
-    } catch (err: any) {
-      setError(err?.message || 'Error cargando sesión demo');
+    } catch (err) {
+      setError(errorMessage(err, 'Error cargando sesión demo'));
     } finally {
       setLoadingDemo(false);
     }
@@ -235,8 +208,8 @@ export const App: React.FC = () => {
       await importLocalFile(filepath);
       await loadInitialData();
       handleNavigateTab('telemetry');
-    } catch (err: any) {
-      setError(err?.message || 'Error importando archivo local');
+    } catch (err) {
+      setError(errorMessage(err, 'Error importando archivo local'));
       setLoading(false);
     }
   };
@@ -268,8 +241,8 @@ export const App: React.FC = () => {
 
   const currentSession = sessions.find((s) => s.session_id === selectedSessionId) || sessions[0];
   const activeGame = detectSimGame(currentSession, comparison);
-  const activeTrack = comparison?.track_name || currentSession?.track || 'Ricardo Tormo de Valencia';
-  const activeCar = comparison?.car_name || currentSession?.car || 'Porsche 911 GT3 R (992)';
+  const activeTrack = comparison?.track_name || currentSession?.track || '—';
+  const activeCar = comparison?.car_name || currentSession?.car || '—';
 
   return (
     <div
@@ -355,7 +328,7 @@ export const App: React.FC = () => {
                 onSelectCorner={handleCornerSelect}
                 report={coachReport}
                 onReportGenerated={setCoachReport}
-                activeModel={status?.active_model || 'qwen3.8:27b-32k'}
+                activeModel={status?.active_model || '—'}
                 isDebriefOpen={isDebriefOpen}
                 onOpenDebrief={() => setIsDebriefOpen(true)}
                 onCloseDebrief={() => setIsDebriefOpen(false)}
@@ -396,7 +369,7 @@ export const App: React.FC = () => {
                 comparison={comparison}
                 report={coachReport}
                 onReportGenerated={setCoachReport}
-                activeModel={status?.active_model || 'qwen3.8:27b-32k'}
+                activeModel={status?.active_model || '—'}
               />
             )}
 
@@ -419,7 +392,7 @@ export const App: React.FC = () => {
             </span>
             <span className="hidden md:inline text-gray-700">|</span>
             <span className="hidden md:inline text-gray-400">
-              Motor IA: {status?.active_model || 'qwen3.8:27b-32k'} ({status?.provider || 'ollama'})
+              Motor IA: {status?.active_model || '—'} ({status?.provider || 'ollama'})
             </span>
           </div>
           <div className="flex items-center gap-3">

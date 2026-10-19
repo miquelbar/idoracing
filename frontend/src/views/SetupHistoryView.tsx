@@ -9,6 +9,7 @@ import {
 import { fetchLapHistory } from '../services/api';
 import type { LapHistoryData } from '../types/telemetry';
 import { useLanguage } from '../i18n';
+import { errorMessage } from '../utils/formatters';
 
 const formatSpeed = (kmh: number | null) => (kmh === null ? '—' : `${kmh} km/h`);
 
@@ -40,8 +41,8 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
       if (hist.comparison_lap && selectedCompLapNum === null) {
         setSelectedCompLapNum(hist.comparison_lap.lap_number);
       }
-    } catch (err: any) {
-      setError(err?.message || 'Error cargando datos de setup e historial');
+    } catch (err) {
+      setError(errorMessage(err, 'Error cargando datos de setup e historial'));
     } finally {
       setLoading(false);
     }

@@ -721,7 +721,13 @@ async def upload_telemetry_file(file: UploadFile = File(...)):
         session = _parse_telemetry_file(tmp_path)
 
     storage.save_session(session)
-    return {"status": "ok", "session_id": session.session_id, "laps": len(session.laps)}
+    return {
+        "status": "ok",
+        "session_id": session.session_id,
+        "track": session.track,
+        "car": session.car,
+        "laps": len(session.laps),
+    }
 
 
 # Serve built frontend static files if available
