@@ -34,25 +34,25 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 	go func() {
 		<-stop
-		finish(rec)
+		finish(rec, "interrupted")
 	}()
 
 	for {
 		if err := record(rec, watch, time.Second/time.Duration(*hz)); err != nil {
 			log.Print(err)
 		}
-		if watch.shouldExit(time.Now()) {
-			finish(rec)
+		if exit, reason := watch.shouldExit(time.Now()); exit {
+			finish(rec, reason)
 		}
 		time.Sleep(reconnectWait)
 	}
 }
 
-func finish(rec *recorder) {
+func finish(rec *recorder, reason string) {
 	if err := rec.close(); err != nil {
 		log.Print(err)
 	}
-	log.Print("game closed, recorder stopping")
+	log.Printf("recorder stopping: %s", reason)
 	os.Exit(0)
 }
 
@@ -91,8 +91,9 @@ func record(rec *recorder, watch *gameWatch, livePoll time.Duration) error {
 		if err != nil {
 			return err
 		}
-		if watch.shouldExit(now) {
-			finish(rec)
+		watch.notePacket(p.PacketID, now)
+		if exit, reason := watch.shouldExit(now); exit {
+			finish(rec, reason)
 		}
 		if live {
 			time.Sleep(livePoll)

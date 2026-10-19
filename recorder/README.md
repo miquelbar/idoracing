@@ -75,3 +75,5 @@ The page layouts follow Kunos' shared memory documentation and are checked again
 - `x`/`y` trace the circuit (IdoRacing's map should match the track);
 - `lat_accel` is positive in one direction of turn and negative in the other;
 - `lap` and `lap_distance` reset together at the start/finish line.
+
+One failure cannot be ruled out without a real Steam install: if Steam runs ACC inside the Steam Linux Runtime container and the recorder, started with the host-side `proton run`, does not reach the same wineserver, it never sees the game. The log then shows `waiting for ACC` followed, five minutes later, by `recorder stopping: AC2-Win64-Shipping.exe did not start within 5m0s`, and no session file is written. The fix to try is to start the recorder through the same runtime entry point as the game: reuse the part of `%command%` up to and including `proton`, with the verb `run` and the recorder instead of `waitforexitandrun` and the game.

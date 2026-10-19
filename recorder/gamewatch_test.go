@@ -1,45 +1,63 @@
 package main
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
 
+var t0 = time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
+
 func TestGameWatchExitsOnlyAfterTheGameWasSeenAndIsGone(t *testing.T) {
 	up := false
-	w := &gameWatch{exe: "AC2-Win64-Shipping.exe", running: func(string) (bool, error) { return up, nil }}
-	t0 := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
-	w.started = t0
+	w := &gameWatch{exe: "AC2-Win64-Shipping.exe", running: func(string) (bool, error) { return up, nil }, started: t0}
 
-	if w.shouldExit(t0.Add(10 * time.Second)) {
+	if exit, _ := w.shouldExit(t0.Add(10 * time.Second)); exit {
 		t.Fatal("exited while waiting for the game to start")
 	}
 	up = true
-	if w.shouldExit(t0.Add(20 * time.Second)) {
+	if exit, _ := w.shouldExit(t0.Add(20 * time.Second)); exit {
 		t.Fatal("exited while the game is running")
 	}
 	up = false
-	if w.shouldExit(t0.Add(20*time.Second + 500*time.Millisecond)) {
+	if exit, _ := w.shouldExit(t0.Add(20*time.Second + 500*time.Millisecond)); exit {
 		t.Fatal("checked more often than once a second")
 	}
-	if !w.shouldExit(t0.Add(22 * time.Second)) {
-		t.Fatal("kept running after the game exited")
+	exit, reason := w.shouldExit(t0.Add(22 * time.Second))
+	if !exit || reason != "AC2-Win64-Shipping.exe exited" {
+		t.Fatalf("exit=%v reason=%q after the game closed", exit, reason)
 	}
 }
 
 func TestGameWatchGivesUpIfTheGameNeverStarts(t *testing.T) {
-	w := &gameWatch{exe: "AC2-Win64-Shipping.exe", running: func(string) (bool, error) { return false, nil }}
-	t0 := time.Date(2026, 10, 19, 15, 0, 0, 0, time.UTC)
-	w.started = t0
+	w := &gameWatch{exe: "AC2-Win64-Shipping.exe", running: func(string) (bool, error) { return false, nil }, started: t0}
 
-	if !w.shouldExit(t0.Add(gameStartupTimeout + time.Second)) {
-		t.Fatal("waited forever for a game that never started")
+	exit, reason := w.shouldExit(t0.Add(gameStartupTimeout + time.Second))
+	if !exit || reason != "AC2-Win64-Shipping.exe did not start within 5m0s" {
+		t.Fatalf("exit=%v reason=%q for a game that never started", exit, reason)
+	}
+}
+
+func TestGameWatchFallsBackToFrozenDataWhenProcessesCannotBeListed(t *testing.T) {
+	listErr := error(nil)
+	w := &gameWatch{exe: "AC2-Win64-Shipping.exe", running: func(string) (bool, error) { return true, listErr }, started: t0}
+	w.notePacket(100, t0)
+	w.shouldExit(t0.Add(time.Second)) // game seen
+
+	listErr = errors.New("snapshot failed")
+	w.notePacket(100, t0.Add(30*time.Second))
+	if exit, _ := w.shouldExit(t0.Add(time.Minute)); exit {
+		t.Fatal("exited before the data had been frozen for long")
+	}
+	exit, reason := w.shouldExit(t0.Add(frozenPagesTimeout + 2*time.Second))
+	if !exit || reason != "game data stopped and the process list cannot be read" {
+		t.Fatalf("exit=%v reason=%q with frozen data and no process list", exit, reason)
 	}
 }
 
 func TestGameWatchIsOffWithoutAnExecutable(t *testing.T) {
 	w := &gameWatch{}
-	if w.shouldExit(time.Now()) {
+	if exit, _ := w.shouldExit(time.Now()); exit {
 		t.Fatal("exited with no game to watch")
 	}
 }

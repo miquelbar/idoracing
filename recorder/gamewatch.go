@@ -6,30 +6,50 @@ const (
 	gameCheckEvery = time.Second
 	// How long to wait for the game to appear before giving up, when started alongside it.
 	gameStartupTimeout = 5 * time.Minute
+	// Fallback when the process list cannot be read: the pages stay mapped after the game exits, frozen.
+	frozenPagesTimeout = 2 * time.Minute
 )
 
 // gameWatch tells the recorder to stop once the game it was launched with has exited, so a recorder
 // started from Steam's launch options does not keep the Proton prefix (and the game's session) alive.
 type gameWatch struct {
-	exe       string
-	running   func(exe string) (bool, error)
-	started   time.Time
-	seen      bool
-	lastCheck time.Time
+	exe     string
+	running func(exe string) (bool, error)
+	started time.Time
+
+	seen        bool
+	lastCheck   time.Time
+	lastPacket  int32
+	packetMoved time.Time
 }
 
-func (w *gameWatch) shouldExit(now time.Time) bool {
+// notePacket records the physics packet id, which only advances while the game is running.
+func (w *gameWatch) notePacket(packet int32, now time.Time) {
+	if packet != w.lastPacket || w.packetMoved.IsZero() {
+		w.lastPacket, w.packetMoved = packet, now
+	}
+}
+
+// shouldExit reports whether to stop, and why.
+func (w *gameWatch) shouldExit(now time.Time) (bool, string) {
 	if w.exe == "" || now.Sub(w.lastCheck) < gameCheckEvery {
-		return false
+		return false, ""
 	}
 	w.lastCheck = now
 	up, err := w.running(w.exe)
-	if err != nil {
-		return false
-	}
-	if up {
+	switch {
+	case err != nil:
+		if w.seen && !w.packetMoved.IsZero() && now.Sub(w.packetMoved) >= frozenPagesTimeout {
+			return true, "game data stopped and the process list cannot be read"
+		}
+		return false, ""
+	case up:
 		w.seen = true
-		return false
+		return false, ""
+	case w.seen:
+		return true, w.exe + " exited"
+	case now.Sub(w.started) > gameStartupTimeout:
+		return true, w.exe + " did not start within " + gameStartupTimeout.String()
 	}
-	return w.seen || now.Sub(w.started) > gameStartupTimeout
+	return false, ""
 }
