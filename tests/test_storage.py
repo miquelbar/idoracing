@@ -1,8 +1,8 @@
 import os
 import tempfile
 
+from analysis.demo_session import create_synthetic_session
 from domain.session import CoachReport
-from importers.synthetic import create_synthetic_session
 from storage.database import Storage
 
 

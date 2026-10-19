@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from analysis.alignment import align_laps_by_distance
+from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
@@ -30,7 +31,6 @@ from domain.session import CoachReport, Lap, Session
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
-from importers.synthetic import create_synthetic_session
 from storage.database import Storage
 
 ACC_MOTEC_DIR = os.path.expanduser(

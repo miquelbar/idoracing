@@ -2,8 +2,8 @@ import numpy as np
 
 from analysis.alignment import align_laps_by_distance
 from analysis.corners import extract_corners_analysis
+from analysis.demo_session import create_synthetic_session, generate_lap_telemetry
 from analysis.lap_comparison import compare_laps
-from importers.synthetic import create_synthetic_session, generate_lap_telemetry
 
 
 def test_align_laps_by_distance():

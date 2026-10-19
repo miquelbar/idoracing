@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
+from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
 from coach.advisor import CoachAdvisor
 from coach.ollama_client import OllamaClient
 from domain.session import CoachReport
-from importers.synthetic import create_synthetic_session
 
 
 def test_coach_deterministic_generation_without_ollama():
