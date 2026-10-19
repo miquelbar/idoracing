@@ -604,7 +604,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full gap-2 overflow-hidden">
-      {/* ================= FILA 1: SELECTOR T1, T2... + BOTÓN VISTA GENERAL ================= */}
+      {/* Corner selector and overview button */}
       <div className="flex items-center gap-1.5 shrink-0 select-text">
         {/* Botón [Vista General] */}
         <button
@@ -679,10 +679,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         </div>
       </div>
 
-      {/* ================= FILA 2: CABECERA DE CURVA + CONMUTADOR DE MODO ================= */}
+      {/* Corner header and view toggle */}
       {selectedCorner ? (
         <div className="px-2.5 py-1 rounded-lg bg-[#090D15] border border-white/5 flex items-center justify-between text-xs font-telemetry shrink-0 select-text gap-2">
-          {/* Izquierda: [T1] CURVA ASPAR + BADGE CORNER LOSS */}
+          {/* Corner name and time-loss badge */}
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="px-1.5 py-0.5 rounded bg-[#B138FE] text-white font-black text-[10px] shadow-sm shrink-0">
               T{selectedCorner.corner_number}
@@ -774,7 +774,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         </div>
       )}
 
-      {/* ================= FILA 3: UN SOLO VISOR INTERACTIVO GRANDE (FLEX: 1) ================= */}
+      {/* Main viewer: track map, phase table or corner diagram */}
       <div className="relative flex-1 min-h-0 bg-[#05070B] rounded-xl border border-white/5 overflow-hidden flex items-center justify-center">
         {selectedCorner && cornerViewMode === 'phase' ? (
           /* ----- VISTA 1: [ DIAGNÓSTICO Y FASES ] (TABLA 6 FILAS CAUSALES + PLAN ACCIONABLE) ----- */
@@ -972,7 +972,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
             )}
 
-            {/* Bloque Inferior: PLAN DE MEJORA EN CURVA (ACCIONABLE 3 PASOS) */}
+            {/* Three-step improvement plan */}
             {actionPlan && (
               <div className="pt-2 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -1031,7 +1031,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             )}
           </div>
         ) : selectedCorner && cornerSvgData ? (
-          /* ----- VISTA 2: [ TRAZADA 2D ] (ZOOM DETALLADO DE TRAZADA Y PIANOS SIN BOTONES REDUNDANTES) ----- */
+          /* Corner diagram (schematic, not the measured line) */
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Badges Flotantes Superior Izquierda */}
             <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 select-none">
@@ -1067,7 +1067,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
               </div>
             </div>
 
-            {/* Badges Flotantes Superior Derecha: Leyenda Limpia (Sin botón duplicado de Ver Circuito) */}
+            {/* Legend */}
             <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md select-none">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-0.5 bg-[#00FF7F] border-b border-dashed border-[#00FF7F]" />
@@ -1441,7 +1441,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         )}
       </div>
 
-      {/* ================= FILA 4: TARJETAS DE BALANCE CIRCUITO (SÓLO EN VISTA GENERAL) ================= */}
+      {/* Lap summary cards, overview only */}
       {selectedCorner === null && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 shrink-0 select-text">
           {/* Tarjeta 1: Consistencia & Sectores */}

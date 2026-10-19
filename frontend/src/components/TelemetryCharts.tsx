@@ -429,7 +429,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             );
           })}
 
-          {/* ================= CHANNEL 1: SPEED (35% height) ================= */}
+          {/* Speed */}
           <g transform="translate(0, 0)">
             <rect x={padLeft} y={0} width={chartWidth} height={hSpeed} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hSpeed} x2={width - padRight} y2={hSpeed} stroke="rgba(255,255,255,0.1)" />
@@ -447,7 +447,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={speedCompPath} fill="none" stroke="#B138FE" strokeWidth="2.5" />
           </g>
 
-          {/* ================= CHANNEL 2: DELTA TIME (15% height) ================= */}
+          {/* Cumulative time delta */}
           <g transform={`translate(0, ${hSpeed})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hDelta} fill="rgba(0,0,0,0.3)" />
             <line x1={padLeft} y1={hDelta / 2} x2={width - padRight} y2={hDelta / 2} stroke="rgba(255,255,255,0.2)" strokeDasharray="2,2" />
@@ -468,7 +468,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={deltaPath} fill="none" stroke="#FFD700" strokeWidth="1.8" />
           </g>
 
-          {/* ================= CHANNEL 3: THROTTLE & BRAKE / TRAIL BRAKING (35% height) ================= */}
+          {/* Throttle and brake, with the trail-braking overlap */}
           <g transform={`translate(0, ${hSpeed + hDelta})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hPedals} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hPedals} x2={width - padRight} y2={hPedals} stroke="rgba(255,255,255,0.1)" />
@@ -495,7 +495,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <path d={brkCompPath} fill="none" stroke="#FF1801" strokeWidth="2.4" />
           </g>
 
-          {/* ================= CHANNEL 4: GEAR (15% height) ================= */}
+          {/* Gear */}
           <g transform={`translate(0, ${hSpeed + hDelta + hPedals})`}>
             <rect x={padLeft} y={0} width={chartWidth} height={hGear} fill="rgba(0,0,0,0.3)" />
 

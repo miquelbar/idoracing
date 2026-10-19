@@ -232,7 +232,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         </div>
       )}
 
-      {/* VIEW MODE 1: SESSIONS & LAPS */}
+      {/* Sessions and laps */}
       {activeSubTab === 'sessions' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Sessions List (6 cols) */}
@@ -510,7 +510,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
         </div>
       )}
 
-      {/* VIEW MODE 2: IMPORT FILES & SIMULATORS (Merged from FilesView) */}
+      {/* Import */}
       {activeSubTab === 'import' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
