@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Literal, Optional
 import xml.etree.ElementTree as ET
 import numpy as np
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -40,6 +41,7 @@ LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le M
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 storage = Storage()
 

@@ -1,5 +1,5 @@
 """
-SQLite database storage for ACC Coach sessions, laps, and coaching reports.
+SQLite storage for IdoRacing sessions, laps and coaching reports.
 """
 
 from datetime import datetime
@@ -9,30 +9,11 @@ import sqlite3
 from typing import Any, Dict, List, Optional
 from domain.session import CoachReport, Lap, Session, SessionSummary
 
-_default_db = (
-    os.path.join("data", "idoracing.db")
-    if os.path.exists(os.path.join("data", "idoracing.db"))
-    else (
-        os.path.join("data", "simcoach.db")
-        if os.path.exists(os.path.join("data", "simcoach.db"))
-        else os.path.join("data", "idoracing.db")
-    )
-)
-
-DEFAULT_DB_PATH = os.environ.get(
-    "IDORACING_DB_PATH",
-    os.environ.get(
-        "SIMCOACH_DB_PATH",
-        os.environ.get("ACC_COACH_DB_PATH", _default_db),
-    ),
-)
-
-
 class Storage:
     """Manages SQLite persistence for sessions, telemetry, and coaching feedback."""
 
     def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = db_path or os.environ.get("IDORACING_DB_PATH", os.path.join("data", "idoracing.db"))
         os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
         self.init_db()
 
