@@ -1,6 +1,5 @@
 /**
- * Pure, reusable utility functions for IdoRacing Analytics telemetry formatting and sim detection.
- * Adheres to DRY and clean code standards across all views and components.
+ * Formatting helpers shared by the views, and the simulator guess used for session badges.
  */
 
 export function formatLapTime(seconds?: number | null): string {
@@ -57,4 +56,35 @@ export function detectSimGame(
     return 'iRacing';
   }
   return 'Assetto Corsa Competizione';
+}
+
+const METRIC_LABELS: Record<string, { es: string; en: string }> = {
+  diferencia_vuelta: { es: 'Diferencia Total', en: 'Total Delta' },
+  diferencia_sectores: { es: 'Diferencia por Sectores', en: 'Sector Deltas' },
+  curvas_analizadas: { es: 'Curvas Evaluadas', en: 'Corners Evaluated' },
+  eficiencia_trail_braking: { es: 'Eficiencia Trail Braking', en: 'Trail Braking Efficiency' },
+  primary_loss_corner: { es: 'Punto Crítico', en: 'Critical Point' },
+};
+
+export function formatMetricKey(key: string, lang: 'es' | 'en' = 'es'): string {
+  return METRIC_LABELS[key]?.[lang] ?? key.replace(/_/g, ' ').toUpperCase();
+}
+
+export function formatMetricValue(val: unknown): string {
+  if (val === null || val === undefined) return '—';
+  if (Array.isArray(val)) return val.join(', ');
+  if (typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.name === 'string' && typeof obj.time_delta === 'number') {
+      return `${obj.name} (${formatDeltaTime(obj.time_delta)})`;
+    }
+    return Object.entries(obj)
+      .map(([k, v]) => `${k}: ${String(v)}`)
+      .join(' | ');
+  }
+  return String(val);
+}
+
+export function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
 }

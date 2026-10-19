@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import type { ChatMessage, CoachReport, CornerDTO } from '../types/telemetry';
+import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 
 interface AIDebriefDrawerProps {
   isOpen: boolean;
@@ -34,40 +35,6 @@ interface AIDebriefDrawerProps {
   trackName?: string;
   carName?: string;
   initialTab?: 'debrief' | 'radio';
-}
-
-function formatMetricKey(key: string, lang: 'es' | 'en' = 'es'): string {
-  const map: Record<string, { es: string; en: string }> = {
-    time_difference: { es: 'Diferencia Total', en: 'Total Delta' },
-    diferencia_vuelta: { es: 'Diferencia Total', en: 'Total Delta' },
-    sector_differences: { es: 'Diferencia por Sectores', en: 'Sector Deltas' },
-    diferencia_sectores: { es: 'Diferencia por Sectores', en: 'Sector Deltas' },
-    corners_evaluated: { es: 'Curvas Evaluadas', en: 'Corners Evaluated' },
-    curvas_analizadas: { es: 'Curvas Evaluadas', en: 'Corners Evaluated' },
-    eficiencia_trail_braking: { es: 'Eficiencia Trail Braking', en: 'Trail Braking Efficiency' },
-    primary_loss_corner: { es: 'Punto Crítico', en: 'Critical Point' },
-  };
-  if (map[key]) return map[key][lang] || map[key].es;
-  return key.replace(/_/g, ' ').toUpperCase();
-}
-
-function formatMetricValue(val: any): string {
-  if (val === null || val === undefined) return '--';
-  if (typeof val === 'number') {
-    return val > 0 ? `+${val.toFixed(3)}s` : `${val.toFixed(3)}s`;
-  }
-  if (typeof val === 'object') {
-    if (Array.isArray(val)) return val.join(', ');
-    return Object.entries(val)
-      .map(([k, v]) => {
-        const secLabel = k.replace(/sector_?(\d+)/i, 'S$1').toUpperCase();
-        const num = Number(v);
-        const numStr = !isNaN(num) ? (num > 0 ? `+${num.toFixed(3)}s` : `${num.toFixed(3)}s`) : String(v);
-        return `${secLabel}: ${numStr}`;
-      })
-      .join(' | ');
-  }
-  return String(val);
 }
 
 /**
