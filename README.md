@@ -75,12 +75,30 @@ LMU result files contain lap and sector times, not traces. For those laps (and f
 ## 🎮 How to Record Telemetry in Your Sim
 
 ### 🏎️ Assetto Corsa Competizione (ACC)
-1. Load into the track and enter the **Car Setup** menu.
-2. Go to the **Electronics** or **Fuel & Strategy** tab.
-3. Look for the **Telemetry Laps** setting and increase it to **10–20 laps** (default is `0` = disabled).
-4. Complete your laps and return to the pit box. ACC will save `.ld` and `.ldx` files to:
+
+#### Option 1: Automatic Live Recorder (Recommended)
+IdoRacing includes [`idoracing-recorder`](recorder/README.md), a lightweight background helper that reads ACC's shared memory under Proton/Wine. It captures full telemetry **including real world coordinates $(x, y)$** and ACC lap validity flags.
+
+- **Linux (Steam + Proton)**:
+  1. In Steam, go to **Assetto Corsa Competizione > Properties > General > Launch Options**.
+  2. Add the launcher script before `%command%`:
+     ```text
+     /path/to/idoracing/recorder/linux/acc-with-recorder.sh %command%
+     ```
+     *(If using custom environment variables or GameMode, keep them before the script and command, e.g. `PROTON_ENABLE_NVAPI=1 /path/to/.../acc-with-recorder.sh gamemoderun %command%`)*
+  3. Start ACC. The recorder runs silently in the background and closes automatically when the game exits.
+  4. Sessions are saved directly to `IdoRacing/recordings/` and appear automatically in the app under **Auto-discovery**.
+
+- **Windows**:
+  Run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe` in the background.
+
+#### Option 2: Native MoTeC Export (Fallback)
+1. In ACC, enter the **Car Setup** menu for your vehicle.
+2. Under **Electronics** or **Fuel & Strategy**, set **Telemetry Laps** to **10–20** (default is `0` = off).
+3. Return to the pit box to flush files. ACC writes `.ld` and `.ldx` files to:
    - **Windows**: `Documents\Assetto Corsa Competizione\MoTeC\`
    - **Linux (Proton)**: `~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC/`
+   *(Native MoTeC files lack world $(x, y)$ coordinates, so track maps are dead-reckoned).*
 
 ### 🏁 Le Mans Ultimate (LMU)
 1. LMU logs race and practice session data automatically in XML format upon exiting the session.

@@ -69,3 +69,5 @@ scratch/
 
 # Recorder build output
 recorder/*.exe
+recorder/**/*.exe
+

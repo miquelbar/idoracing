@@ -16,9 +16,19 @@ log="${IDORACING_RECORDER_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/idoracing-r
 game_exe="AC2-Win64-Shipping.exe"
 
 proton=""
+rec_cmd=()
 for arg in "$@"; do
+	if [ "$arg" = "--verb=waitforexitandrun" ]; then
+		rec_cmd+=("--verb=run")
+	else
+		rec_cmd+=("$arg")
+	fi
 	case "$arg" in
-	*/proton) proton="$arg" ;;
+	*/proton)
+		proton="$arg"
+		rec_cmd+=("run" "$recorder" "-exit-with" "$game_exe" "-log" "$log")
+		break
+		;;
 	esac
 done
 
@@ -31,7 +41,7 @@ elif [ ! -f "$recorder" ]; then
 	echo "idoracing: $recorder not found, starting ACC without the recorder" >&2
 else
 	mkdir -p "$(dirname "$log")"
-	(sleep "$delay" && exec "$proton" run "$recorder" -exit-with "$game_exe") >>"$log" 2>&1 &
+	(sleep "$delay" && exec "${rec_cmd[@]}") >>"$log" 2>&1 &
 fi
 
 wait "$game"

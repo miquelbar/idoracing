@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from domain.session import Lap, Session
-from importers.laps import mark_partial_laps_invalid, without_boundary_wrap
+from importers.laps import distance_covered, mark_partial_laps_invalid, without_boundary_wrap
 
 
 class CSVImporter:
@@ -71,9 +71,11 @@ class CSVImporter:
                 telemetry[canonical] = numeric_series.tolist()
 
         # Lap distance is a position along the track, so laps keep it as recorded instead of starting at 0.
-        track_position = "lap_distance" in telemetry
+        track_position = "lap_distance" in telemetry and max(telemetry.get("lap_distance", [0.0])) > 0.0
         if track_position:
             telemetry["distance"] = telemetry.pop("lap_distance")
+        else:
+            telemetry.pop("lap_distance", None)
         lap_valid = telemetry.pop("lap_valid", None)
 
         # If required channels are missing, provide sane defaults
@@ -125,6 +127,12 @@ class CSVImporter:
                 )
             if track_position:
                 mark_partial_laps_invalid(laps)
+            elif len(laps) > 1:
+                spans = [distance_covered(lap.telemetry or {}) for lap in laps]
+                ref_span = float(np.median(spans))
+                for lap, span in zip(laps, spans, strict=True):
+                    if span < 0.7 * ref_span:
+                        lap.is_valid = False
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:

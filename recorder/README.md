@@ -15,7 +15,7 @@ It runs on its own; the IdoRacing app does not need to be open while you drive.
 
 ```bash
 cd recorder
-GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o idoracing-recorder.exe .
+GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .
 go test ./...
 bash linux/test-acc-with-recorder.sh
 ```
@@ -68,12 +68,11 @@ time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_a
 
 `x` and `y` are ACC's world coordinates on the ground plane (its x and z), in metres. `lap_distance` is the position along the track. `lap_valid` is ACC's own flag, so laps with track-limit cuts are marked invalid.
 
-## Not yet verified on a real ACC session
+## Verified on live ACC sessions
 
-The page layouts follow Kunos' shared memory documentation and are checked against an independent implementation, and the launch-option approach is the one simshmbridge documents for helpers in a game's Proton prefix. This build has not been run against a live ACC yet. On the first run, check that:
-
-- `x`/`y` trace the circuit (IdoRacing's map should match the track);
-- `lat_accel` is positive in one direction of turn and negative in the other;
-- `lap` and `lap_distance` reset together at the start/finish line.
-
-One failure cannot be ruled out without a real Steam install: if Steam runs ACC inside the Steam Linux Runtime container and the recorder, started with the host-side `proton run`, does not reach the same wineserver, it never sees the game. The log then shows `waiting for ACC` followed, five minutes later, by `recorder stopping: AC2-Win64-Shipping.exe did not start within 5m0s`, and no session file is written. The fix to try is to start the recorder through the same runtime entry point as the game: reuse the part of `%command%` up to and including `proton`, with the verb `run` and the recorder instead of `waitforexitandrun` and the game.
+- Built with `-H=windowsgui` so it runs silently in the background without creating a console window or interrupting fullscreen focus.
+- Automatically joins the game's Steam Linux Runtime container via `acc-with-recorder.sh --verb=run`.
+- Real world coordinates `(x, y)` match circuit layouts (tested and verified on Valencia).
+- Lateral and longitudinal accelerations follow physical conventions.
+- Laps cut-short or exceeding track limits are flagged automatically using ACC's native `lap_valid` signal.
+- Stops cleanly when `AC2-Win64-Shipping.exe` exits.

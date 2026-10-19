@@ -22,7 +22,17 @@ func main() {
 	out := flag.String("out", defaultOutDir(), "folder where session CSV files are written")
 	hz := flag.Int("hz", 30, "samples per second while driving")
 	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe)")
+	logPath := flag.String("log", "", "file to append log messages to")
 	flag.Parse()
+
+	if *logPath != "" {
+		if err := os.MkdirAll(filepath.Dir(*logPath), 0755); err == nil {
+			if f, err := os.OpenFile(*logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+				defer f.Close()
+				log.SetOutput(f)
+			}
+		}
+	}
 
 	runtime.GOMAXPROCS(1)
 	lowerPriority()
