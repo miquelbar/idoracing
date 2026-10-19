@@ -21,6 +21,7 @@ const (
 func main() {
 	out := flag.String("out", defaultOutDir(), "folder where session CSV files are written")
 	hz := flag.Int("hz", 30, "samples per second while driving")
+	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe)")
 	flag.Parse()
 
 	runtime.GOMAXPROCS(1)
@@ -28,26 +29,35 @@ func main() {
 	log.Printf("idoracing-recorder %s: writing to %s at %d Hz; waiting for ACC", version, *out, *hz)
 
 	rec := &recorder{outDir: *out}
+	watch := &gameWatch{exe: *exitWith, running: processRunning, started: time.Now()}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	go func() {
 		<-stop
-		if err := rec.close(); err != nil {
-			log.Print(err)
-		}
-		os.Exit(0)
+		finish(rec)
 	}()
 
 	for {
-		if err := record(rec, time.Second/time.Duration(*hz)); err != nil {
+		if err := record(rec, watch, time.Second/time.Duration(*hz)); err != nil {
 			log.Print(err)
+		}
+		if watch.shouldExit(time.Now()) {
+			finish(rec)
 		}
 		time.Sleep(reconnectWait)
 	}
 }
 
+func finish(rec *recorder) {
+	if err := rec.close(); err != nil {
+		log.Print(err)
+	}
+	log.Print("game closed, recorder stopping")
+	os.Exit(0)
+}
+
 // record reads ACC's shared memory until the pages can no longer be opened.
-func record(rec *recorder, livePoll time.Duration) error {
+func record(rec *recorder, watch *gameWatch, livePoll time.Duration) error {
 	physics, err := openSharedPage(physicsPageName, binary.Size(physicsPage{}))
 	if err != nil {
 		return nil // ACC not running yet
@@ -76,9 +86,13 @@ func record(rec *recorder, livePoll time.Duration) error {
 			return err
 		}
 		sbuf = static.snapshot(sbuf)
-		live, err := rec.step(p, g, decodeStatic(sbuf), time.Now())
+		now := time.Now()
+		live, err := rec.step(p, g, decodeStatic(sbuf), now)
 		if err != nil {
 			return err
+		}
+		if watch.shouldExit(now) {
+			finish(rec)
 		}
 		if live {
 			time.Sleep(livePoll)
