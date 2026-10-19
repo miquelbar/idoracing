@@ -136,13 +136,6 @@ export async function uploadTelemetryFile(file: File): Promise<any> {
   return res.json();
 }
 
-export async function fetchCarSetup(sessionId?: string): Promise<any> {
-  const url = sessionId ? `${API_BASE}/setup?session_id=${encodeURIComponent(sessionId)}` : `${API_BASE}/setup`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch car setup');
-  return res.json();
-}
-
 export async function fetchLapHistory(sessionId?: string, compLapNumber?: number): Promise<any> {
   const params = new URLSearchParams();
   if (sessionId) params.append('session_id', sessionId);

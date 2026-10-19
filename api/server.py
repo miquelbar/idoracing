@@ -193,19 +193,6 @@ class LocalImportRequest(BaseModel):
     filepath: str
 
 
-class CarSetupDTO(BaseModel):
-    car_name: str
-    track_name: str
-    setup_name: str
-    tyres: Dict[str, Any]
-    electronics: Dict[str, Any]
-    brakes: Dict[str, Any]
-    aerodynamics: Dict[str, Any]
-    suspension: Dict[str, Any]
-    drivetrain: Dict[str, Any]
-    notes: List[str]
-
-
 class LapRecordDTO(BaseModel):
     lap_number: int
     lap_time: float
@@ -213,7 +200,7 @@ class LapRecordDTO(BaseModel):
     sector_times: List[float]
     gap_to_pb: float
     is_pb: bool
-    v_max: float
+    v_max: Optional[float] = None
     date: str
     session_id: str
 
@@ -445,96 +432,23 @@ def format_seconds_to_lap(seconds: float) -> str:
     return f"{m}:{s:06.3f}"
 
 
-@app.get("/api/setup", response_model=CarSetupDTO)
-def get_car_setup(session_id: Optional[str] = Query(None)):
-    sessions = storage.list_sessions()
-    matched_session: Optional[Session] = None
-    if session_id:
-        matched_session = storage.get_session(session_id)
-    if not matched_session and sessions:
-        matched_session = storage.get_session(sessions[0].session_id)
-
-    car = matched_session.car if matched_session else "Porsche 911 GT3 R (992)"
-    track = matched_session.track if matched_session else "Ricardo Tormo de Valencia"
-    is_lmu = "lmgt3" in car.lower() or "hypercar" in car.lower() or (matched_session and matched_session.session_id.startswith("lmu"))
-
-    if is_lmu:
-        setup_name = "Le Mans / Sebring LMGT3 Competition Base"
-        tyres = {
-            "compound": "Michelin Pilot Sport Endurance (Medium)",
-            "pressures_hot_psi": {"FL": 27.2, "FR": 27.5, "RL": 26.8, "RR": 27.0},
-            "camber_deg": {"FL": -3.5, "FR": -3.5, "RL": -2.8, "RR": -2.8},
-            "toe_deg": {"FL": -0.08, "FR": -0.08, "RL": 0.18, "RR": 0.18},
-        }
-        electronics = {"tc1": 4, "tc2": 3, "abs": 3, "ecu_map": 2}
-        brakes = {"bias_pct": 53.8, "pad_type": "Endurance Spec", "ducts": {"front": 2, "rear": 2}}
-        aero = {"rear_wing": 5, "front_splitter": "Pos 2", "ride_height_mm": {"front": 58, "rear": 76}, "rake_mm": 18}
-        suspension = {"front_arb": 3, "rear_arb": 2, "diff_preload_nm": 90}
-        notes = [
-            "Reglaje equilibrado para desgaste homogéneo durante tandas largas de resistencia.",
-            "Baja carga en alerón trasero (ala 5) para no penalizar velocidad punta en rectas largas.",
-        ]
-    else:
-        setup_name = f"{track} GT3 Sprint Base (MoTeC Spec)"
-        tyres = {
-            "compound": "Pirelli DHE GT3 Slick",
-            "pressures_hot_psi": {"FL": 26.8, "FR": 27.0, "RL": 26.5, "RR": 26.7},
-            "camber_deg": {"FL": -3.8, "FR": -3.8, "RL": -3.0, "RR": -3.0},
-            "toe_deg": {"FL": -0.10, "FR": -0.10, "RL": 0.15, "RR": 0.15},
-        }
-        electronics = {"tc1": 3, "tc2": 2, "abs": 4, "ecu_map": 1}
-        brakes = {"bias_pct": 54.2, "pad_type": "Sprint Pad 1", "ducts": {"front": 3, "rear": 2}}
-        aero = {"rear_wing": 7, "front_splitter": "Pos 2", "ride_height_mm": {"front": 54, "rear": 72}, "rake_mm": 18}
-        suspension = {"front_arb": 4, "rear_arb": 2, "diff_preload_nm": 80}
-        notes = [
-            "Configuración optimizada para la tracción y cambios de apoyo rápidos de Valencia.",
-            "Presiones en ventana de rendimiento óptima de GT3 (26.5 a 27.2 PSI en caliente).",
-            "Rake positivo (+18mm) que potencia la rotación del morro en curvas lentas (T2, T4, T8, T11).",
-            "Reparto de frenada al 54.2% para permitir trail braking agresivo sin sobreviraje súbito.",
-        ]
-
-    return CarSetupDTO(
-        car_name=car,
-        track_name=track,
-        setup_name=setup_name,
-        tyres=tyres,
-        electronics=electronics,
-        brakes=brakes,
-        aerodynamics=aero,
-        suspension=suspension,
-        drivetrain={"diff_preload_nm": suspension["diff_preload_nm"]},
-        notes=notes,
-    )
-
-
 @app.get("/api/lap-history", response_model=LapHistoryResponse)
 def get_lap_history(
     session_id: Optional[str] = Query(None),
     ref_lap_number: Optional[int] = Query(None),
     comp_lap_number: Optional[int] = Query(None),
 ):
-    sessions = storage.list_sessions()
-    if not sessions:
-        raise HTTPException(status_code=404, detail="No sessions found")
-
-    matched_session: Optional[Session] = None
-    if session_id:
-        matched_session = storage.get_session(session_id)
-    if not matched_session:
-        matched_session = storage.get_session(sessions[0].session_id)
-
-    valid_laps = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid]
-    if not valid_laps:
-        valid_laps = matched_session.laps
-
-    # Sort to find PB
-    sorted_by_time = sorted([l for l in valid_laps if l.lap_time > 0], key=lambda x: x.lap_time)
-    pb_time = sorted_by_time[0].lap_time if sorted_by_time else 101.384
+    matched_session = _load_session(session_id)
+    valid_laps = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid] or matched_session.laps
+    timed_laps = [l for l in valid_laps if l.lap_time > 0]
+    if not timed_laps:
+        raise HTTPException(status_code=404, detail="Session has no timed laps")
+    pb_time = min(l.lap_time for l in timed_laps)
 
     lap_records: List[LapRecordDTO] = []
     for l in valid_laps:
-        gap = round(l.lap_time - pb_time, 3) if pb_time > 0 else 0.0
-        v_max = float(max(l.telemetry.get("speed", [240.0]))) if (l.telemetry and "speed" in l.telemetry) else 248.5
+        gap = round(l.lap_time - pb_time, 3)
+        recorded_speed = l.telemetry.get("speed") if (l.telemetry and not l.synthetic) else None
         lap_records.append(
             LapRecordDTO(
                 lap_number=l.lap_number,
@@ -543,14 +457,13 @@ def get_lap_history(
                 sector_times=[round(s, 3) for s in l.sector_times] if l.sector_times else [],
                 gap_to_pb=gap,
                 is_pb=(l.lap_time == pb_time),
-                v_max=round(v_max, 1),
-                date=matched_session.date.strftime("%d/%m/%Y %H:%M") if matched_session.date else "Hoy",
+                v_max=round(float(max(recorded_speed)), 1) if recorded_speed else None,
+                date=matched_session.date.strftime("%d/%m/%Y %H:%M"),
                 session_id=matched_session.session_id,
             )
         )
 
-    # Determine PB lap and comparison lap
-    pb_record = next((r for r in lap_records if r.is_pb), lap_records[0] if lap_records else None)
+    pb_record = next(r for r in lap_records if r.is_pb)
     
     comp_record = None
     if comp_lap_number is not None:
@@ -564,7 +477,7 @@ def get_lap_history(
     delta_s3 = 0.0
     delta_total = 0.0
 
-    if pb_record and comp_record:
+    if comp_record:
         delta_total = round(comp_record.lap_time - pb_record.lap_time, 3)
         if len(pb_record.sector_times) >= 3 and len(comp_record.sector_times) >= 3:
             delta_s1 = round(comp_record.sector_times[0] - pb_record.sector_times[0], 3)
@@ -572,14 +485,11 @@ def get_lap_history(
             delta_s3 = round(comp_record.sector_times[2] - pb_record.sector_times[2], 3)
 
     return LapHistoryResponse(
-        pb_lap=pb_record or LapRecordDTO(
-            lap_number=1, lap_time=101.384, lap_time_str="1:41.384", sector_times=[25.7, 31.9, 43.6],
-            gap_to_pb=0.0, is_pb=True, v_max=250.0, date="Hoy", session_id="demo"
-        ),
+        pb_lap=pb_record,
         comparison_lap=comp_record,
         laps=lap_records,
-        track_name=matched_session.track if matched_session else "Valencia",
-        car_name=matched_session.car if matched_session else "Porsche GT3",
+        track_name=matched_session.track,
+        car_name=matched_session.car,
         delta_s1=delta_s1,
         delta_s2=delta_s2,
         delta_s3=delta_s3,

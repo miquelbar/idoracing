@@ -4,13 +4,13 @@ import {
   ChevronRight,
   Clock,
   RefreshCw,
-  Sparkles,
   Trophy,
-  Wrench,
 } from 'lucide-react';
-import { fetchCarSetup, fetchLapHistory } from '../services/api';
-import type { CarSetupData, LapHistoryData } from '../types/telemetry';
+import { fetchLapHistory } from '../services/api';
+import type { LapHistoryData } from '../types/telemetry';
 import { useLanguage } from '../i18n';
+
+const formatSpeed = (kmh: number | null) => (kmh === null ? '—' : `${kmh} km/h`);
 
 interface SetupHistoryViewProps {
   selectedSessionId: string | null;
@@ -27,22 +27,16 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
 }) => {
   const { t } = useLanguage();
   const [historyData, setHistoryData] = useState<LapHistoryData | null>(null);
-  const [setupData, setSetupData] = useState<CarSetupData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCompLapNum, setSelectedCompLapNum] = useState<number | null>(null);
-  const [setupCategory, setSetupCategory] = useState<'tyres' | 'electronics' | 'brakes' | 'aero' | 'suspension'>('tyres');
 
   const loadData = async (compLap?: number) => {
     try {
       setLoading(true);
       setError(null);
-      const [hist, setup] = await Promise.all([
-        fetchLapHistory(selectedSessionId || undefined, compLap),
-        fetchCarSetup(selectedSessionId || undefined),
-      ]);
+      const hist = await fetchLapHistory(selectedSessionId || undefined, compLap);
       setHistoryData(hist);
-      setSetupData(setup);
       if (hist.comparison_lap && selectedCompLapNum === null) {
         setSelectedCompLapNum(hist.comparison_lap.lap_number);
       }
@@ -142,7 +136,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-gray-400 font-telemetry mt-3 pt-2 border-t border-white/5">
-            <span>{t('vmax_label')}: <strong className="text-white">{pb.v_max} km/h</strong></span>
+            <span>{t('vmax_label')}: <strong className="text-white">{formatSpeed(pb.v_max)}</strong></span>
             <span>{t('date_col')}: {pb.date}</span>
           </div>
         </div>
@@ -177,7 +171,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-gray-400 font-telemetry mt-3 pt-2 border-t border-white/5">
-            <span>{t('vmax_label')}: <strong className="text-white">{comp.v_max} km/h</strong></span>
+            <span>{t('vmax_label')}: <strong className="text-white">{formatSpeed(comp.v_max)}</strong></span>
             <span>{t('date_col')}: {comp.date}</span>
           </div>
         </div>
@@ -275,7 +269,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
                       <span>S1: {lap.sector_times[0]?.toFixed(3) || '--'}s</span>
                       <span>S2: {lap.sector_times[1]?.toFixed(3) || '--'}s</span>
                       <span>S3: {lap.sector_times[2]?.toFixed(3) || '--'}s</span>
-                      <span>• {t('vmax_label')}: {lap.v_max} km/h</span>
+                      <span>• {t('vmax_label')}: {formatSpeed(lap.v_max)}</span>
                     </div>
                   </div>
                 </div>
@@ -298,232 +292,6 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Car Setup Inspector (Settings Sheet) */}
-      {setupData && (
-        <div className="glass-panel rounded-xl p-5 border border-white/10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#00D2BE]/20 border border-[#00D2BE]/40 flex items-center justify-center text-[#00D2BE]">
-                <Wrench className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                  {t('setup_sheet_title')} ({setupData.setup_name})
-                </h4>
-                <p className="text-xs text-gray-400 font-telemetry">
-                  {setupData.car_name} • {setupData.track_name} • {t('competition_gt3')}
-                </p>
-              </div>
-            </div>
-
-            {/* Category Tabs */}
-            <div className="flex items-center gap-1 bg-[#090D15] p-1 rounded-lg border border-white/5">
-              <button
-                onClick={() => setSetupCategory('tyres')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                  setupCategory === 'tyres' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t('setup_tyres')}
-              </button>
-              <button
-                onClick={() => setSetupCategory('electronics')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                  setupCategory === 'electronics' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t('setup_electronics')}
-              </button>
-              <button
-                onClick={() => setSetupCategory('brakes')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                  setupCategory === 'brakes' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t('setup_brakes')}
-              </button>
-              <button
-                onClick={() => setSetupCategory('aero')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                  setupCategory === 'aero' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t('setup_aero')}
-              </button>
-              <button
-                onClick={() => setSetupCategory('suspension')}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
-                  setupCategory === 'suspension' ? 'bg-[#00D2BE] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {t('tab_chassis')}
-              </button>
-            </div>
-          </div>
-
-          {/* Tab Content Display */}
-          {setupCategory === 'tyres' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <h5 className="text-xs font-bold text-[#00D2BE] uppercase tracking-wider mb-3">
-                  {t('hot_pressures_title')}
-                </h5>
-                <div className="grid grid-cols-2 gap-3 font-telemetry">
-                  <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">{t('fl_tyre')}</span>
-                    <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.FL} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.FL}°</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">{t('fr_tyre')}</span>
-                    <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.FR} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.FR}°</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">{t('rl_tyre')}</span>
-                    <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.RL} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.RL}°</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                    <span className="text-[10px] text-gray-400 block">{t('rr_tyre')}</span>
-                    <span className="text-lg font-bold text-white">{setupData.tyres.pressures_hot_psi.RR} PSI</span>
-                    <span className="text-[10px] text-gray-500 block">{t('camber')}: {setupData.tyres.camber_deg.RR}°</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 flex flex-col justify-between">
-                <div>
-                  <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-                    {t('compound_alignment')}
-                  </h5>
-                  <p className="text-xs text-gray-300 font-telemetry mb-3">
-                    {t('active_compound')}: <strong className="text-[#00D2BE]">{setupData.tyres.compound}</strong>
-                  </p>
-                  <div className="space-y-2 text-xs font-telemetry text-gray-400">
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span>{t('toe_front')}:</span>
-                      <span className="text-white font-bold">{setupData.tyres.toe_deg.FL}°</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-white/5">
-                      <span>{t('toe_rear')}:</span>
-                      <span className="text-white font-bold">{setupData.tyres.toe_deg.RL}°</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 p-2.5 rounded bg-blue-950/40 border border-blue-500/20 text-[11px] text-blue-200">
-                  {t('tyre_tip')}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {setupCategory === 'electronics' && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-telemetry">
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('tc1_title')}</span>
-                <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.electronics.tc1}</span>
-                <span className="text-[10px] text-gray-500">{t('tc1_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('tc2_title')}</span>
-                <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.electronics.tc2}</span>
-                <span className="text-[10px] text-gray-500">{t('tc2_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('abs_title')}</span>
-                <span className="text-2xl font-black text-[#00FF7F] my-1 block">{setupData.electronics.abs}</span>
-                <span className="text-[10px] text-gray-500">{t('abs_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5 text-center">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('ecu_title')}</span>
-                <span className="text-2xl font-black text-[#FFD700] my-1 block">{setupData.electronics.ecu_map}</span>
-                <span className="text-[10px] text-gray-500">{t('ecu_desc')}</span>
-              </div>
-            </div>
-          )}
-
-          {setupCategory === 'brakes' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('bias_title')}</span>
-                <span className="text-2xl font-black text-[#FF1801] my-1 block">{setupData.brakes.bias_pct}%</span>
-                <span className="text-[10px] text-gray-400">{t('bias_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('pads_title')}</span>
-                <span className="text-base font-bold text-white my-1 block">{setupData.brakes.pad_type}</span>
-                <span className="text-[10px] text-gray-400">{t('pads_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('ducts_title')}</span>
-                <span className="text-base font-bold text-white my-1 block">
-                  {t('front_label')}: {setupData.brakes.ducts.front} • {t('rear_label')}: {setupData.brakes.ducts.rear}
-                </span>
-                <span className="text-[10px] text-gray-400">{t('ducts_desc')}</span>
-              </div>
-            </div>
-          )}
-
-          {setupCategory === 'aero' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('wing_title')}</span>
-                <span className="text-2xl font-black text-[#00D2BE] my-1 block">{setupData.aerodynamics.rear_wing}</span>
-                <span className="text-[10px] text-gray-400">{t('wing_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('height_title')}</span>
-                <span className="text-base font-bold text-white my-1 block">
-                  {t('front_label')}: {setupData.aerodynamics.ride_height_mm.front} mm • {t('rear_label')}: {setupData.aerodynamics.ride_height_mm.rear} mm
-                </span>
-                <span className="text-[10px] text-gray-400">{t('rake_desc')}: +{setupData.aerodynamics.rake_mm} mm</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('splitter_title')}</span>
-                <span className="text-base font-bold text-white my-1 block">{setupData.aerodynamics.front_splitter}</span>
-                <span className="text-[10px] text-gray-400">{t('splitter_desc')}</span>
-              </div>
-            </div>
-          )}
-
-          {setupCategory === 'suspension' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-telemetry">
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('farb_title')}</span>
-                <span className="text-2xl font-black text-white my-1 block">{setupData.suspension.front_arb}</span>
-                <span className="text-[10px] text-gray-400">{t('farb_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('rarb_title')}</span>
-                <span className="text-2xl font-black text-white my-1 block">{setupData.suspension.rear_arb}</span>
-                <span className="text-[10px] text-gray-400">{t('rarb_desc')}</span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#090D15] border border-white/5">
-                <span className="text-[10px] text-gray-400 block uppercase">{t('preload_title')}</span>
-                <span className="text-2xl font-black text-[#FFD700] my-1 block">{setupData.suspension.diff_preload_nm} Nm</span>
-                <span className="text-[10px] text-gray-400">{t('preload_desc')}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Setup Notes from Race Engineer */}
-          <div className="p-3.5 rounded-xl bg-[#0A0E17] border border-white/5">
-            <h5 className="text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#00D2BE]" />
-              {t('engineer_notes_title')}
-            </h5>
-            <ul className="space-y-1.5 text-xs text-gray-300">
-              {setupData.notes.map((n, idx) => (
-                <li key={`note-${idx}`} className="flex items-start gap-2">
-                  <span className="text-[#00D2BE] mt-0.5">•</span>
-                  <span>{n}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

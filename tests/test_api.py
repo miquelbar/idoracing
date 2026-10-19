@@ -142,3 +142,13 @@ def test_upload_corrupt_ld_returns_400(client):
 def test_upload_unknown_extension_returns_400(client):
     res = client.post("/api/import/upload", files={"file": ("notes.txt", b"hello", "text/plain")})
     assert res.status_code == 400
+
+
+def test_lap_history_has_no_top_speed_for_synthetic_laps(client):
+    res = client.get("/api/lap-history", params={"session_id": "synth_valencia_992_gt3"})
+    assert res.status_code == 200
+    assert all(lap["v_max"] is None for lap in res.json()["laps"])
+
+
+def test_setup_endpoint_is_gone(client):
+    assert client.get("/api/setup").status_code in (404, 405)

@@ -142,44 +142,6 @@ export interface AutoDiscoverData {
   lmu_files: AutoDiscoverFile[];
 }
 
-export interface CarSetupData {
-  car_name: string;
-  track_name: string;
-  setup_name: string;
-  tyres: {
-    compound: string;
-    pressures_hot_psi: Record<string, number>;
-    camber_deg: Record<string, number>;
-    toe_deg: Record<string, number>;
-  };
-  electronics: {
-    tc1: number;
-    tc2: number;
-    abs: number;
-    ecu_map: number;
-  };
-  brakes: {
-    bias_pct: number;
-    pad_type: string;
-    ducts: { front: number; rear: number };
-  };
-  aerodynamics: {
-    rear_wing: number;
-    front_splitter: string;
-    ride_height_mm: { front: number; rear: number };
-    rake_mm: number;
-  };
-  suspension: {
-    front_arb: number;
-    rear_arb: number;
-    diff_preload_nm: number;
-  };
-  drivetrain: {
-    diff_preload_nm: number;
-  };
-  notes: string[];
-}
-
 export interface LapRecordItem {
   lap_number: number;
   lap_time: number;
@@ -187,7 +149,7 @@ export interface LapRecordItem {
   sector_times: number[];
   gap_to_pb: number;
   is_pb: boolean;
-  v_max: number;
+  v_max: number | null;
   date: string;
   session_id: string;
 }
