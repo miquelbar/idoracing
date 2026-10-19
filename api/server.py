@@ -27,7 +27,7 @@ from coach.advisor import CoachAdvisor
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
-from domain.session import CoachReport, Lap, Session
+from domain.session import CoachReport, CornerAnalysis, Lap, Session
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
@@ -315,6 +315,58 @@ def _find_lap(session: Session, lap_id: str) -> Lap | None:
     return next((l for l in session.laps if lap_id in (f"Lap {l.lap_number}", str(l.lap_number))), None)
 
 
+def _severity(time_delta: float) -> str:
+    if time_delta < -0.05:
+        return "success"
+    if time_delta > 0.30:
+        return "critical"
+    if time_delta > 0.15:
+        return "warning"
+    return "info"
+
+
+def _corner_dto(c: CornerAnalysis) -> CornerDTO:
+    return CornerDTO(
+        corner_number=c.corner_number,
+        name=c.corner_name or f"Curva {c.corner_number}",
+        start_distance=c.start_dist,
+        end_distance=c.end_dist,
+        apex_distance=(c.start_dist + c.end_dist) / 2.0,
+        v_min_ref=round(c.ref_min_speed, 1),
+        v_min_comp=round(c.comp_min_speed, 1),
+        delta_v_min=round(c.delta_v_min, 1),
+        v_entry_ref=round(c.ref_entry_speed, 1),
+        v_entry_comp=round(c.comp_entry_speed, 1),
+        delta_v_entry=round(c.delta_v_entry, 1),
+        v_exit_ref=round(c.ref_exit_speed, 1),
+        v_exit_comp=round(c.comp_exit_speed, 1),
+        delta_v_exit=round(c.delta_v_exit, 1),
+        delta_time=round(c.time_delta_corner, 3),
+        braking_point_delta=round(c.brake_delta_dist or 0.0, 1),
+        throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
+        diagnosis=c.diagnosis or "Trazada óptima en el segmento.",
+        severity=_severity(c.time_delta_corner),
+        trail_braking_eval=c.trail_eval,
+        trail_braking_code=c.trail_code,
+        trail_braking_advice=c.trail_advice,
+        ref_gear=c.ref_gear,
+        comp_gear=c.comp_gear,
+        gear_eval=c.gear_eval,
+        gear_code=c.gear_code,
+        gear_advice=c.gear_advice,
+        balance_eval=c.balance_eval,
+        balance_code=c.balance_code,
+        balance_advice=c.balance_advice,
+        racing_line_eval=c.racing_line_eval,
+        racing_line_code=c.racing_line_code,
+        racing_line_advice=c.racing_line_advice,
+        racing_line_svg=c.racing_line_svg,
+        line_offset_entry_m=c.line_offset_entry_m,
+        line_offset_apex_m=c.line_offset_apex_m,
+        line_offset_exit_m=c.line_offset_exit_m,
+    )
+
+
 @app.get("/api/comparison", response_model=ComparisonResponse)
 def get_lap_comparison(
     ref_lap_id: str | None = Query(None),
@@ -353,57 +405,7 @@ def get_lap_comparison(
 
     track_x, track_y = generate_track_coordinates(matched_session.track, aligned["distance"], aligned)
 
-    corners_dto: list[CornerDTO] = []
-    for c in comparison.corners:
-        severity = "info"
-        if c.time_delta_corner > 0.15:
-            severity = "warning"
-        if c.time_delta_corner > 0.30:
-            severity = "critical"
-        if c.time_delta_corner < -0.05:
-            severity = "success"
-
-        corners_dto.append(
-            CornerDTO(
-                corner_number=c.corner_number,
-                name=c.corner_name or f"Curva {c.corner_number}",
-                start_distance=c.start_dist,
-                end_distance=c.end_dist,
-                apex_distance=(c.start_dist + c.end_dist) / 2.0,
-                v_min_ref=round(c.ref_min_speed, 1),
-                v_min_comp=round(c.comp_min_speed, 1),
-                delta_v_min=round(c.delta_v_min, 1),
-                v_entry_ref=round(c.ref_entry_speed, 1),
-                v_entry_comp=round(c.comp_entry_speed, 1),
-                delta_v_entry=round(c.delta_v_entry, 1),
-                v_exit_ref=round(c.ref_exit_speed, 1),
-                v_exit_comp=round(c.comp_exit_speed, 1),
-                delta_v_exit=round(c.delta_v_exit, 1),
-                delta_time=round(c.time_delta_corner, 3),
-                braking_point_delta=round(c.brake_delta_dist or 0.0, 1),
-                throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
-                diagnosis=c.diagnosis or "Trazada óptima en el segmento.",
-                severity=severity,
-                trail_braking_eval=c.trail_eval,
-                trail_braking_code=c.trail_code,
-                trail_braking_advice=c.trail_advice,
-                ref_gear=c.ref_gear,
-                comp_gear=c.comp_gear,
-                gear_eval=c.gear_eval,
-                gear_code=c.gear_code,
-                gear_advice=c.gear_advice,
-                balance_eval=c.balance_eval,
-                balance_code=c.balance_code,
-                balance_advice=c.balance_advice,
-                racing_line_eval=c.racing_line_eval,
-                racing_line_code=c.racing_line_code,
-                racing_line_advice=c.racing_line_advice,
-                racing_line_svg=c.racing_line_svg,
-                line_offset_entry_m=c.line_offset_entry_m,
-                line_offset_apex_m=c.line_offset_apex_m,
-                line_offset_exit_m=c.line_offset_exit_m,
-            )
-        )
+    corners_dto = [_corner_dto(c) for c in comparison.corners]
 
     ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
     comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
