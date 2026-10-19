@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Line offset in metres versus the reference lap at corner entry, apex and exit, for laps recorded with position data (LMU and AC MoTeC exports).
+
 ### Changed
 - Relicensed under GPL-3.0; the MoTeC reader follows gotzl/ldparser's file layout. See NOTICE.
 - Laps that only carry lap times (LMU results, the demo) are marked as synthetic, no longer get mistakes planted at fixed corners, and the UI shows a warning banner over their charts.
@@ -25,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Any website could change the cloud LLM endpoint through open CORS and receive the API key; CORS is closed and changing the endpoint clears the key.
 - Importing by path is limited to the simulator telemetry folders; uploads are capped at 512 MB.
 - `.env` is loaded on native runs, not only under Docker Compose.
+- MoTeC files from LMU decoded speeds, pedals and gear wrongly (multiplier applied after the shift, 1-byte channels read as 2 bytes).
+- MoTeC laps are cut by the lap-number channel when there is no `.ldx`, and laps are aligned on track position, so a lap started from the grid or the pit exit compares against the right part of the track.
 
 ## [0.2.0] - 2026-10-18
 
