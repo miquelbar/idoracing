@@ -61,7 +61,7 @@ def test_ollama_client_timeout_or_error_handling():
 
 
 def test_race_engineer_response_trail_braking_and_porsche():
-    from coach.advisor import generate_race_engineer_response
+    from coach.radio import generate_race_engineer_response
 
     resp_es = generate_race_engineer_response(
         query="¿Cómo puedo optimizar la técnica de trail braking con el Porsche 911 GT3 R (992)?",
@@ -88,8 +88,8 @@ def test_race_engineer_response_trail_braking_and_porsche():
 
 
 def test_pep_corner_context_and_strict_diagnostics():
-    from coach.advisor import generate_race_engineer_response
     from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
+    from coach.radio import generate_race_engineer_response
 
     # Verify system prompts enforce zero false praise
     assert "PROHIBIDO emitir elogios" in PEP_SYSTEM_PROMPT_ES

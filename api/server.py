@@ -23,9 +23,10 @@ from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
-from coach.advisor import CoachAdvisor, generate_race_engineer_response
+from coach.advisor import CoachAdvisor
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
+from coach.radio import generate_race_engineer_response
 from domain.session import CoachReport, Lap, Session
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
