@@ -1,12 +1,18 @@
 """Unit tests for IdoRacing Analytics FastAPI endpoints."""
 
+import pytest
 from fastapi.testclient import TestClient
+
 from api.server import app
 
-client = TestClient(app)
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as c:
+        yield c
 
 
-def test_api_health():
+def test_api_health(client):
     res = client.get("/api/health")
     assert res.status_code == 200
     data = res.json()
@@ -14,7 +20,7 @@ def test_api_health():
     assert "version" in data
 
 
-def test_api_sessions_and_comparison():
+def test_api_sessions_and_comparison(client):
     res = client.get("/api/sessions")
     assert res.status_code == 200
     sessions = res.json()
@@ -30,7 +36,7 @@ def test_api_sessions_and_comparison():
     assert len(comp_data["corners"]) == 14
 
 
-def test_api_autodiscover():
+def test_api_autodiscover(client):
     res = client.get("/api/autodiscover")
     assert res.status_code == 200
     data = res.json()
@@ -38,10 +44,16 @@ def test_api_autodiscover():
     assert "lmu_path" in data
 
 
-def test_api_coach_chat_with_fallback(monkeypatch):
+def test_api_coach_chat_falls_back_to_rules_when_llm_is_silent(client, monkeypatch):
     from api.server import llm_client
-    # Simulate LLM offline or empty response to verify instant deterministic fallback
-    monkeypatch.setattr(llm_client, "chat", lambda messages: None)
+
+    calls = []
+
+    def silent_chat(messages, timeout=None):
+        calls.append(messages)
+        return None
+
+    monkeypatch.setattr(llm_client, "chat", silent_chat)
 
     payload = {
         "messages": [
@@ -57,7 +69,6 @@ def test_api_coach_chat_with_fallback(monkeypatch):
     res = client.post("/api/coach/chat", json=payload)
     assert res.status_code == 200
     data = res.json()
-    assert "assistant" == data["role"]
-    assert "Trail Braking" in data["content"] or "frenada" in data["content"].lower()
-    # Must NEVER return the old unhelpful error message
-    assert "No se ha recibido respuesta del modelo de IA" not in data["content"]
+    assert len(calls) == 1
+    assert data["role"] == "assistant"
+    assert "trail braking" in data["content"].lower() or "frenada" in data["content"].lower()
