@@ -205,3 +205,20 @@ def test_local_import_outside_simulator_folders_is_refused(client, tmp_path):
     outside.write_text("time,speed\n0,1\n")
     res = client.post("/api/import/local-file", json={"filepath": str(outside)})
     assert res.status_code == 403
+
+
+def test_chat_context_lists_only_the_corner_numbers_it_was_given():
+    from api.server import ChatRequest, _chat_context
+
+    req = ChatRequest(
+        messages=[],
+        track_name="Monza",
+        car_name="BMW M4 GT3",
+        selected_corner={"corner_number": 1, "name": "T1", "delta_time": 0.2, "v_min_comp": 80, "v_min_ref": 85},
+    )
+    context = _chat_context(req, "en")
+
+    assert "Current track: Monza. Vehicle: BMW M4 GT3." in context
+    assert "Apex minimum speed: 80.0 km/h (Ref: 85.0 km/h, ΔV: -5.0 km/h)." in context
+    assert "Entry speed" not in context
+    assert "Gear at apex" not in context

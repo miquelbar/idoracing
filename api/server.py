@@ -535,106 +535,96 @@ def generate_coach_report(req: AIAdviceRequest):
     return report
 
 
+CHAT_LABELS = {
+    "en": {
+        "prompt": PEP_SYSTEM_PROMPT_EN,
+        "session": "Current track: {track}. Vehicle: {car}.",
+        "unknown_track": "unknown track",
+        "unknown_car": "unknown car",
+        "corner": "Selected corner in telemetry: T{num} ({name}).",
+        "time": "- Time delta: {delta:+.3f}s.",
+        "apex": "- Apex minimum speed",
+        "entry": "- Entry speed",
+        "exit": "- Exit speed",
+        "gear": "- Gear at apex: {gear} ({eval}).",
+        "balance": "- Balance: {eval}.",
+        "trail": "- Trail braking: {eval}.",
+        "line": "- Racing line: {eval}. {advice}",
+        "format": (
+            "Format your answers with structured Markdown: use bold for key terms, short bulleted lists for "
+            "actionable driving points, and clear line breaks. Do not write unformatted dense blocks."
+        ),
+    },
+    "es": {
+        "prompt": PEP_SYSTEM_PROMPT_ES,
+        "session": "Circuito actual: {track}. Vehículo: {car}.",
+        "unknown_track": "circuito desconocido",
+        "unknown_car": "coche desconocido",
+        "corner": "Curva seleccionada en telemetría: T{num} ({name}).",
+        "time": "- Diferencia de tiempo: {delta:+.3f}s.",
+        "apex": "- Velocidad mínima",
+        "entry": "- Velocidad de entrada",
+        "exit": "- Velocidad de salida",
+        "gear": "- Marcha en vértice: {gear} ({eval}).",
+        "balance": "- Balance: {eval}.",
+        "trail": "- Trail braking: {eval}.",
+        "line": "- Trazada: {eval}. {advice}",
+        "format": (
+            "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, listas cortas "
+            "con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato."
+        ),
+    },
+}
+
+
+def _speed_line(label: str, comp: Any, ref: Any) -> str | None:
+    if comp is None or ref is None:
+        return None
+    comp, ref = float(comp), float(ref)
+    return f"{label}: {comp:.1f} km/h (Ref: {ref:.1f} km/h, ΔV: {comp - ref:+.1f} km/h)."
+
+
+def _chat_context(req: ChatRequest, lang: str) -> str:
+    """System prompt for the radio chat: the engineer persona plus the selected corner's numbers."""
+    labels = CHAT_LABELS["en" if lang == "en" else "es"]
+    lines = [
+        labels["prompt"],
+        "",
+        labels["session"].format(
+            track=req.track_name or labels["unknown_track"], car=req.car_name or labels["unknown_car"]
+        ),
+    ]
+    c = req.selected_corner
+    if c:
+        lines.append(labels["corner"].format(num=c.get("corner_number", ""), name=c.get("name", "")))
+        lines.append(labels["time"].format(delta=float(c.get("delta_time") or 0.0)))
+        lines += [
+            line
+            for line in (
+                _speed_line(labels["apex"], c.get("v_min_comp"), c.get("v_min_ref")),
+                _speed_line(labels["entry"], c.get("v_entry_comp"), c.get("v_entry_ref")),
+                _speed_line(labels["exit"], c.get("v_exit_comp"), c.get("v_exit_ref")),
+            )
+            if line
+        ]
+        if c.get("comp_gear") is not None:
+            lines.append(labels["gear"].format(gear=c["comp_gear"], eval=c.get("gear_eval", "")))
+        for key, field in (("balance", "balance_eval"), ("trail", "trail_braking_eval")):
+            if c.get(field):
+                lines.append(labels[key].format(eval=c[field]))
+        if c.get("racing_line_eval"):
+            lines.append(labels["line"].format(eval=c["racing_line_eval"], advice=c.get("racing_line_advice", "")))
+    lines.append(labels["format"])
+    return "\n".join(lines) + "\n"
+
+
 @app.post("/api/coach/chat")
 def chat_with_engineer(req: ChatRequest):
     """Interactive conversational chat with Race Engineer with full telemetry context."""
     lang = (req.lang or "es").lower()
     user_query = req.messages[-1].content if req.messages else ""
 
-    # Build telemetry briefing for the LLM
-    # Build telemetry briefing for the LLM
-    if lang == "en":
-        context_prefix = (
-            PEP_SYSTEM_PROMPT_EN + "\n\n"
-            f"Current track: {req.track_name or 'Active Track'}. Vehicle: {req.car_name or 'Active Car'}.\n"
-        )
-        if req.selected_corner:
-            c = req.selected_corner
-            c_num = c.get("corner_number", "")
-            c_name = c.get("name", f"Turn {c_num}")
-            delta_t = c.get("delta_time", 0.0)
-            delta_sign = "+" if delta_t > 0 else ""
-            vmin_c = float(c.get("v_min_comp") or 0.0)
-            vmin_r = float(c.get("v_min_ref") or 0.0)
-            delta_vmin = round(vmin_c - vmin_r, 1)
-            v_entry_c = c.get("v_entry_comp")
-            v_entry_r = c.get("v_entry_ref")
-            delta_ventry = (
-                round(float(v_entry_c) - float(v_entry_r), 1)
-                if (v_entry_c is not None and v_entry_r is not None)
-                else None
-            )
-            v_exit_c = c.get("v_exit_comp")
-            v_exit_r = c.get("v_exit_ref")
-            delta_vexit = (
-                round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
-            )
-
-            context_prefix += (
-                f"Selected corner in telemetry: T{c_num} ({c_name}).\n"
-                f"- Time delta: {delta_sign}{delta_t:.3f}s.\n"
-                f"- Apex minimum speed: {vmin_c:.1f} km/h (Ref: {vmin_r:.1f} km/h, ΔV: {delta_vmin:+.1f} km/h).\n"
-            )
-            if delta_ventry is not None:
-                context_prefix += f"- Entry speed: {float(v_entry_c):.1f} km/h (Ref: {float(v_entry_r):.1f} km/h, ΔV: {delta_ventry:+.1f} km/h).\n"
-            if delta_vexit is not None:
-                context_prefix += f"- Exit speed: {float(v_exit_c):.1f} km/h (Ref: {float(v_exit_r):.1f} km/h, ΔV: {delta_vexit:+.1f} km/h).\n"
-            context_prefix += (
-                f"- Comp gear: {c.get('comp_gear', 3)} ({c.get('gear_eval', '')}).\n"
-                f"- Balance: {c.get('balance_eval', 'Neutral')}.\n"
-                f"- Trail braking: {c.get('trail_braking_eval', 'Optimal')}.\n"
-                f"- Racing line: {c.get('racing_line_eval', 'Optimal')} — {c.get('racing_line_advice', '')}.\n"
-            )
-        context_prefix += (
-            "Format your answers with structured Markdown: use bold for key terms, "
-            "short bulleted lists for actionable driving points, and clear line breaks. Do not write unformatted dense blocks.\n"
-        )
-    else:
-        context_prefix = (
-            PEP_SYSTEM_PROMPT_ES + "\n\n"
-            f"Circuito actual: {req.track_name or 'Circuito activo'}. Vehículo: {req.car_name or 'Coche activo'}.\n"
-        )
-        if req.selected_corner:
-            c = req.selected_corner
-            c_num = c.get("corner_number", "")
-            c_name = c.get("name", f"Curva {c_num}")
-            delta_t = c.get("delta_time", 0.0)
-            delta_sign = "+" if delta_t > 0 else ""
-            vmin_c = float(c.get("v_min_comp") or 0.0)
-            vmin_r = float(c.get("v_min_ref") or 0.0)
-            delta_vmin = round(vmin_c - vmin_r, 1)
-            v_entry_c = c.get("v_entry_comp")
-            v_entry_r = c.get("v_entry_ref")
-            delta_ventry = (
-                round(float(v_entry_c) - float(v_entry_r), 1)
-                if (v_entry_c is not None and v_entry_r is not None)
-                else None
-            )
-            v_exit_c = c.get("v_exit_comp")
-            v_exit_r = c.get("v_exit_ref")
-            delta_vexit = (
-                round(float(v_exit_c) - float(v_exit_r), 1) if (v_exit_c is not None and v_exit_r is not None) else None
-            )
-
-            context_prefix += (
-                f"Curva seleccionada en telemetría: T{c_num} ({c_name}).\n"
-                f"- Diferencia de tiempo: {delta_sign}{delta_t:.3f}s.\n"
-                f"- Velocidad mínima comp: {vmin_c:.1f} km/h (Ref: {vmin_r:.1f} km/h, ΔV: {delta_vmin:+.1f} km/h).\n"
-            )
-            if delta_ventry is not None:
-                context_prefix += f"- Velocidad de entrada: {float(v_entry_c):.1f} km/h (Ref: {float(v_entry_r):.1f} km/h, ΔV: {delta_ventry:+.1f} km/h).\n"
-            if delta_vexit is not None:
-                context_prefix += f"- Velocidad de salida: {float(v_exit_c):.1f} km/h (Ref: {float(v_exit_r):.1f} km/h, ΔV: {delta_vexit:+.1f} km/h).\n"
-            context_prefix += (
-                f"- Marcha comp: {c.get('comp_gear', 3)}ª ({c.get('gear_eval', '')}).\n"
-                f"- Balance: {c.get('balance_eval', 'Neutro')}.\n"
-                f"- Trail braking: {c.get('trail_braking_eval', 'Óptimo')}.\n"
-                f"- Trazada: {c.get('racing_line_eval', 'Óptima')} — {c.get('racing_line_advice', '')}.\n"
-            )
-        context_prefix += (
-            "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, "
-            "listas cortas con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato.\n"
-        )
+    context_prefix = _chat_context(req, lang)
 
     messages = [{"role": "system", "content": context_prefix}]
     for m in req.messages:
