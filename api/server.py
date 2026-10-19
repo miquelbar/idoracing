@@ -32,9 +32,12 @@ from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
 from storage.database import Storage
 
-ACC_MOTEC_DIR = os.path.expanduser(
-    "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC"
+ACC_DOCUMENTS_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents"
 )
+ACC_MOTEC_DIR = os.path.join(ACC_DOCUMENTS_DIR, "Assetto Corsa Competizione", "MoTeC")
+# Where idoracing-recorder writes by default when it runs inside ACC's Proton prefix.
+ACC_RECORDINGS_DIR = os.path.join(ACC_DOCUMENTS_DIR, "IdoRacing", "recordings")
 LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
@@ -650,9 +653,11 @@ def autodiscover_files():
     acc_path = ACC_MOTEC_DIR
     lmu_res_path = LMU_RESULTS_DIR
 
-    acc_files = []
-    if os.path.exists(acc_path):
-        acc_files = glob.glob(os.path.join(acc_path, "*.ld"))
+    acc_files = sorted(
+        glob.glob(os.path.join(acc_path, "*.ld")) + glob.glob(os.path.join(ACC_RECORDINGS_DIR, "*.csv")),
+        key=os.path.getmtime,
+        reverse=True,
+    )
 
     lmu_files = []
     if os.path.exists(lmu_res_path):
@@ -685,7 +690,7 @@ def _parse_telemetry_file(filepath: str) -> Session:
 @app.post("/api/import/local-file")
 def import_local_file(req: LocalImportRequest):
     filepath = os.path.realpath(req.filepath)
-    allowed_dirs = [os.path.realpath(d) for d in (ACC_MOTEC_DIR, LMU_RESULTS_DIR)]
+    allowed_dirs = [os.path.realpath(d) for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR)]
     if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
         raise HTTPException(
             status_code=403, detail="Only files from the simulator telemetry folders can be imported by path"
