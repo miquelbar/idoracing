@@ -7,7 +7,6 @@ OpenAI/OpenRouter integration, and closed-loop circuit track maps.
 from contextlib import asynccontextmanager
 import glob
 import os
-import shutil
 import struct
 import tempfile
 from typing import Any, Dict, List, Literal, Optional
@@ -15,7 +14,6 @@ import xml.etree.ElementTree as ET
 import numpy as np
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -33,6 +31,13 @@ from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
 from importers.synthetic import create_synthetic_session
 from storage.database import Storage
+
+ACC_MOTEC_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC"
+)
+LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024
+
 
 storage = Storage()
 
@@ -58,9 +63,8 @@ async def lifespan(app: FastAPI):
         storage.save_session(synth)
 
         # Auto-import newest detected LMU session if available
-        lmu_path = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
-        if os.path.exists(lmu_path):
-            xmls = sorted(glob.glob(os.path.join(lmu_path, "*.xml")), key=os.path.getmtime, reverse=True)
+        if os.path.exists(LMU_RESULTS_DIR):
+            xmls = sorted(glob.glob(os.path.join(LMU_RESULTS_DIR, "*.xml")), key=os.path.getmtime, reverse=True)
             for xf in xmls[:2]:
                 try:
                     imp = LMUImporter(xf)
@@ -78,13 +82,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # --- DTO Models ---
@@ -259,10 +256,14 @@ def update_settings(cfg: SettingsDTO):
     llm_client.ollama_base_url = cfg.ollama_base_url
     llm_client.ollama.base_url = cfg.ollama_base_url.rstrip("/")
 
-    if cfg.openai_api_key and cfg.openai_api_key != "***":
-        llm_client.openai_api_key = cfg.openai_api_key.strip()
-    if cfg.openai_base_url:
-        llm_client.openai_base_url = cfg.openai_base_url.strip().rstrip("/")
+    new_key = cfg.openai_api_key.strip() if cfg.openai_api_key and cfg.openai_api_key != "***" else None
+    new_base_url = cfg.openai_base_url.strip().rstrip("/") if cfg.openai_base_url else None
+    if new_base_url and new_base_url != llm_client.openai_base_url:
+        # The stored key must never travel to a host it was not entered for.
+        llm_client.openai_api_key = ""
+        llm_client.openai_base_url = new_base_url
+    if new_key:
+        llm_client.openai_api_key = new_key
     if cfg.openai_model:
         llm_client.openai_model = cfg.openai_model.strip()
 
@@ -642,12 +643,8 @@ def chat_with_engineer(req: ChatRequest):
 
 @app.get("/api/autodiscover")
 def autodiscover_files():
-    acc_path = os.path.expanduser(
-        "~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC"
-    )
-    lmu_res_path = os.path.expanduser(
-        "~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results"
-    )
+    acc_path = ACC_MOTEC_DIR
+    lmu_res_path = LMU_RESULTS_DIR
 
     acc_files = []
     if os.path.exists(acc_path):
@@ -683,7 +680,10 @@ def _parse_telemetry_file(filepath: str) -> Session:
 
 @app.post("/api/import/local-file")
 def import_local_file(req: LocalImportRequest):
-    filepath = req.filepath
+    filepath = os.path.realpath(req.filepath)
+    allowed_dirs = [os.path.realpath(d) for d in (ACC_MOTEC_DIR, LMU_RESULTS_DIR)]
+    if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
+        raise HTTPException(status_code=403, detail="Only files from the simulator telemetry folders can be imported by path")
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="File not found on system")
 
@@ -706,7 +706,12 @@ async def upload_telemetry_file(file: UploadFile = File(...)):
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = os.path.join(tmpdir, f"{stem}{ext.lower()}")
         with open(tmp_path, "wb") as tmp:
-            shutil.copyfileobj(file.file, tmp)
+            written = 0
+            while chunk := file.file.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="File is larger than 512 MB")
+                tmp.write(chunk)
         session = _parse_telemetry_file(tmp_path)
 
     storage.save_session(session)

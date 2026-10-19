@@ -167,3 +167,38 @@ def test_coach_report_on_lap_times_only_session_has_low_confidence(client):
 
     assert report["confidence"].startswith("Baja")
     assert "Brake Bias" not in report["raw_report"]
+
+
+@pytest.fixture
+def restore_llm_settings():
+    from api.server import llm_client
+
+    saved = (dict(vars(llm_client)), dict(vars(llm_client.ollama)))
+    yield llm_client
+    vars(llm_client).update(saved[0])
+    vars(llm_client.ollama).update(saved[1])
+
+
+def test_changing_the_provider_url_drops_the_stored_key(client, restore_llm_settings):
+    llm_client = restore_llm_settings
+    llm_client.openai_api_key = "sk-test"
+    llm_client.openai_base_url = "https://api.openai.com/v1"
+    res = client.post("/api/settings", json={"provider": "openai", "openai_api_key": "***", "openai_base_url": "https://elsewhere.example/v1"})
+
+    assert res.status_code == 200
+    assert llm_client.openai_api_key == ""
+
+
+def test_cross_origin_requests_get_no_cors_grant(client):
+    res = client.options(
+        "/api/settings",
+        headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
+    )
+    assert "access-control-allow-origin" not in res.headers
+
+
+def test_local_import_outside_simulator_folders_is_refused(client, tmp_path):
+    outside = tmp_path / "secrets.csv"
+    outside.write_text("time,speed\n0,1\n")
+    res = client.post("/api/import/local-file", json={"filepath": str(outside)})
+    assert res.status_code == 403

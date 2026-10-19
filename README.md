@@ -189,12 +189,12 @@ ollama pull qwen3.8:27b-32k
 #### 5. Launch IdoRacing Analytics
 ```bash
 source .venv/bin/activate
-uvicorn api.server:app --host 0.0.0.0 --port 8501
+uvicorn api.server:app --host 127.0.0.1 --port 8501
 ```
 
-Open your browser at:
-- **Local**: `http://localhost:8501`
-- **Home Network (LAN)**: `http://<your-ip>:8501`
+Open your browser at `http://localhost:8501`.
+
+The API has no authentication. Binding to `0.0.0.0` makes it reachable from your LAN, including the settings endpoint that holds your cloud API key; only do that on a network you trust.
 
 ---
 

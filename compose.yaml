@@ -6,8 +6,8 @@ services:
     container_name: idoracing-analytics
     restart: unless-stopped
     ports:
-      # Accessible locally and from your LAN
-      - "8501:8501"
+      # Local only. The API has no authentication; use "8501:8501" to open it to your LAN.
+      - "127.0.0.1:8501:8501"
     environment:
       - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
