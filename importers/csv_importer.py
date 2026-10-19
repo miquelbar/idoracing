@@ -1,6 +1,7 @@
 """
 CSV Telemetry Importer for IdoRacing Analytics.
-Allows importing telemetry data exported from MoTeC i2, third-party apps, or synthetic logs.
+Reads telemetry exported from MoTeC i2, third-party apps or the IdoRacing recorder. Leading
+"# key: value" lines carry session metadata (simulator, track, car), as the recorder writes them.
 """
 
 import os
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from domain.session import Lap, Session
+from importers.laps import mark_partial_laps_invalid, without_boundary_wrap
 
 
 class CSVImporter:
@@ -23,7 +25,11 @@ class CSVImporter:
         "lat_accel": ["lat_accel", "g force lat", "g_lat", "glat", "lateral_acceleration"],
         "long_accel": ["long_accel", "g force long", "g_lon", "glong", "longitudinal_acceleration"],
         "time": ["time", "lap time", "elapsed time", "timestamp"],
-        "distance": ["distance", "lap distance", "track distance", "dist"],
+        "distance": ["distance", "track distance", "dist"],
+        "lap_distance": ["lap_distance", "lap distance"],
+        "x": ["x", "pos_x", "car coord x"],
+        "y": ["y", "pos_y", "car coord y"],
+        "lap_valid": ["lap_valid"],
         "steer_angle": ["steer_angle", "steered angle", "steerangle", "steering"],
         "rpm": ["rpm", "rpms", "engine rpm", "engine_rpm"],
         "lap": ["lap", "lap number", "lap_number"],
@@ -38,8 +44,8 @@ class CSVImporter:
 
     def parse(self) -> Session:
         """Parse CSV file and construct a Session object."""
-        # Detect delimiter and potential unit row
-        df = pd.read_csv(self.filepath)
+        metadata = self._read_metadata()
+        df = pd.read_csv(self.filepath, comment="#")
 
         # Check if row 0 has units (e.g. non-numeric while row 1 is numeric)
         if len(df) > 1 and df.iloc[0].dtype == object:
@@ -47,7 +53,7 @@ class CSVImporter:
                 pd.to_numeric(df.iloc[0].dropna())
             except (ValueError, TypeError):
                 # Row 0 likely contains units, skip it and reload
-                df = pd.read_csv(self.filepath, skiprows=[1])
+                df = pd.read_csv(self.filepath, comment="#", skiprows=[1])
 
         # Normalize column names
         normalized_cols = {col: col.strip().lower() for col in df.columns}
@@ -63,6 +69,12 @@ class CSVImporter:
             if matched_col is not None:
                 numeric_series = pd.to_numeric(df[matched_col], errors="coerce").fillna(0.0)
                 telemetry[canonical] = numeric_series.tolist()
+
+        # Lap distance is a position along the track, so laps keep it as recorded instead of starting at 0.
+        track_position = "lap_distance" in telemetry
+        if track_position:
+            telemetry["distance"] = telemetry.pop("lap_distance")
+        lap_valid = telemetry.pop("lap_valid", None)
 
         # If required channels are missing, provide sane defaults
         n_samples = len(df)
@@ -94,20 +106,25 @@ class CSVImporter:
                 if len(indices) < 20:
                     continue
                 lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
-                for channel in ("time", "distance"):
-                    if channel in lap_telemetry:
-                        origin = lap_telemetry[channel][0]
-                        lap_telemetry[channel] = [v - origin for v in lap_telemetry[channel]]
+                t0 = lap_telemetry["time"][0]
+                lap_telemetry["time"] = [v - t0 for v in lap_telemetry["time"]]
+                if track_position:
+                    lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
+                else:
+                    d0 = lap_telemetry["distance"][0]
+                    lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
                 laps.append(
                     Lap(
                         lap_number=int(l_num),
                         lap_time=lap_time,
-                        is_valid=True,
+                        is_valid=lap_valid is None or all(lap_valid[idx] >= 1 for idx in indices),
                         telemetry=lap_telemetry,
                     )
                 )
+            if track_position:
+                mark_partial_laps_invalid(laps)
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:
@@ -126,10 +143,22 @@ class CSVImporter:
 
         return Session(
             session_id=session_id,
-            car=self.car,
-            track=self.track,
+            car=metadata.get("car", self.car),
+            track=metadata.get("track", self.track),
             date=datetime.now(),
             telemetry=telemetry,
             laps=laps,
             source_file=self.filepath,
+            simulator=metadata.get("simulator"),
         )
+
+    def _read_metadata(self) -> dict[str, str]:
+        metadata: dict[str, str] = {}
+        with open(self.filepath, encoding="utf-8") as f:
+            for line in f:
+                if not line.startswith("#"):
+                    break
+                key, sep, value = line[1:].partition(":")
+                if sep:
+                    metadata[key.strip()] = value.strip()
+        return metadata
