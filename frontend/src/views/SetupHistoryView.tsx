@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Calendar,
   ChevronRight,
@@ -32,25 +32,22 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedCompLapNum, setSelectedCompLapNum] = useState<number | null>(null);
 
-  const loadData = async (compLap?: number) => {
+  const loadData = useCallback(async (compLap?: number) => {
     try {
       setLoading(true);
       setError(null);
       const hist = await fetchLapHistory(selectedSessionId || undefined, compLap);
       setHistoryData(hist);
-      if (hist.comparison_lap && selectedCompLapNum === null) {
-        setSelectedCompLapNum(hist.comparison_lap.lap_number);
-      }
     } catch (err) {
-      setError(errorMessage(err, 'Error cargando datos de setup e historial'));
+      setError(errorMessage(err, 'Error cargando el historial de vueltas'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSessionId]);
 
   useEffect(() => {
-    loadData(selectedCompLapNum || undefined);
-  }, [selectedSessionId, selectedCompLapNum]);
+    loadData(selectedCompLapNum ?? undefined);
+  }, [loadData, selectedCompLapNum]);
 
   if (loading && !historyData) {
     return (

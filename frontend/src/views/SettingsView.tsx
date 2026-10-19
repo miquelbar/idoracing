@@ -20,7 +20,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSaved }) => {
   const { t } = useLanguage();
   const [provider, setProvider] = useState<'ollama' | 'openai'>('ollama');
-  const [ollamaModel, setOllamaModel] = useState('qwen3.8:27b-32k');
+  const [ollamaModel, setOllamaModel] = useState('');
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
 
   const [openaiApiKey, setOpenaiApiKey] = useState('');
@@ -31,15 +31,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  useEffect(() => {
-    loadCurrentSettings();
-  }, []);
-
   const loadCurrentSettings = async () => {
     try {
       const cfg = await fetchSettings();
       setProvider(cfg.provider === 'openai' ? 'openai' : 'ollama');
-      setOllamaModel(cfg.ollama_model || 'qwen3.8:27b-32k');
+      setOllamaModel(cfg.ollama_model);
       setOllamaBaseUrl(cfg.ollama_base_url || 'http://localhost:11434');
       setOpenaiApiKey(cfg.openai_api_key || '');
       setOpenaiBaseUrl(cfg.openai_base_url || 'https://api.openai.com/v1');
@@ -48,6 +44,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    loadCurrentSettings();
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -45,7 +45,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   const formatPostApex = (metres: number | null) => (metres === null ? '—' : `+${metres}m ${t('post_apex_meters')}`);
   const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
   const [hoveredCornerNum, setHoveredCornerNum] = useState<number | null>(null);
-  const corners = comparison.corners || [];
+  const corners = comparison.corners;
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pillRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});

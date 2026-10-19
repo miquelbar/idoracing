@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { Activity, RotateCcw } from 'lucide-react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
 import { useLanguage } from '../i18n';
@@ -63,10 +63,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
   const chartWidth = width - padLeft - padRight;
 
-  const toX = (dist: number) => {
-    const span = domainMax - domainMin || 1;
-    return padLeft + ((dist - domainMin) / span) * chartWidth;
-  };
+  const toX = useCallback(
+    (dist: number) => {
+      const span = domainMax - domainMin || 1;
+      return padLeft + ((dist - domainMin) / span) * chartWidth;
+    },
+    [domainMin, domainMax, chartWidth]
+  );
 
   const toDist = (svgX: number) => {
     const ratio = Math.max(0, Math.min(1, (svgX - padLeft) / chartWidth));
@@ -274,7 +277,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       maxSpeed: maxSpeedVal,
       maxDelta: maxDeltaVal,
     };
-  }, [comparison, filteredIndices, domainMin, domainMax, hoverDistance]);
+  }, [comparison, filteredIndices, toX, hoverDistance]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
