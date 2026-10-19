@@ -7,6 +7,28 @@ from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
 logger = logging.getLogger(__name__)
 
+CHANNEL_MAP = {
+    "speed": ["SPEED", "Corr Speed", "speed", "Ground Speed"],
+    "throttle": ["Throttle Pos", "THROTTLE", "throttle", "Accel Pedal Pos"],
+    "brake": ["Brake Pos", "BRAKE", "brake", "Brake Pedal Pos"],
+    "gear": ["GEAR", "gear", "Current Gear"],
+    "lat_accel": ["G Force Lat", "G_LAT", "glat", "lat_accel", "Lateral Accel"],
+    "long_accel": ["G Force Long", "G_LON", "glong", "long_accel", "Longitudinal Accel"],
+    "steer_angle": ["Steered Angle", "STEERANGLE", "steer_angle", "Steering Angle"],
+    "rpm": ["Engine RPM", "RPMS", "rpm"],
+    "distance": ["Distance", "Lap Distance", "LAP_DIST", "distance"],
+}
+REQUIRED_CHANNELS = ("speed", "throttle", "brake", "gear", "lat_accel", "long_accel")
+
+# A lap-distance channel drops back to ~0 at the line; anything smaller is GPS noise.
+LAP_RESET_DROP_M = 500.0
+
+
+def _resample(values: np.ndarray, n: int) -> np.ndarray:
+    if len(values) == n:
+        return values
+    return np.interp(np.linspace(0.0, 1.0, n), np.linspace(0.0, 1.0, len(values)), values)
+
 
 class MoTeCImporter:
     """
@@ -40,68 +62,90 @@ class MoTeCImporter:
             raise ValueError(f"Unsupported format: {self.file_path}")
 
         ld_parser = MoTeCLDParser(self.file_path).parse()
-        telemetry: Dict[str, List[float]] = {}
+        telemetry = self._canonical_telemetry(ld_parser.channels)
 
-        # Canonical channel mapping for ACC/LMU MoTeC logs
-        channel_map = {
-            "speed": ["SPEED", "Corr Speed", "speed", "Ground Speed"],
-            "throttle": ["Throttle Pos", "THROTTLE", "throttle", "Accel Pedal Pos"],
-            "brake": ["Brake Pos", "BRAKE", "brake", "Brake Pedal Pos"],
-            "gear": ["GEAR", "gear", "Current Gear"],
-            "lat_accel": ["G Force Lat", "G_LAT", "glat", "lat_accel", "Lateral Accel"],
-            "long_accel": ["G Force Long", "G_LON", "glong", "long_accel", "Longitudinal Accel"],
-            "steer_angle": ["Steered Angle", "STEERANGLE", "steer_angle", "Steering Angle"],
-            "rpm": ["Engine RPM", "RPMS", "rpm"],
-            "distance": ["Distance", "Lap Distance", "LAP_DIST", "distance"],
-        }
-
-        for canonical, names in channel_map.items():
-            found = False
-            for n in names:
-                if n in ld_parser.channels:
-                    telemetry[canonical] = ld_parser.channels[n].data.tolist()
-                    found = True
-                    break
-            if not found:
-                # Default placeholder if specific channel is absent
-                if canonical in ["speed", "throttle", "brake", "gear", "lat_accel", "long_accel"]:
-                    telemetry[canonical] = [0.0] * 10
-
-        # Auto-detect GPS Latitude / Longitude or Local Cartesian Position
         x_coords, y_coords = self._extract_spatial_coordinates(ld_parser.channels)
         if x_coords is not None and y_coords is not None:
-            telemetry["x"] = x_coords
-            telemetry["y"] = y_coords
-            logger.info(f"Extracted {len(x_coords)} native spatial coordinates from MoTeC telemetry")
+            n = len(telemetry["time"])
+            telemetry["x"] = _resample(np.asarray(x_coords), n).tolist()
+            telemetry["y"] = _resample(np.asarray(y_coords), n).tolist()
 
-        # Check for companion .ldx file
         ldx_path = os.path.splitext(self.file_path)[0] + ".ldx"
-        laps: List[Lap] = []
-        if os.path.exists(ldx_path):
-            ldx_parser = MoTeCLDXParser(ldx_path).parse()
-            for lap_info in ldx_parser.laps:
-                laps.append(Lap(
-                    lap_number=lap_info["lap_number"],
-                    lap_time=lap_info["lap_time"],
-                    start_time=lap_info.get("start_time"),
-                    end_time=lap_info.get("end_time"),
-                    is_valid=True,
-                ))
+        ldx_laps = MoTeCLDXParser(ldx_path).parse().laps if os.path.exists(ldx_path) else []
+        laps = self._split_laps(telemetry, ldx_laps)
 
-        car_name = ld_parser.vehicle if ld_parser.vehicle else "Porsche 911 GT3 R (992)"
-        track_name = ld_parser.venue if ld_parser.venue else "Ricardo Tormo de Valencia"
         filename = os.path.basename(self.file_path)
-        session_id = os.path.splitext(filename)[0]
-
         return Session(
-            session_id=session_id,
-            car=car_name,
-            track=track_name,
+            session_id=os.path.splitext(filename)[0],
+            car=ld_parser.vehicle or "Unknown car",
+            track=ld_parser.venue or "Unknown track",
             date=ld_parser.date_time,
             telemetry=telemetry,
             laps=laps,
             source_file=self.file_path,
         )
+
+    def _canonical_telemetry(self, channels: Dict[str, Any]) -> Dict[str, List[float]]:
+        """Map MoTeC channel names to canonical ones, resampled to the speed channel's rate.
+
+        ACC logs pedals in percent, so they are rescaled to 0-1 when they exceed 1.5.
+        """
+        base = next((channels[n] for n in CHANNEL_MAP["speed"] if n in channels), None)
+        if base is None or len(base.data) == 0:
+            raise ValueError("MoTeC file has no speed channel")
+        n = len(base.data)
+
+        telemetry: Dict[str, List[float]] = {"time": (np.arange(n) / float(base.freq)).tolist()}
+        for canonical, names in CHANNEL_MAP.items():
+            chan = next((channels[name] for name in names if name in channels), None)
+            if chan is None or len(chan.data) == 0:
+                if canonical in REQUIRED_CHANNELS:
+                    # The domain model requires these channels; an absent one reads as zero.
+                    telemetry[canonical] = [0.0] * n
+                continue
+            values = _resample(np.asarray(chan.data, dtype=np.float64), n)
+            if canonical in ("throttle", "brake") and float(np.max(values)) > 1.5:
+                values = values / 100.0
+            telemetry[canonical] = values.tolist()
+        return telemetry
+
+    def _split_laps(self, telemetry: Dict[str, List[float]], ldx_laps: List[Dict[str, Any]]) -> List[Lap]:
+        """Cut session channels into laps using .ldx markers, else lap-distance resets."""
+        time = np.asarray(telemetry["time"])
+        bounds: List[Tuple[int, int, int]] = []
+
+        if ldx_laps:
+            for info in ldx_laps:
+                start = int(np.searchsorted(time, info["start_time"]))
+                end = int(np.searchsorted(time, info["end_time"]))
+                bounds.append((info["lap_number"], start, end))
+        elif "distance" in telemetry:
+            dist = np.asarray(telemetry["distance"])
+            resets = (np.where(np.diff(dist) < -LAP_RESET_DROP_M)[0] + 1).tolist()
+            edges = [0] + resets + [len(dist)]
+            bounds = [(i + 1, edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
+        else:
+            bounds = [(1, 0, len(time))]
+
+        laps: List[Lap] = []
+        for lap_number, start, end in bounds:
+            if end - start < 2:
+                continue
+            lap_telemetry = {k: v[start:end] for k, v in telemetry.items()}
+            t0 = lap_telemetry["time"][0]
+            lap_telemetry["time"] = [t - t0 for t in lap_telemetry["time"]]
+            if "distance" in lap_telemetry:
+                d0 = lap_telemetry["distance"][0]
+                lap_telemetry["distance"] = [d - d0 for d in lap_telemetry["distance"]]
+            laps.append(Lap(
+                lap_number=lap_number,
+                lap_time=round(float(time[end - 1] - time[start]), 3),
+                is_valid=True,
+                telemetry=lap_telemetry,
+                start_time=float(time[start]),
+                end_time=float(time[end - 1]),
+            ))
+        return laps
 
     def get_session_summary(self) -> SessionSummary:
         """

@@ -94,3 +94,72 @@ def test_world_position_uses_the_flattest_axis_as_elevation(ld_file):
 
     assert x[1] == pytest.approx(0.0)
     assert y == pytest.approx([-20.0, 0.0, 20.0])
+
+
+def _write_ld(path, channels, freq=20):
+    path.write_bytes(
+        create_synthetic_ld_bytes(
+            driver="Test Driver",
+            vehicle="BMW M4 GT3",
+            venue="Monza",
+            date_time=datetime(2026, 10, 18, 14, 30, 0),
+            channels_data={k: np.asarray(v, dtype=np.float32) for k, v in channels.items()},
+            freq=freq,
+        )
+    )
+
+
+def _flat_channels(n):
+    return {
+        "SPEED": np.full(n, 150.0),
+        "THROTTLE": np.full(n, 0.8),
+        "BRAKE": np.zeros(n),
+        "GEAR": np.full(n, 4.0),
+        "G Force Lat": np.zeros(n),
+        "G Force Long": np.zeros(n),
+    }
+
+
+def test_laps_are_cut_from_ldx_markers(tmp_path):
+    ld = tmp_path / "stint.ld"
+    _write_ld(ld, _flat_channels(1200), freq=20)
+    (tmp_path / "stint.ldx").write_text(
+        '<LDXFile><Layers><Layer><Markers>'
+        '<Marker Time="0.0" Lap="0" />'
+        '<Marker Time="25.0" Lap="1" />'
+        '<Marker Time="55.0" Lap="2" />'
+        '</Markers></Layer></Layers></LDXFile>'
+    )
+
+    session = MoTeCImporter(str(ld)).parse()
+
+    assert [lap.lap_number for lap in session.laps] == [1, 2]
+    lap2 = session.laps[1]
+    assert lap2.lap_time == pytest.approx(30.0, abs=0.1)
+    assert len(lap2.telemetry["speed"]) == pytest.approx(600, abs=2)
+    assert lap2.telemetry["time"][0] == 0.0
+
+
+def test_laps_are_cut_where_lap_distance_resets(tmp_path):
+    n = 300
+    channels = _flat_channels(n)
+    channels["Lap Distance"] = np.concatenate([np.linspace(0, 4000, 100), np.linspace(0, 4000, 200)])
+    ld = tmp_path / "stint.ld"
+    _write_ld(ld, channels)
+
+    session = MoTeCImporter(str(ld)).parse()
+
+    assert len(session.laps) == 2
+    assert session.laps[1].telemetry["distance"][0] == 0.0
+    assert len(session.laps[1].telemetry["speed"]) == 200
+
+
+def test_percent_pedals_are_rescaled_to_unit_range(tmp_path):
+    channels = _flat_channels(50)
+    channels["THROTTLE"] = np.full(50, 80.0)
+    ld = tmp_path / "pct.ld"
+    _write_ld(ld, channels)
+
+    session = MoTeCImporter(str(ld)).parse()
+
+    assert max(session.telemetry["throttle"]) == pytest.approx(0.8)
