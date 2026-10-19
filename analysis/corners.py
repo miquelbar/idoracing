@@ -323,8 +323,9 @@ def generate_racing_line_svg(
     comp_min_speed: float,
 ) -> Dict[str, Any]:
     """
-    Generate parametric SVG path geometries representing actual vs optimal racing lines.
-    Coordinates calibrated for 440x220 canvas.
+    Schematic SVG paths for a 440x220 canvas: a fixed reference line and one of three stock
+    shapes for the driven line (understeer, early apex, on line). The shapes are illustrations
+    picked by the diagnosis, not the measured trajectory.
     """
     if turn_dir == "left":
         # Curva a Izquierdas: entrada por la derecha inferior, ápice a la izquierda, salida superior derecha/centro
@@ -340,11 +341,11 @@ def generate_racing_line_svg(
         if has_subviraje:
             # Subviraje: entra bien pero morro desliza hacia fuera del ápice
             actual_line = "M 380,210 C 370,140 240,65 58,55"
-            apex_comp = {"x": 242, "y": 70, "label": f"Ápice Desplazado (+1.8m) {comp_min_speed:.0f} km/h"}
+            apex_comp = {"x": 242, "y": 70, "label": f"Ápice Desplazado {comp_min_speed:.0f} km/h"}
         elif apex_dist_delta < -8.0:
             # Vértice prematuro: se mete antes de tiempo al interior y luego sale forzado
             actual_line = "M 360,210 C 320,135 180,110 58,72"
-            apex_comp = {"x": 185, "y": 108, "label": f"Ápice Prematuro (-12m) {comp_min_speed:.0f} km/h"}
+            apex_comp = {"x": 185, "y": 108, "label": f"Ápice Prematuro {comp_min_speed:.0f} km/h"}
         else:
             actual_line = "M 380,208 C 372,132 212,94 58,37"
             apex_comp = {"x": 210, "y": 95, "label": f"Ápice {comp_min_speed:.0f} km/h"}
@@ -361,10 +362,10 @@ def generate_racing_line_svg(
 
         if has_subviraje:
             actual_line = "M 60,210 C 70,140 200,65 382,55"
-            apex_comp = {"x": 198, "y": 70, "label": f"Ápice Desplazado (+1.8m) {comp_min_speed:.0f} km/h"}
+            apex_comp = {"x": 198, "y": 70, "label": f"Ápice Desplazado {comp_min_speed:.0f} km/h"}
         elif apex_dist_delta < -8.0:
             actual_line = "M 80,210 C 120,135 260,110 382,72"
-            apex_comp = {"x": 255, "y": 108, "label": f"Ápice Prematuro (-12m) {comp_min_speed:.0f} km/h"}
+            apex_comp = {"x": 255, "y": 108, "label": f"Ápice Prematuro {comp_min_speed:.0f} km/h"}
         else:
             actual_line = "M 60,208 C 68,132 228,94 382,37"
             apex_comp = {"x": 230, "y": 95, "label": f"Ápice {comp_min_speed:.0f} km/h"}
