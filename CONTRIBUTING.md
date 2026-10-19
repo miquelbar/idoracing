@@ -22,9 +22,10 @@ Thank you for your interest in contributing to IdoRacing Analytics!
    pytest
    ```
 
-4. Launch the local development server:
+4. Launch the API and the frontend dev server (Vite proxies `/api` to port 8501):
    ```bash
-   streamlit run app.py
+   uvicorn api.server:app --reload --port 8501
+   cd frontend && npm install && npm run dev
    ```
 
 ## Guidelines

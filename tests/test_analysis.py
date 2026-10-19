@@ -82,26 +82,6 @@ def test_compare_laps_full():
     assert comp.time_delta_profile is not None
 
 
-def test_ui_figures_generation():
-    from ui.components import build_evolution_figure, build_track_map_figure
-    from storage.database import Storage
-    import tempfile
-    import os
-
-    session = create_synthetic_session()
-    with tempfile.TemporaryDirectory() as tmpdir:
-        st = Storage(os.path.join(tmpdir, "test.db"))
-        st.save_session(session)
-        summaries = st.list_sessions()
-        fig_evo = build_evolution_figure(summaries)
-        assert fig_evo is not None
-
-    aligned = align_laps_by_distance(session.laps[1].telemetry, session.laps[2].telemetry)
-    corners = extract_corners_analysis(aligned)
-    fig_map = build_track_map_figure(aligned, corners)
-    assert fig_map is not None
-
-
 def test_sebring_multitrack_corners_and_telemetry():
     from analysis.tracks import get_track_corners, get_track_length
     from analysis.telemetry_generator import generate_lap_telemetry_for_track
