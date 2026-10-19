@@ -86,14 +86,18 @@ class CornerAnalysis(BaseModel):
     throttle_delta_dist: Optional[float] = None
     diagnosis: str = ""
     trail_eval: Optional[str] = "Óptimo"
+    trail_code: str = "neutral"
     trail_advice: Optional[str] = None
     ref_gear: int = 0
     comp_gear: int = 0
     gear_eval: str = "Óptima"
+    gear_code: str = "match"
     gear_advice: str = ""
     balance_eval: str = "Equilibrio Neutro"
+    balance_code: str = "neutral"
     balance_advice: str = ""
     racing_line_eval: str = "Trazada Óptima"
+    racing_line_code: str = "optimal"
     racing_line_advice: str = ""
     racing_line_svg: Optional[Dict[str, Any]] = None
 

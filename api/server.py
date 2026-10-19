@@ -127,16 +127,20 @@ class CornerDTO(BaseModel):
     throttle_pickup_delta: float
     diagnosis: str
     severity: str
-    trail_braking_eval: Optional[str] = "Óptimo"
+    trail_braking_eval: Optional[str]
+    trail_braking_code: str
     trail_braking_advice: Optional[str] = None
-    ref_gear: int = 3
-    comp_gear: int = 3
-    gear_eval: str = "Óptima"
-    gear_advice: str = ""
-    balance_eval: str = "Equilibrio Neutro"
-    balance_advice: str = ""
-    racing_line_eval: str = "Trazada Óptima"
-    racing_line_advice: str = ""
+    ref_gear: int
+    comp_gear: int
+    gear_eval: str
+    gear_code: str
+    gear_advice: str
+    balance_eval: str
+    balance_code: str
+    balance_advice: str
+    racing_line_eval: str
+    racing_line_code: str
+    racing_line_advice: str
     racing_line_svg: Optional[Dict[str, Any]] = None
 
 
@@ -359,29 +363,33 @@ def get_lap_comparison(
                 apex_distance=(c.start_dist + c.end_dist) / 2.0,
                 v_min_ref=round(c.ref_min_speed, 1),
                 v_min_comp=round(c.comp_min_speed, 1),
-                delta_v_min=round(getattr(c, "delta_v_min", c.comp_min_speed - c.ref_min_speed), 1),
-                v_entry_ref=round(c.ref_entry_speed, 1) if getattr(c, "ref_entry_speed", None) is not None else None,
-                v_entry_comp=round(c.comp_entry_speed, 1) if getattr(c, "comp_entry_speed", None) is not None else None,
-                delta_v_entry=round(c.delta_v_entry, 1) if getattr(c, "delta_v_entry", None) is not None else None,
-                v_exit_ref=round(c.ref_exit_speed, 1) if getattr(c, "ref_exit_speed", None) is not None else None,
-                v_exit_comp=round(c.comp_exit_speed, 1) if getattr(c, "comp_exit_speed", None) is not None else None,
-                delta_v_exit=round(c.delta_v_exit, 1) if getattr(c, "delta_v_exit", None) is not None else None,
+                delta_v_min=round(c.delta_v_min, 1),
+                v_entry_ref=round(c.ref_entry_speed, 1),
+                v_entry_comp=round(c.comp_entry_speed, 1),
+                delta_v_entry=round(c.delta_v_entry, 1),
+                v_exit_ref=round(c.ref_exit_speed, 1),
+                v_exit_comp=round(c.comp_exit_speed, 1),
+                delta_v_exit=round(c.delta_v_exit, 1),
                 delta_time=round(c.time_delta_corner, 3),
                 braking_point_delta=round(c.brake_delta_dist or 0.0, 1),
                 throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
                 diagnosis=c.diagnosis or "Trazada óptima en el segmento.",
                 severity=severity,
-                trail_braking_eval=getattr(c, "trail_eval", "Óptimo"),
-                trail_braking_advice=getattr(c, "trail_advice", None),
-                ref_gear=getattr(c, "ref_gear", 3),
-                comp_gear=getattr(c, "comp_gear", 3),
-                gear_eval=getattr(c, "gear_eval", "Marcha Óptima"),
-                gear_advice=getattr(c, "gear_advice", ""),
-                balance_eval=getattr(c, "balance_eval", "Equilibrio Neutro"),
-                balance_advice=getattr(c, "balance_advice", ""),
-                racing_line_eval=getattr(c, "racing_line_eval", "Trazada Óptima"),
-                racing_line_advice=getattr(c, "racing_line_advice", ""),
-                racing_line_svg=getattr(c, "racing_line_svg", None),
+                trail_braking_eval=c.trail_eval,
+                trail_braking_code=c.trail_code,
+                trail_braking_advice=c.trail_advice,
+                ref_gear=c.ref_gear,
+                comp_gear=c.comp_gear,
+                gear_eval=c.gear_eval,
+                gear_code=c.gear_code,
+                gear_advice=c.gear_advice,
+                balance_eval=c.balance_eval,
+                balance_code=c.balance_code,
+                balance_advice=c.balance_advice,
+                racing_line_eval=c.racing_line_eval,
+                racing_line_code=c.racing_line_code,
+                racing_line_advice=c.racing_line_advice,
+                racing_line_svg=c.racing_line_svg,
             )
         )
 

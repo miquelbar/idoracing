@@ -22,6 +22,19 @@ export interface ChatMessage {
   content: string;
 }
 
+export type TrailBrakingCode =
+  | 'early_release'
+  | 'over_braking'
+  | 'inconsistent'
+  | 'effective'
+  | 'fast_corner'
+  | 'neutral'
+  | 'no_braking';
+
+export type BalanceCode = 'neutral' | 'understeer' | 'traction' | 'early_braking' | 'momentum_loss' | 'stable';
+
+export type RacingLineCode = 'optimal' | 'early_apex' | 'late_apex' | 'missed_apex' | 'pinched_exit' | 'suboptimal';
+
 export interface CornerDTO {
   corner_number: number;
   name: string;
@@ -43,14 +56,18 @@ export interface CornerDTO {
   diagnosis: string;
   severity: 'info' | 'warning' | 'critical' | 'success';
   trail_braking_eval?: string;
+  trail_braking_code: TrailBrakingCode;
   trail_braking_advice?: string;
   ref_gear?: number;
   comp_gear?: number;
   gear_eval?: string;
+  gear_code: 'match' | 'too_low' | 'too_high';
   gear_advice?: string;
   balance_eval?: string;
+  balance_code: BalanceCode;
   balance_advice?: string;
   racing_line_eval?: string;
+  racing_line_code: RacingLineCode;
   racing_line_advice?: string;
   racing_line_svg?: {
     corner_number: number;

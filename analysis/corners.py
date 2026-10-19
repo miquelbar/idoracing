@@ -129,6 +129,7 @@ def analyze_corner(
 
     # Trail Braking Analysis
     trail_eval = "Óptimo"
+    trail_code = "neutral"
     trail_advice = ""
     is_trail_corner = ref_min_speed < SLOW_CORNER_KMH
     is_fast_corner = ref_min_speed > FAST_CORNER_KMH
@@ -140,49 +141,62 @@ def analyze_corner(
     if is_significant_loss:
         if pre_apex_mean < 0.04 and brake_delta_dist and brake_delta_dist < -8.0:
             trail_eval = "Soltado Prematuro"
+            trail_code = "early_release"
             trail_advice = "Sueltas el pedal antes del vértice sin trail braking; el morro se aligera y pierdes rotación en entrada."
         elif pre_apex_mean > 0.35 or has_subviraje or delta_vmin_kmh <= -4.0:
             trail_eval = "Exceso de Freno en Giro"
+            trail_code = "over_braking"
             trail_advice = "Mantienes demasiado freno mientras giras volante en el ápice, sobrecargando los neumáticos y matando la velocidad mínima."
         else:
             trail_eval = "Frenada Inconsistente"
+            trail_code = "inconsistent"
             trail_advice = "La modulación del freno no acompaña la rotación del chasis, provocando pérdida de tiempo en el tramo."
     else:
         if max_brk > 0.20:
             if is_trail_corner:
                 trail_eval = "Trail Braking Efectivo"
+                trail_code = "effective"
                 trail_advice = "Desvanecimiento regresivo adecuado: mantienes 15-20% de freno cargando el morro hasta el ápice."
             elif is_fast_corner:
                 trail_eval = "Paso Estable en Apoyo"
+                trail_code = "fast_corner"
                 trail_advice = "Frenada breve y desahogo rápido adecuado a curva de alta velocidad."
             else:
                 trail_eval = "Frenada Neutra"
+                trail_code = "neutral"
                 trail_advice = "Presión de frenada equilibrada en aproximación."
         else:
             trail_eval = "Paso en Apoyo"
+            trail_code = "no_braking"
             trail_advice = "Curva rápida sin frenada mayor; paso a fondo o levantada de pie."
 
     # Dynamic balance analysis (Understeer / Oversteer / Traction)
     if time_delta_corner <= 0.05 and abs(delta_vmin_kmh) <= 2.0:
         balance_eval = "Equilibrio Neutro (Grip Óptimo)"
+        balance_code = "neutral"
         balance_advice = "Transferencia de pesos equilibrada y rotación limpia hacia el vértice sin deslizamiento parásito."
     elif (delta_entry_kmh > -4.0 and delta_vmin_kmh <= -5.0) or has_subviraje or delta_vmin_kmh <= -3.0:
         # Caso A: Entrada normal pero caída fuerte en Vmin -> problema de giro/vértice
         balance_eval = "Pérdida de paso por curva / Subviraje en vértice"
+        balance_code = "understeer"
         balance_advice = "El morro no muerde el vértice o se entra con exceso de frenada/subviraje. Modula el freno en regresión (trail braking) y retrasa el viraje para recuperar agarre lateral en el ápice."
     elif delta_vmin_kmh > -3.0 and (delta_exit_kmh <= -4.0 or (th_delta_dist and th_delta_dist > 12.0)):
         # Caso B: Vmin aceptable pero salida comprometida -> problema de tracción/apertura
         balance_eval = "Déficit de Tracción / Salida Comprometida"
+        balance_code = "traction"
         balance_advice = "Problema en la fase de salida y tracción: apertura de gas demorada, exceso de volante girado o marcha no idónea que penaliza la aceleración."
     elif delta_entry_kmh <= -5.0 or (brake_delta_dist and brake_delta_dist < -15.0):
         # Caso C: Entrada muy lenta -> frenada temprana
         balance_eval = "Exceso de Frenada / Entrada Anticipada"
+        balance_code = "early_braking"
         balance_advice = "Frenada demasiado temprana o exceso de presión inicial que mata la inercia del vehículo antes de iniciar el viraje."
     elif time_delta_corner > 0.08:
         balance_eval = "Pérdida de Inercia en Curva"
+        balance_code = "momentum_loss"
         balance_advice = "Pérdida de velocidad y tiempo acumulado en el tramo; ajusta la modulación entre frenada y aceleración."
     else:
         balance_eval = "Equilibrio Estable"
+        balance_code = "stable"
         balance_advice = "Paso consistente con margen menor de optimización en vértice."
 
     # Racing line (Trazada) evaluation
@@ -190,21 +204,27 @@ def analyze_corner(
 
     if time_delta_corner <= 0.05 and abs(delta_vmin_kmh) <= 2.0:
         racing_line_eval = "Trazada Geométrica Óptima"
+        racing_line_code = "optimal"
         racing_line_advice = "Excelente aproximación abierta, ataque certero al punto de cuerda y salida amplia aprovechando el piano exterior."
     elif apex_dist_delta < -8.0:
         racing_line_eval = "Vértice Prematuro (Early Apex)"
+        racing_line_code = "early_apex"
         racing_line_advice = "Te tiras al piano interior demasiado pronto. Esto te 'estrangula' la trayectoria en la salida, obligándote a esperar para dar gas."
     elif apex_dist_delta > 10.0 or (brake_delta_dist and brake_delta_dist > 15.0):
         racing_line_eval = "Vértice Pasado / Abierto"
+        racing_line_code = "late_apex"
         racing_line_advice = "Llegas pasado a la frenada y el coche se abre demasiado, perdiendo el contacto con el piano del vértice."
     elif delta_vmin_kmh <= -4.0:
         racing_line_eval = "Trazada Cerrada / Pérdida de Vértice"
+        racing_line_code = "missed_apex"
         racing_line_advice = "No aprovechas todo el ancho de pista en aproximación; ábrete más hacia el exterior antes de iniciar el viraje para no estrangular el vértice."
     elif delta_exit_kmh <= -4.0:
         racing_line_eval = "Salida Estrangulada / Falta de Ancho"
+        racing_line_code = "pinched_exit"
         racing_line_advice = "Salida cerrada que compromete la tracción hacia la recta posterior; aprovecha hasta el piano exterior."
     else:
         racing_line_eval = "Trazada Subóptima en Curva"
+        racing_line_code = "suboptimal"
         racing_line_advice = "La trayectoria en curva no optimiza el paso por el vértice; abre la aproximación y asegura el piano interior."
 
     # Technical driving diagnosis grounded in verified telemetry facts
@@ -256,12 +276,15 @@ def analyze_corner(
 
     if comp_gear == ref_gear:
         gear_eval = "Marcha Óptima"
+        gear_code = "match"
         gear_advice = f"Marcha {comp_gear}ª idónea: maximiza el par motor a la salida sin sobrerrevolucionar el motor."
     elif comp_gear < ref_gear:
         gear_eval = "Marcha Demasiado Corta"
+        gear_code = "too_low"
         gear_advice = f"Vas en {comp_gear}ª marcha (la óptima es {ref_gear}ª). Produce sobrerrégimen de RPM y patinaje del eje motriz al dar gas."
     else:
         gear_eval = "Marcha Demasiado Larga"
+        gear_code = "too_high"
         gear_advice = f"Vas en {comp_gear}ª marcha (la óptima es {ref_gear}ª). El motor cae por debajo de la curva de potencia y penaliza la aceleración."
 
     # Generate Racing Line SVG Data
@@ -300,14 +323,18 @@ def analyze_corner(
         throttle_delta_dist=round(th_delta_dist, 1) if th_delta_dist else None,
         diagnosis=diagnosis,
         trail_eval=trail_eval,
+        trail_code=trail_code,
         trail_advice=trail_advice,
         ref_gear=ref_gear,
         comp_gear=comp_gear,
         gear_eval=gear_eval,
+        gear_code=gear_code,
         gear_advice=gear_advice,
         balance_eval=balance_eval,
+        balance_code=balance_code,
         balance_advice=balance_advice,
         racing_line_eval=racing_line_eval,
+        racing_line_code=racing_line_code,
         racing_line_advice=racing_line_advice,
         racing_line_svg=racing_line_svg,
     )
