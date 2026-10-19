@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Relicensed under GPL-3.0; the MoTeC reader follows gotzl/ldparser's file layout. See NOTICE.
+- Laps that only carry lap times (LMU results, the demo) are marked as synthetic, no longer get mistakes planted at fixed corners, and the UI shows a warning banner over their charts.
+- Tracks other than Valencia and Sebring get corners detected from the speed trace and an outline dead-reckoned from speed and lateral acceleration, instead of Valencia's layout.
+- The coach report's confidence reflects the data (and drops on synthetic laps); the radio chat reports whether the LLM or the rule-based fallback answered.
+- Compose binds to `127.0.0.1` by default.
+
+### Removed
+- The car setup sheet and setup advice: no importer reads setup data, so every session showed the same hardcoded values.
+- The legacy Streamlit UI.
+
+### Fixed
+- Uploading or importing `.ld` and `.csv` files returned HTTP 500.
+- MoTeC laps now carry their own telemetry, split by `.ldx` markers or lap-distance resets, with pedals rescaled from percent.
+- CSV laps start at zero time and distance.
+- Any website could change the cloud LLM endpoint through open CORS and receive the API key; CORS is closed and changing the endpoint clears the key.
+- Importing by path is limited to the simulator telemetry folders; uploads are capped at 512 MB.
+- `.env` is loaded on native runs, not only under Docker Compose.
+
 ## [0.2.0] - 2026-10-18
 
 ### Changed

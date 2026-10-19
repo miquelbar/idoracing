@@ -7,9 +7,10 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
-[![TypeScript: 5+](https://img.shields.io/badge/typescript-5+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript: 6](https://img.shields.io/badge/typescript-6-blue.svg)](https://www.typescriptlang.org/)
 [![Ollama: Ready](https://img.shields.io/badge/ollama-qwen3.8%3A27b--32k-orange.svg)](https://ollama.ai/)
-**IdoRacing Analytics** is a modern, high-performance, open-source motorsport telemetry suite and AI race engineer. Designed specifically for simracers who want to understand where they are losing time, master trail braking, optimize racing lines, and find real, repeatable lap time improvements with an intuitive, data-driven workflow.
+
+**IdoRacing Analytics** is an open-source telemetry viewer and AI race engineer for sim racers. It lines up two of your laps by distance, shows where the time goes corner by corner, and explains it in plain words, either with a local LLM through Ollama or with a rule-based fallback.
 
 ![IdoRacing Analytics Interactive Walkthrough](docs/screenshots/idoracing-demo.gif)
 
@@ -23,69 +24,50 @@ Supports:
 
 ## 💡 The Philosophy
 
-Telemetry analysis should be accessible, private, and directly actionable:
-- **100% Free & Open Source**: Run it locally on your PC or home network without paywalls.
-- **Privacy-First**: Your driving telemetry and setups stay on your machine—no cloud telemetry uploads.
-- **Actionable Insights Over Raw Numbers**: Intuitive 2D track heatmaps, corner-by-corner trajectory comparisons, synchronized 50Hz traces, and live delta-T graphs designed for drivers, not just data engineers.
-- **Integrated AI Race Engineer (Pep)**: Explains *why* you are losing time and *what* technique to apply (using local Ollama with `qwen3.8:27b-32k` or cloud LLMs like OpenAI/OpenRouter), directly grounded in your telemetry.
+- **Free and open source**: runs on your PC or home network, no accounts or paywalls.
+- **Local by default**: telemetry and sessions stay in a SQLite file on your machine. Nothing leaves it unless you configure a cloud LLM provider (the web UI also loads its fonts from Google Fonts).
+- **Honest about the data**: when a file only carries lap times, the traces are simulated and the app says so on screen (see [Synthetic telemetry](#-synthetic-telemetry)).
 
 ---
 
 ## 🌟 Key Features
 
-### 1. 🗺️ 2D Track Map & Speed Heatmap
-- Closed-loop circuit rendering computed from velocity, yaw rate, and lateral acceleration.
-- Visual speed delta ($\Delta V$) heatmap across the entire lap.
-- Interactive corner segmentation—click any corner on the map to jump directly into its analysis.
-- Multi-track support with pre-calibrated layouts (Circuit Ricardo Tormo Valencia, Sebring International Raceway, and universal coordinates).
+### 1. 🗺️ Track map with speed delta
+- Lap outline coloured by the speed difference between the two laps.
+- Click any corner on the map to open its analysis.
+- Valencia (Ricardo Tormo) and Sebring have hand-made corner tables; Sebring's outline comes from OpenStreetMap. On any other track, corners are detected from dips in the speed trace and the outline is dead-reckoned from speed and lateral acceleration, or taken from GPS / world-position channels when the log has them.
 
 ![IdoRacing Analytics Telemetry Dashboard](docs/screenshots/telemetry-overview.png)
-*Unified 100vh multi-channel telemetry workspace: Speed, Delta-T, Pedals with Trail Braking overlap, Gear, and interactive Circuit Map.*
 
-### 2. 🔍 Corner-by-Corner Racing Line & Technique Inspector
-- **Corner Phase Breakdown Table**: Structured 4-column phase performance analysis comparing your corner entry, apex, and exit against the reference lap:
-  - `CORNER PHASE` | `REFERENCE` | `YOUR LAP` | `DELTA`
-  - **Braking Point Delta**: Pinpoints whether you braked too early or arrived overloaded into the corner entry.
-  - **Trail Braking Modulation**: Evaluates progressive pedal bleed-off vs. abrupt release to maintain front tire grip.
-  - **Track Position & Line**: Identifies entry tightening, understeer offsets (+1.8m wide off apex), or early apex pinching.
-  - **Minimum Speed ($V_{min}$) & Apex Gear**: Detects overslowing and incorrect downshifts upsetting chassis balance.
-  - **Throttle Onset Distance & Exit Speed**: Measures post-apex throttle commitment and corner exit momentum.
-  - **Direct Radio Feedback Loop**: One-click jump to chat with Pep about the specific corner (`[ 🎧 Ask Pep about T1 → ]`).
+### 2. 🔍 Corner-by-corner inspector
+- **Phase table** comparing reference and your lap for each corner: braking point, brake pressure into the apex, minimum speed and gear, throttle pick-up after the apex, and exit speed.
+- **Diagnosis** per corner (early braking, early release of the brake, early apex, traction-limited exit...) from fixed thresholds on those numbers.
+- **Corner diagram**: a schematic picture of the line the diagnosis suggests. It is an illustration, not your measured trajectory.
+- **Ask Pep** about the selected corner in one click.
 
 ![Corner Phase Performance Analysis](docs/screenshots/corner-phase-analysis.png)
-*Corner Phase Breakdown Table: braking point delta, trail braking modulation score, minimum apex speed, and Pep's engineering debrief.*
 
-- **High-Resolution 2D Trajectory Inspector**: Compare your driven line vs. optimal line, with marked Entry, Apex, and Exit points, curb boundaries, and speed delta shading.
-- **Segmented Mode Toggle**: Instant switching between **Optimal Line** (2D Trajectory) and **Phase Breakdown** (Corner Phase Table) without vertical scrolling.
+### 3. 📈 Distance-aligned traces
+- Speed, cumulative time delta, throttle and brake (with the trail-braking overlap), and gear, resampled every 2 m so both laps line up.
+- Hovering any chart moves a shared cursor across all of them and the map.
 
-![Corner 2D Trajectory](docs/screenshots/corner-trace-2d.png)
-*High-resolution 2D Corner Trajectory analysis with curbs, speed delta ribbon, and apex alignment.*
+### 4. 🤖 Pep, the AI race engineer
+- Pep (Performance Engineering Partner, and a nod to IdoRacing's Mallorcan origins) is your pit-wall engineer.
+- Debrief report and radio chat about your laps, in Spanish or English.
+- **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...).
+- The prompt carries the corner numbers and tells the model not to invent data; nothing checks the model's answer against them afterwards.
+- **Rule-based fallback**: when no LLM answers, Pep replies with canned explanations picked by keyword and filled with your corner numbers. The UI shows which engine answered and the report's confidence drops to *Baja* on synthetic telemetry.
 
-### 3. 📈 50Hz Synchronized Telemetry Traces
-- **Speed**: Reference vs. comparison lap with apex minimum speed markers.
-- **Cumulative Time Delta ($\Delta t$)**: Color-coded area chart showing continuous time gains (green) and losses (red).
-- **Pedals (Throttle & Brake)**: 0–100% synchronized inputs with trail braking overlap indicator.
-- **Steering Angle**: Degrees of steering wheel rotation to spot mid-corner corrections and scrubbing.
-- **Gear & Engine**: Gear selection over lap distance.
-- **Synchronized Hover Scrubbing**: Move your mouse across any channel to see synchronized distance, speed, and delta values across all plots simultaneously.
+### 5. 🗄️ Sessions and lap history
+- Switch between imported sessions, compare any two laps, and see each lap's gap to your personal best.
+- A demo session (generated laps at Valencia) to explore the app before importing anything.
 
-### 4. 🤖 Meet "Pep" — Your AI Race Engineer & Radio Partner (PEP · Performance Engineering Partner)
-- **Identity & Persona**: Pep is your dedicated pit-wall Performance Engineering Partner (a nod to IdoRacing's origins in Mallorca). Pep communicates like a real race engineer: direct, technical, 100% grounded in telemetry data, with zero generic fluff.
-- **Mathematical Rigor & Zero False Praise**: Strictly derives feedback from real telemetry deltas ($\Delta V$, $\Delta t$, braking points). Pep never offers unwarranted congratulations if time is lost or apex speed drops.
-- **Interactive Team Radio & Contextual Queries**: Chat directly with Pep over team radio (`[ 🎧 Consultar a Pep sobre T1 → ]`) to diagnose trail braking modulation, entry understeer, chassis balance, and car setup adjustments.
-- **Local & Private (Ollama)**: Default configuration runs locally with `qwen3.8:27b-32k` (or `qwen3:14b`/`qwen3:8b`) with CUDA acceleration.
-- **Cloud-Compatible (OpenAI / OpenRouter)**: Easily plug in GPT-4o, Claude 3.5, or DeepSeek via standard OpenAI-compatible API keys.
-- **Deterministic Engineering Engine**: If Ollama or cloud APIs are unavailable, a deterministic rule-based telemetry engine generates instant structured debriefs and authentic pit-wall responses.
+### 6. 📂 Import
+- **Auto-discovery** of the default ACC and LMU folders under Steam / Proton on Linux.
+- **Upload** `.ld` (MoTeC), `.xml` (LMU results) or `.csv` files from the web UI. Laps are cut from the `.ldx` markers when the `.ld` is imported from its folder, or from lap-distance resets when only the `.ld` is uploaded.
 
-### 5. 🗄️ Unified Session Hub & Car Setup History
-- Switch tracks, cars, and sessions seamlessly from a single hub.
-- Compare your current session against historical Personal Bests (PB).
-- Inspect car setup parameters (tire pressures, brake bias, aero balance, suspension settings).
-- One-click synthetic demo generator for instant exploration without importing files first.
-
-### 6. 📂 Simulator Auto-Discovery & File Ingestion
-- **Automatic Steam Detection**: Automatically scans default Proton / Steam paths for telemetry files on Linux and Windows.
-- **Drag-and-Drop Ingestion**: Upload `.ld` MoTeC binary files, `.ldx` lap markers, `.xml` session results, or `.csv` logs directly from the web interface.
+### 🧪 Synthetic telemetry
+LMU result files contain lap and sector times, not traces. For those laps (and for the demo session) the app generates placeholder traces from the track's corner table, scaled to each lap time, and shows a warning banner above the charts. The corner diagnosis on those laps is a simulation and should not be read as feedback on your driving.
 
 ---
 
@@ -117,31 +99,20 @@ Telemetry analysis should be accessible, private, and directly actionable:
 ## 🏗️ Architecture
 
 ```
-idoracing-analytics/
-├── api/                # FastAPI backend serving REST endpoints & static assets
-│   └── server.py       # API routes, CORS, session uploads, LLM proxy
-├── frontend/           # High-performance React 19 + TypeScript + Vite + Tailwind CSS
-│   ├── src/components/ # TrackMap2D, TelemetryCharts, CornerInspector, TimingTower
-│   ├── src/views/      # SessionsView, TelemetryView, SetupHistoryView, EngineerView, SettingsView
+idoracing/
+├── api/                # FastAPI app: REST endpoints and the built frontend
+├── frontend/           # React 19 + TypeScript + Vite + Tailwind CSS
+│   ├── src/components/ # Charts, track inspector, debrief drawer
+│   ├── src/views/      # Sessions, telemetry, lap history, engineer, settings
 │   ├── src/services/   # Typed API client
-│   └── src/types/      # Telemetry DTOs and type definitions
-├── domain/             # Pydantic v2 core models (Session, Lap, LapComparison, CoachReport)
-├── importers/          # Multi-sim ingestion engine:
-│   ├── moteclib/       # Fast binary decoding for MoTeC .ld & XML .ldx
-│   ├── lmu_importer.py # Le Mans Ultimate session XML results parser
-│   ├── csv_importer.py # Universal CSV importer
-│   └── synthetic.py    # Deterministic telemetry generator for testing & demo
-├── analysis/           # Physics & telemetry analysis pipeline:
-│   ├── alignment.py    # Distance-based interpolation & resample (50Hz)
-│   ├── corners.py      # Corner segmentation, apex detection, trail braking score
-│   ├── lap_comparison.py# Delta-T calculation, micro-sectors, speed deltas
-│   └── tracks.py       # 2D track geometries & closed-loop circuit coordinates
-├── storage/            # SQLite storage with indexing for sessions, setups, and debriefs
-├── coach/              # AI Race Engineer module:
-│   ├── advisor.py      # Telemetry prompt formatting & debrief synthesis
-│   ├── llm_client.py   # Dual client for Ollama & OpenAI/OpenRouter
-│   └── prompt.py       # Grounded system prompts and motorsport heuristics
-└── tests/              # 28 automated pytest unit & integration tests
+│   └── src/types/      # API types
+├── domain/             # Pydantic models (Session, Lap, LapComparison, CoachReport)
+├── importers/          # MoTeC .ld/.ldx, LMU XML results and CSV importers
+├── analysis/           # Alignment, corner analysis, lap comparison, track geometry,
+│                       # placeholder telemetry and the demo session
+├── storage/            # SQLite persistence for sessions, laps and debriefs
+├── coach/              # LLM clients, prompts and the rule-based engineer
+└── tests/              # pytest suite
 ```
 
 ---
@@ -181,10 +152,10 @@ If you want free, 100% private AI race coaching:
 # Install Ollama (https://ollama.ai)
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Pull the recommended model (Qwen 2.5/3 27B)
+# Pull a model (any Ollama chat model works; set OLLAMA_MODEL to its tag)
 ollama pull qwen3.8:27b-32k
 ```
-*(Alternatively, you can configure an OpenAI or OpenRouter API key in the web app under **Ajustes IA** or in `.env`)*.
+*(Alternatively, configure an OpenAI-compatible API key in the web app under **Ajustes IA** / **AI Settings**, or in `.env`.)*
 
 #### 5. Launch IdoRacing Analytics
 ```bash
@@ -216,27 +187,15 @@ The API has no authentication. Binding to `0.0.0.0` makes it reachable from your
 
 ## 🧪 Testing & Code Quality
 
-IdoRacing Analytics is built with rigorous quality standards and includes 28 automated tests covering binary parsing, distance alignment, corner detection, SQLite storage, and API contracts.
-
-Run the test suite:
 ```bash
-source .venv/bin/activate
-pytest -v
+pip install -r requirements.txt ruff
+pytest
+ruff check . && ruff format --check .
+
+cd frontend && npm ci && npm run build && npm run lint
 ```
 
-All 28 tests pass:
-```
-tests/test_analysis.py ................. PASSED
-tests/test_api.py ...................... PASSED
-tests/test_coach.py .................... PASSED
-tests/test_csv_importer.py ............. PASSED
-tests/test_domain.py ................... PASSED
-tests/test_lmu_importer.py ............. PASSED
-tests/test_motec_binary.py ............. PASSED
-tests/test_storage.py .................. PASSED
-test_importers/test_moteclib_importer.py PASSED
-======================= 28 passed in 1.77s =======================
-```
+There are no frontend tests yet; `npm run build` type-checks the app in strict mode.
 
 ---
 
