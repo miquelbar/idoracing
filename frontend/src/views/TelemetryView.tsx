@@ -61,7 +61,8 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       const rep = await fetchCoachReport(
         comparison.ref_lap_id,
         comparison.comp_lap_id,
-        forceRefresh
+        forceRefresh,
+        comparison.session_id
       );
       onReportGenerated(rep);
     } catch (err: any) {

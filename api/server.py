@@ -141,6 +141,7 @@ class CornerDTO(BaseModel):
 
 
 class ComparisonResponse(BaseModel):
+    session_id: str
     ref_lap_id: str
     comp_lap_id: str
     ref_lap_time: float
@@ -171,6 +172,7 @@ class ComparisonResponse(BaseModel):
 class AIAdviceRequest(BaseModel):
     ref_lap_id: str
     comp_lap_id: str
+    session_id: Optional[str] = None
     force_refresh: bool = False
 
 
@@ -396,6 +398,7 @@ def get_lap_comparison(
         detected_game = "iRacing"
 
     return ComparisonResponse(
+        session_id=matched_session.session_id,
         ref_lap_id=f"Lap {ref_lap.lap_number}",
         comp_lap_id=f"Lap {comp_lap.lap_number}",
         ref_lap_time=ref_lap.lap_time,
@@ -499,53 +502,25 @@ def get_lap_history(
 
 @app.post("/api/coach/report", response_model=CoachReport)
 def generate_coach_report(req: AIAdviceRequest):
-    sessions = storage.list_sessions()
-    ref_lap: Optional[Lap] = None
-    comp_lap: Optional[Lap] = None
-    matched_session: Optional[Session] = None
-
-    for s in sessions:
-        full_s = storage.get_session(s.session_id)
-        if full_s:
-            for lap in full_s.laps:
-                lap_label = f"Lap {lap.lap_number}"
-                if lap_label == req.ref_lap_id or str(lap.lap_number) == req.ref_lap_id:
-                    ref_lap = lap
-                if lap_label == req.comp_lap_id or str(lap.lap_number) == req.comp_lap_id:
-                    comp_lap = lap
-                if ref_lap and comp_lap:
-                    matched_session = full_s
-                    break
-        if ref_lap and comp_lap:
-            break
-
-    if not ref_lap or not comp_lap:
-        if sessions:
-            full_s = storage.get_session(sessions[0].session_id)
-            if full_s and len(full_s.laps) >= 2:
-                valid_laps = sorted([l for l in full_s.laps if l.lap_time > 0 and l.is_valid], key=lambda x: x.lap_time)
-                if len(valid_laps) >= 2:
-                    ref_lap = valid_laps[0]
-                    comp_lap = valid_laps[1]
-                    matched_session = full_s
-
+    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    ref_lap = _find_lap(matched_session, req.ref_lap_id)
+    comp_lap = _find_lap(matched_session, req.comp_lap_id)
     if not ref_lap or not comp_lap:
         raise HTTPException(status_code=404, detail="Laps not found for coach report")
 
-    # Check cache if not forcing refresh
-    if not req.force_refresh and matched_session:
+    if not req.force_refresh:
         cached = storage.get_coach_report(matched_session.session_id, ref_lap.lap_number, comp_lap.lap_number)
         if cached:
             return cached
 
-    comparison = compare_laps(ref_lap, comp_lap)
+    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     report = advisor.generate_report(
         comparison,
-        car=matched_session.car if matched_session else "Porsche 911 GT3 R (992)",
-        track=matched_session.track if matched_session else "Ricardo Tormo de Valencia",
+        car=matched_session.car,
+        track=matched_session.track,
+        synthetic=ref_lap.synthetic or comp_lap.synthetic,
     )
-    if matched_session:
-        storage.save_coach_report(matched_session.session_id, ref_lap.lap_number, comp_lap.lap_number, report)
+    storage.save_coach_report(matched_session.session_id, ref_lap.lap_number, comp_lap.lap_number, report)
     return report
 
 
@@ -642,23 +617,19 @@ def chat_with_engineer(req: ChatRequest):
     for m in req.messages:
         messages.append({"role": m.role, "content": m.content})
 
-    reply = None
     chat_timeout = float(os.environ.get("RADIO_CHAT_TIMEOUT", "12.0"))
-    try:
-        reply = llm_client.chat(messages, timeout=chat_timeout)
-    except Exception:
-        reply = None
+    reply = llm_client.chat(messages, timeout=chat_timeout)
+    if reply and reply.strip():
+        return {"role": "assistant", "content": reply, "source": "llm", "model": llm_client.active_model}
 
-    if not reply or not reply.strip():
-        reply = generate_race_engineer_response(
-            query=user_query,
-            car=req.car_name or "Porsche 911 GT3 R (992)",
-            track=req.track_name or "Ricardo Tormo de Valencia",
-            corner=req.selected_corner,
-            lang=lang,
-        )
-
-    return {"role": "assistant", "content": reply, "model": llm_client.active_model}
+    reply = generate_race_engineer_response(
+        query=user_query,
+        car=req.car_name or ("this car" if lang == "en" else "este coche"),
+        track=req.track_name or ("this track" if lang == "en" else "este circuito"),
+        corner=req.selected_corner,
+        lang=lang,
+    )
+    return {"role": "assistant", "content": reply, "source": "rules", "model": None}
 
 
 @app.get("/api/autodiscover")

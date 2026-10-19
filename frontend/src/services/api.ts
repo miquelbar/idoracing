@@ -68,7 +68,8 @@ export async function generateDemoSession(): Promise<{ session_id: string }> {
 export async function fetchCoachReport(
   refLapId: string,
   compLapId: string,
-  forceRefresh = false
+  forceRefresh = false,
+  sessionId?: string
 ): Promise<CoachReport> {
   const res = await fetch(`${API_BASE}/coach/report`, {
     method: 'POST',
@@ -76,6 +77,7 @@ export async function fetchCoachReport(
     body: JSON.stringify({
       ref_lap_id: refLapId,
       comp_lap_id: compLapId,
+      session_id: sessionId,
       force_refresh: forceRefresh,
     }),
   });
@@ -91,7 +93,7 @@ export async function sendChatMessage(
   carName?: string,
   selectedCorner?: any,
   lang?: string
-): Promise<{ role: string; content: string; model: string }> {
+): Promise<{ role: string; content: string; source: 'llm' | 'rules'; model: string | null }> {
   const res = await fetch(`${API_BASE}/coach/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

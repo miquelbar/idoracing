@@ -110,6 +110,8 @@ def test_api_coach_chat_falls_back_to_rules_when_llm_is_silent(client, monkeypat
     data = res.json()
     assert len(calls) == 1
     assert data["role"] == "assistant"
+    assert data["source"] == "rules"
+    assert data["model"] is None
     assert "trail braking" in data["content"].lower() or "frenada" in data["content"].lower()
 
 
@@ -152,3 +154,16 @@ def test_lap_history_has_no_top_speed_for_synthetic_laps(client):
 
 def test_setup_endpoint_is_gone(client):
     assert client.get("/api/setup").status_code in (404, 405)
+
+
+def test_coach_report_on_lap_times_only_session_has_low_confidence(client):
+    res = client.post("/api/import/upload", files={"file": ("lmu_coach.xml", LMU_RESULTS.encode(), "text/xml")})
+    session_id = res.json()["session_id"]
+
+    report = client.post(
+        "/api/coach/report",
+        json={"ref_lap_id": "2", "comp_lap_id": "1", "session_id": session_id, "force_refresh": True},
+    ).json()
+
+    assert report["confidence"].startswith("Baja")
+    assert "Brake Bias" not in report["raw_report"]

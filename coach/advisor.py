@@ -17,17 +17,19 @@ class CoachAdvisor:
     """Generates structured coaching reports from lap comparisons."""
 
     def __init__(self, llm_client: Optional[Any] = None):
-        self.ollama = llm_client or LLMClient()
+        self.llm = llm_client or LLMClient()
 
     def generate_report(
         self,
         comparison: LapComparison,
-        car: str = "Porsche 911 GT3 R (992)",
-        track: str = "Ricardo Tormo de Valencia",
+        car: str,
+        track: str,
+        synthetic: bool = False,
     ) -> CoachReport:
         """
-        Generate a complete coaching report. Uses Ollama if available;
+        Generate a complete coaching report. Uses the configured LLM if available;
         otherwise generates a deterministic, rule-based report.
+        synthetic marks a comparison built on placeholder telemetry, which caps confidence at low.
         """
         # 1. Extract verified numerical facts and metrics
         facts: List[str] = []
@@ -39,16 +41,16 @@ class CoachAdvisor:
         ) if comparison.sector_differences else "Sectores equilibrados"
 
         # Trail braking evaluation across corners
-        trail_corners = [c for c in comparison.corners if getattr(c, "trail_eval", None) in ["Soltado Prematuro", "Exceso de Freno", "Trail Braking Efectivo"]]
-        effective_trail = [c for c in trail_corners if getattr(c, "trail_eval", None) == "Trail Braking Efectivo"]
-        trail_ratio = (len(effective_trail) / len(trail_corners) * 100.0) if trail_corners else 80.0
+        trail_corners = [c for c in comparison.corners if c.trail_eval in ("Soltado Prematuro", "Exceso de Freno en Giro", "Trail Braking Efectivo")]
+        effective_trail = [c for c in trail_corners if c.trail_eval == "Trail Braking Efectivo"]
 
         metrics: Dict[str, Any] = {
             "diferencia_vuelta": f"{comparison.time_difference:+.3f}s",
             "diferencia_sectores": sector_str,
             "curvas_analizadas": len(comparison.corners),
-            "eficiencia_trail_braking": f"{trail_ratio:.0f}%",
         }
+        if trail_corners:
+            metrics["eficiencia_trail_braking"] = f"{len(effective_trail) / len(trail_corners) * 100.0:.0f}%"
         hypotheses: List[str] = []
         exercises: List[str] = []
 
@@ -114,7 +116,7 @@ class CoachAdvisor:
                 )
                 exercises.append(
                     f"Curva {primary_corner.corner_number} ({primary_corner.corner_name}): Abrir dirección antes en la salida "
-                    f"para poder aplicar el 50-70% de acelerador antes del piano de salida sin desestabilizar el eje trasero del 992 GT3 R."
+                    f"para poder aplicar el 50-70% de acelerador antes del piano de salida sin desestabilizar el eje trasero."
                 )
             else:
                 hypotheses.append(
@@ -129,20 +131,25 @@ class CoachAdvisor:
         if not exercises:
             exercises.append("Mantener la consistencia actual en puntos de frenada y ápices.")
 
-        verification_indicator = (
-            f"Velocidad mínima en el vértice de {primary_corner.corner_name if primary_corner else 'Curva 1'} >= "
-            f"{(primary_corner.ref_min_speed - 2.0) if primary_corner else 135.0:.1f} km/h "
-            f"y reducción del delta acumulado en al menos 0.20s en ese sector."
-        )
+        if primary_corner:
+            verification_indicator = (
+                f"Velocidad mínima en el vértice de {primary_corner.corner_name} >= "
+                f"{primary_corner.ref_min_speed - 2.0:.1f} km/h "
+                f"y reducción del delta acumulado en al menos 0.20s en ese sector."
+            )
+        else:
+            verification_indicator = (
+                f"Reducir la diferencia total de {comparison.time_difference:+.3f}s respecto a la vuelta de referencia."
+            )
 
-        facts.append(
-            "Técnica de Trail Braking: En curvas clave (T1 Aspar, T2 Doohan, T8 Bernat Martínez, T14 Adrián Campos) "
-            "se requiere soltado progresivo de 100% a 15-20% hacia el vértice para inducir rotación sin subviraje."
-        )
+        if synthetic:
+            facts.append(
+                "Estas vueltas solo incluyen tiempos: las trazas y el análisis por curva son una simulación, no datos medidos."
+            )
 
         # 2. Try Ollama / LLM if available
         llm_report = None
-        if self.ollama.is_available():
+        if self.llm.is_available():
             prompt_data = (
                 f"VEHÍCULO: {car}\n"
                 f"CIRCUITO: {track}\n"
@@ -169,14 +176,21 @@ class CoachAdvisor:
                 f"{prompt_data}\n\n"
                 f"Asegúrate de seguir estrictamente los 5 apartados requeridos sin inventar datos."
             )
-            llm_report = self.ollama.generate(prompt=user_prompt, system_prompt=SYSTEM_PROMPT)
+            llm_report = self.llm.generate(prompt=user_prompt, system_prompt=SYSTEM_PROMPT)
 
         # 3. If Ollama produced a report, use it; otherwise build the deterministic report
+        if synthetic:
+            level = "Baja"
+        elif comparison.corners:
+            level = "Alta"
+        else:
+            level = "Media"
+
         if llm_report and len(llm_report.strip()) > 20:
             raw_report = llm_report
-            confidence = "Alta (Ollama LLM + Telemetría)"
+            confidence = f"{level} (LLM + telemetría)"
         else:
-            confidence = "Alta (Motor Analítico Numérico)"
+            confidence = f"{level} (motor de reglas)"
             raw_report = f"""# Informe Técnico de Conducción — IdoRacing Analytics
 
 **Vehículo:** {car}  
@@ -204,19 +218,11 @@ class CoachAdvisor:
                     )
 
             raw_report += f"""
-### 3. Hipótesis técnica & Dinámica del Vehículo ({car})
+### 3. Hipótesis técnica
 {chr(10).join(f"- {hyp}" for hyp in hypotheses)}
-- **Arquitectura y Comportamiento Dinámico:** {"En el Porsche 911 GT3 R (992), el motor posterior (reparto ~38/62) exige prolongar la frenada regresiva (trail braking) manteniendo un 15-20% de pedal hasta el vértice para clavar el tren delantero y eliminar el subviraje de entrada. Soltar el freno de golpe descarga el morro y arruina la inserción." if "911" in car or "Porsche" in car else "El reparto equilibrado de masas permite una frenada muy estable, pero requiere modular con precisión el desvanecimiento del pedal para no bloquear el tren delantero ni sobrecargar el neumático exterior en apoyo."}
-- **Modulación en Vértice:** En curvas lentas y medias, la transición de freno a acelerador debe sincronizarse con el punto de giro máximo; acelerar con dirección cerrada provoca subviraje dinámico por transferencia de masa hacia el eje trasero.
 
-### 4. Ejercicios concretos & Recomendaciones de Setup
-**Ejercicios de conducción recomendados:**
+### 4. Ejercicios concretos
 {chr(10).join(f"{i+1}. {ex}" for i, ex in enumerate(exercises))}
-
-**Ajustes de Setup de Competición:**
-- **Reparto de Frenada (Brake Bias):** {"54.0% - 55.0% (retrasar 1-2 clics si experimentas subviraje en la fase de entrada con freno; adelantar 0.5% si la trasera se muestra inestable en frenadas en línea recta a alta velocidad)." if "911" in car or "Porsche" in car else "53.5% - 54.5% para optimizar la deceleración longitudinal sin comprometer la rotación inicial."}
-- **Control de Tracción & ABS:** ABS en nivel 2-3 para evitar intrusiones que alarguen la frenada; TC1 en 3-4 para tracción estable sin ahogar la entrega de par en aceleración.
-- **Barras Estabilizadoras (ARB):** Si persiste el subviraje en curva media/rápida, ablandar 1 punto la barra delantera o endurecer 1 punto la trasera para forzar rotación.
 
 ### 5. Indicador numérico de comprobación y Confianza
 - **Indicador de validación en telemetría:** {verification_indicator}
@@ -237,14 +243,14 @@ class CoachAdvisor:
 
 def generate_race_engineer_response(
     query: str,
-    car: str = "Porsche 911 GT3 R (992)",
-    track: str = "Ricardo Tormo de Valencia",
+    car: str,
+    track: str,
     corner: Optional[Dict[str, Any]] = None,
     lang: str = "es",
 ) -> str:
     """
-    Synthesizes an authentic, senior racing engineer radio response
-    with specific technical telemetry, vehicle dynamics, and setup advice.
+    Rule-based radio reply used when no LLM answers: picks a canned explanation by keyword
+    and fills in the selected corner's numbers.
     """
     q_lower = query.lower()
     is_en = lang == "en"
@@ -308,7 +314,6 @@ def generate_race_engineer_response(
         ack = f"Idò, mirando los datos de T{c_num}: " if (corner and c_num) else "Copiado en el muro por radio. "
 
     # 2. Topic Detection & Response Formulation
-    is_porsche = "911" in car or "porsche" in car.lower()
     is_trail = any(k in q_lower for k in ["trail", "freno", "frenar", "frenada", "brake", "braking"])
     is_gear = any(k in q_lower for k in ["marcha", "gear", "velocidad", "rpm"])
     is_setup = any(k in q_lower for k in ["setup", "reparto", "bias", "presion", "arb", "suspension", "caida", "camber"])
@@ -330,7 +335,7 @@ def generate_race_engineer_response(
             return (
                 f"{ack}Para optimizar el **Trail Braking** con el **{car}** en **{track}**:\n\n"
                 f"1. **Fase Inicial (Pico de Frenada):** Aplica el 100% de presión con el coche recto antes de iniciar el viraje. "
-                f"{'El reparto trasero (~38/62) del 992 tolera mucha fuerza inicial, pero clavar de golpe satura los amortiguadores delanteros.' if is_porsche else 'Mantén la plataforma equilibrada antes de iniciar el giro.'}\n"
+                f"Mantén la plataforma equilibrada antes de iniciar el giro.\n"
                 f"2. **Desvanecimiento Progresivo (El Trail):** A medida que metes volante hacia el vértice, reduce la presión suavemente del 100% al **15-20%**. "
                 f"El error más común es soltar a 0% de golpe: al hacerlo, el morro se levanta, las ruedas delanteras pierden agarre y aparece un subviraje irrecuperable.\n"
                 f"3. **Carga en el Morro (Rotación en Ápice):** Mantén ese **15% residual de freno** hasta alcanzar la cuerda del piano interior. "
@@ -357,19 +362,19 @@ def generate_race_engineer_response(
     elif is_setup:
         if is_en:
             return (
-                f"{ack}Pit wall setup advice for **{car}** at **{track}**:\n\n"
-                f"- **Brake Bias:** Set to `{54.5 if is_porsche else 54.0}%`. Move 1-2 clicks rearward if experiencing entry push; move 1 click forward if rear snaps under straight-line braking.\n"
-                f"- **Anti-Roll Bars (ARB):** Soften front ARB by 1 click to increase front lateral grip, or stiffen rear ARB to promote rotation.\n"
-                f"- **Tyre Pressures:** Target **26.8 – 27.2 psi hot** across all four tyres after 3 consecutive push laps.\n"
-                f"- **Differential & Electronics:** ABS at setting 2-3, TC1 at 3, TC2 at 2-3 for progressive slip angle.{c_info}"
+                f"{ack}I can't see your setup: the telemetry files don't carry it, so I won't give you numbers for the **{car}**. "
+                f"What the data can point to:\n\n"
+                f"- **Entry push under braking:** move brake bias rearward a click at a time and check whether apex speed improves.\n"
+                f"- **Mid-corner understeer:** soften the front anti-roll bar or stiffen the rear one, one click per run.\n"
+                f"- **Tyre pressures:** compare hot pressures against the window your sim publishes for this car after a few push laps.{c_info}"
             )
         else:
             return (
-                f"{ack}Recomendaciones de Setup desde el muro para el **{car}** en **{track}**:\n\n"
-                f"- **Reparto de Frenada (Brake Bias):** Ajustar en `{54.5 if is_porsche else 54.0}%`. Si notas que el morro no entra en curvas lentas, retrasa 1-2 clics hacia atrás. Si la zaga baila al frenar a más de 200 km/h, adelanta 0.5%.\n"
-                f"- **Barras Estabilizadoras (ARB):** Si persiste el subviraje en apoyo lateral, ablanda 1 clic la barra delantera o endurece 1 clic la trasera para liberar rotación.\n"
-                f"- **Presiones en Caliente:** Apunta a un rango óptimo de **26.8 a 27.2 psi** en los 4 neumáticos tras 3 vueltas de ritmo constante.\n"
-                f"- **Electrónica:** ABS en nivel 2-3 (máxima mordida sin alargar distancia) y TC1 en nivel 3 para dosificar tracción.{c_info}"
+                f"{ack}No veo tu setup: los ficheros de telemetría no lo incluyen, así que no te voy a dar cifras para el **{car}**. "
+                f"Lo que los datos sí pueden orientar:\n\n"
+                f"- **Subviraje de entrada frenando:** retrasa el reparto de frenada clic a clic y comprueba si mejora la velocidad en vértice.\n"
+                f"- **Subviraje en apoyo:** ablanda la barra delantera o endurece la trasera, un clic por tanda.\n"
+                f"- **Presiones:** compara las presiones en caliente con la ventana que publique tu simulador para este coche tras unas vueltas de ritmo.{c_info}"
             )
 
     elif is_balance:

@@ -20,7 +20,7 @@ def test_coach_deterministic_generation_without_ollama():
     assert len(report.hypotheses) > 0
     assert len(report.exercises) > 0
     assert report.verification_indicator != ""
-    assert "Alta" in report.confidence
+    assert report.confidence == "Alta (motor de reglas)"
 
     # Ensure required report structure is present in raw_report
     text = report.raw_report
@@ -46,7 +46,7 @@ def test_ollama_client_mock_generation():
             report = advisor.generate_report(comp, car=session.car, track=session.track)
 
             assert "Informe LLM" in report.raw_report
-            assert "Ollama" in report.confidence
+            assert report.confidence == "Alta (LLM + telemetría)"
 
 
 def test_ollama_client_timeout_or_error_handling():

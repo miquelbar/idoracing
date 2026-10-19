@@ -69,6 +69,7 @@ export interface CornerDTO {
 }
 
 export interface ComparisonResponse {
+  session_id: string;
   ref_lap_id: string;
   comp_lap_id: string;
   ref_lap_time: number;
@@ -93,6 +94,7 @@ export interface ComparisonResponse {
   ref_sectors: Record<string, number>;
   comp_sectors: Record<string, number>;
   corners: CornerDTO[];
+  telemetry_source: 'recorded' | 'synthetic';
 }
 
 export interface CoachReport {

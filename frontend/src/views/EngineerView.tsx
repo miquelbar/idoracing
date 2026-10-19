@@ -84,7 +84,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     try {
       setLoadingReport(true);
       setErrorReport(null);
-      const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh);
+      const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh, comparison.session_id);
       onReportGenerated(rep);
     } catch (err: any) {
       setErrorReport(err?.message || (lang === 'en' ? 'Error generating debrief' : 'Error generando debrief técnico'));
