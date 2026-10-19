@@ -92,3 +92,43 @@ def test_ldx_marker_parsing():
         assert np.isclose(parser.laps[0]["lap_time"], 91.450)
         assert parser.laps[1]["lap_number"] == 2
         assert np.isclose(parser.laps[1]["lap_time"], 91.450)
+
+
+CHANNEL_META_OFFSETS = {"dtype_a": 18, "dtype_b": 20, "shift": 24, "mul": 26, "scale": 28, "dec": 30}
+
+
+def _ld_with_encoded_channel(tmp_path, raw_bytes, n, dtype_a, dtype_b, shift, mul, scale, dec):
+    """A one-channel .ld whose samples are stored as integers with a calibration, like LMU exports."""
+    import struct
+
+    data = bytearray(
+        create_synthetic_ld_bytes(
+            driver="D",
+            vehicle="V",
+            venue="T",
+            date_time=datetime(2026, 10, 19, 10, 0, 0),
+            channels_data={"Encoded": np.zeros(n, dtype=np.float32)},
+        )
+    )
+    meta = struct.calcsize(MoTeCLDParser.HEADER_FMT)
+    data_ptr = struct.unpack_from("<I", data, meta + 8)[0]
+    struct.pack_into("<HH", data, meta + CHANNEL_META_OFFSETS["dtype_a"], dtype_a, dtype_b)
+    struct.pack_into("<hhhh", data, meta + CHANNEL_META_OFFSETS["shift"], shift, mul, scale, dec)
+    data[data_ptr : data_ptr + len(raw_bytes)] = raw_bytes
+    path = tmp_path / "encoded.ld"
+    path.write_bytes(bytes(data))
+    return MoTeCLDParser(str(path)).parse().channels["Encoded"].data
+
+
+def test_calibration_multiplies_before_adding_the_shift(tmp_path):
+    raw = np.array([-31925, -19000], dtype=np.int16)
+    values = _ld_with_encoded_channel(tmp_path, raw.tobytes(), 2, 0x03, 2, shift=641, mul=2, scale=1, dec=2)
+
+    assert values == pytest.approx([2.5, 261.0], abs=1e-3)
+
+
+def test_one_byte_integer_channels_are_read_as_int8(tmp_path):
+    raw = np.array([1, 2, 3, 6], dtype=np.int8)
+    values = _ld_with_encoded_channel(tmp_path, raw.tobytes(), 4, 0x03, 1, shift=0, mul=1, scale=1, dec=0)
+
+    assert values.tolist() == [1.0, 2.0, 3.0, 6.0]

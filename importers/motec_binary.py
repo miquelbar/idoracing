@@ -91,7 +91,7 @@ class MoTeCChannel:
             dtype_map = {1: np.float16, 2: np.float16, 4: np.float32}
             dtype = dtype_map.get(dtype_b, np.float32)
         elif dtype_a in [0, 0x03, 0x05]:
-            dtype_map = {2: np.int16, 4: np.int32}
+            dtype_map = {1: np.int8, 2: np.int16, 4: np.int32}
             dtype = dtype_map.get(dtype_b, np.int16 if dtype_a == 0x03 else np.int32)
         elif dtype_a == 0x08 and dtype_b == 0x08:
             dtype = np.float64
@@ -126,10 +126,11 @@ class MoTeCChannel:
         raw_bytes = f.read(self.data_len * np.dtype(self.dtype).itemsize)
         raw_vals = np.frombuffer(raw_bytes, dtype=self.dtype)
 
-        # Calibration formula: ((raw / scale) * 10^(-dec) + shift) * mul
-        calibrated = (
-            raw_vals.astype(np.float64) / float(self.scale) * (10.0 ** (-self.dec)) + float(self.shift)
-        ) * float(self.mul)
+        # Calibration: raw / scale * 10^(-dec) * mul + shift. ldparser applies mul after the shift,
+        # which only agrees when shift is 0 or mul is 1; LMU exports use both (e.g. Ground Speed).
+        calibrated = raw_vals.astype(np.float64) / float(self.scale) * (10.0 ** (-self.dec)) * float(self.mul) + float(
+            self.shift
+        )
         self.data = calibrated.astype(np.float32)
         return self.data
 
