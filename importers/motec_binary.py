@@ -7,19 +7,19 @@ The header, channel and event layouts follow gotzl/ldparser
 """
 
 from datetime import datetime
+import logging
 import os
 import struct
 from typing import Any, Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 
 def _decode_cstring(b: bytes) -> str:
     """Decode null-terminated or fixed-width ASCII string."""
-    try:
-        return b.decode("ascii", errors="replace").split("\x00")[0].strip()
-    except Exception:
-        return ""
+    return b.decode("ascii", errors="replace").split("\x00")[0].strip()
 
 
 class MoTeCChannel:
@@ -199,10 +199,10 @@ class MoTeCLDParser:
 
             try:
                 self.date_time = datetime.strptime(f"{raw_date} {raw_time}", "%d/%m/%Y %H:%M:%S")
-            except Exception:
+            except ValueError:
                 try:
                     self.date_time = datetime.strptime(f"{raw_date} {raw_time}", "%d/%m/%Y %H:%M")
-                except Exception:
+                except ValueError:
                     self.date_time = datetime.now()
 
             # Read all channels from linked list
@@ -262,7 +262,8 @@ class MoTeCLDXParser:
                             "end_time": lm["time"],
                         })
                     prev_time = lm["time"]
-        except Exception:
+        except (ET.ParseError, ValueError) as e:
+            logger.warning("Ignoring unreadable lap markers in %s: %s", self.filepath, e)
             self.laps = []
 
         return self

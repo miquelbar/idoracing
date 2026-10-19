@@ -3,10 +3,13 @@ Unified LLM Client for IdoRacing Analytics.
 Supports Local Ollama (qwen3.8:27b-32k) and OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, vLLM).
 """
 
+import logging
 import os
 from typing import Any, Dict, List, Optional
 import httpx
 from coach.ollama_client import OllamaClient
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
@@ -138,6 +141,7 @@ class LLMClient:
                     choices = data.get("choices", [])
                     if choices:
                         return choices[0].get("message", {}).get("content", "")
-        except Exception:
-            pass
+                logger.warning("OpenAI-compatible API returned HTTP %s", res.status_code)
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("OpenAI-compatible request to %s failed: %s", self.openai_base_url, e)
         return None

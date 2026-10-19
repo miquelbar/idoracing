@@ -4,9 +4,12 @@ and the 2D outline drawn on the track map.
 """
 
 import json
+import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Hand-placed outline of Circuit Ricardo Tormo (Valencia, 4005 m); approximate, not surveyed
 VALENCIA_WAYPOINTS = [
@@ -178,8 +181,8 @@ def load_verified_circuit_coordinates(circuit_slug: str) -> Optional[Tuple[np.nd
                 dists = np.array(data["distances"], dtype=np.float64)
                 if len(coords) > 10 and len(coords) == len(dists):
                     return coords, dists
-            except Exception:
-                pass
+            except (OSError, ValueError, KeyError) as e:
+                logger.warning("Ignoring unreadable circuit file %s: %s", p, e)
     return None
 
 

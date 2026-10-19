@@ -1,12 +1,14 @@
 """
 Ollama HTTP API client for IdoRacing Analytics.
-Provides robust local communication with Ollama, model listing, health checks,
-and timeout handling.
+Model listing, health checks and text generation against a local Ollama server.
 """
 
+import logging
 import os
 from typing import Any, Dict, List, Optional
 import httpx
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
@@ -37,7 +39,7 @@ class OllamaClient:
             with httpx.Client(timeout=3.0) as client:
                 res = client.get(f"{self.base_url}/api/tags")
                 return res.status_code == 200
-        except Exception:
+        except httpx.HTTPError:
             return False
 
     def list_models(self) -> List[str]:
@@ -50,8 +52,8 @@ class OllamaClient:
                 if res.status_code == 200:
                     data = res.json()
                     return [m["name"] for m in data.get("models", [])]
-        except Exception:
-            pass
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("Could not list Ollama models at %s: %s", self.base_url, e)
         return []
 
     def generate(
@@ -83,6 +85,7 @@ class OllamaClient:
                 if res.status_code == 200:
                     data = res.json()
                     return data.get("response", "").strip()
-        except Exception:
-            return None
+                logger.warning("Ollama returned HTTP %s", res.status_code)
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("Ollama request to %s failed: %s", self.base_url, e)
         return None

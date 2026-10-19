@@ -6,6 +6,7 @@ OpenAI/OpenRouter integration, and closed-loop circuit track maps.
 
 from contextlib import asynccontextmanager
 import glob
+import logging
 import os
 import struct
 import tempfile
@@ -39,6 +40,7 @@ LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le M
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
+logger = logging.getLogger(__name__)
 storage = Storage()
 
 llm_client = LLMClient(
@@ -67,12 +69,12 @@ async def lifespan(app: FastAPI):
             xmls = sorted(glob.glob(os.path.join(LMU_RESULTS_DIR, "*.xml")), key=os.path.getmtime, reverse=True)
             for xf in xmls[:2]:
                 try:
-                    imp = LMUImporter(xf)
-                    sess = imp.parse()
-                    if sess.laps:
-                        storage.save_session(sess)
-                except Exception:
-                    pass
+                    sess = LMUImporter(xf).parse()
+                except (ValueError, ET.ParseError) as e:
+                    logger.warning("Skipping unreadable LMU results %s: %s", xf, e)
+                    continue
+                if sess.laps:
+                    storage.save_session(sess)
     yield
 
 

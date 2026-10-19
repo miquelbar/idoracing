@@ -30,7 +30,7 @@ class LMUImporter:
         if time_str:
             try:
                 date_val = datetime.strptime(time_str, "%Y/%m/%d %H:%M:%S")
-            except Exception:
+            except ValueError:
                 pass
 
         # Locate player driver (<isPlayer>1</isPlayer>) or fallback to first driver
