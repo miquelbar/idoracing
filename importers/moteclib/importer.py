@@ -1,7 +1,6 @@
-from datetime import datetime
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 from domain.session import Lap, LapComparison, Session, SessionSummary
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
@@ -33,103 +32,76 @@ class MoTeCImporter:
         """
         Parse the MoTeC file and return a Session object.
         """
-        try:
-            # Check if this is an .ld file
-            if self.file_path.lower().endswith(".ld"):
-                try:
-                    ld_parser = MoTeCLDParser(self.file_path).parse()
-                    telemetry: Dict[str, List[float]] = {}
-                    
-                    # Canonical channel mapping for ACC/LMU MoTeC logs
-                    channel_map = {
-                        "speed": ["SPEED", "Corr Speed", "speed", "Ground Speed"],
-                        "throttle": ["Throttle Pos", "THROTTLE", "throttle", "Accel Pedal Pos"],
-                        "brake": ["Brake Pos", "BRAKE", "brake", "Brake Pedal Pos"],
-                        "gear": ["GEAR", "gear", "Current Gear"],
-                        "lat_accel": ["G Force Lat", "G_LAT", "glat", "lat_accel", "Lateral Accel"],
-                        "long_accel": ["G Force Long", "G_LON", "glong", "long_accel", "Longitudinal Accel"],
-                        "steer_angle": ["Steered Angle", "STEERANGLE", "steer_angle", "Steering Angle"],
-                        "rpm": ["Engine RPM", "RPMS", "rpm"],
-                        "distance": ["Distance", "Lap Distance", "LAP_DIST", "distance"],
-                    }
+        if self.file_path.lower().endswith(".csv"):
+            from importers.csv_importer import CSVImporter
+            return CSVImporter(self.file_path).parse()
 
-                    for canonical, names in channel_map.items():
-                        found = False
-                        for n in names:
-                            if n in ld_parser.channels:
-                                telemetry[canonical] = ld_parser.channels[n].data.tolist()
-                                found = True
-                                break
-                        if not found:
-                            # Default placeholder if specific channel is absent
-                            if canonical in ["speed", "throttle", "brake", "gear", "lat_accel", "long_accel"]:
-                                telemetry[canonical] = [0.0] * 10
+        if not self.file_path.lower().endswith(".ld"):
+            raise ValueError(f"Unsupported format: {self.file_path}")
 
-                    # Auto-detect GPS Latitude / Longitude or Local Cartesian Position
-                    x_coords, y_coords = self._extract_spatial_coordinates(ld_parser.channels)
-                    if x_coords is not None and y_coords is not None:
-                        telemetry["x"] = x_coords
-                        telemetry["y"] = y_coords
-                        logger.info(f"Extracted {len(x_coords)} native spatial coordinates from MoTeC telemetry")
+        ld_parser = MoTeCLDParser(self.file_path).parse()
+        telemetry: Dict[str, List[float]] = {}
 
-                    # Check for companion .ldx file
-                    ldx_path = os.path.splitext(self.file_path)[0] + ".ldx"
-                    laps: List[Lap] = []
-                    if os.path.exists(ldx_path):
-                        ldx_parser = MoTeCLDXParser(ldx_path).parse()
-                        for lap_info in ldx_parser.laps:
-                            laps.append(Lap(
-                                lap_number=lap_info["lap_number"],
-                                lap_time=lap_info["lap_time"],
-                                start_time=lap_info.get("start_time"),
-                                end_time=lap_info.get("end_time"),
-                                is_valid=True,
-                            ))
+        # Canonical channel mapping for ACC/LMU MoTeC logs
+        channel_map = {
+            "speed": ["SPEED", "Corr Speed", "speed", "Ground Speed"],
+            "throttle": ["Throttle Pos", "THROTTLE", "throttle", "Accel Pedal Pos"],
+            "brake": ["Brake Pos", "BRAKE", "brake", "Brake Pedal Pos"],
+            "gear": ["GEAR", "gear", "Current Gear"],
+            "lat_accel": ["G Force Lat", "G_LAT", "glat", "lat_accel", "Lateral Accel"],
+            "long_accel": ["G Force Long", "G_LON", "glong", "long_accel", "Longitudinal Accel"],
+            "steer_angle": ["Steered Angle", "STEERANGLE", "steer_angle", "Steering Angle"],
+            "rpm": ["Engine RPM", "RPMS", "rpm"],
+            "distance": ["Distance", "Lap Distance", "LAP_DIST", "distance"],
+        }
 
-                    car_name = ld_parser.vehicle if ld_parser.vehicle else "Porsche 911 GT3 R (992)"
-                    track_name = ld_parser.venue if ld_parser.venue else "Ricardo Tormo de Valencia"
-                    filename = os.path.basename(self.file_path)
-                    session_id = os.path.splitext(filename)[0]
+        for canonical, names in channel_map.items():
+            found = False
+            for n in names:
+                if n in ld_parser.channels:
+                    telemetry[canonical] = ld_parser.channels[n].data.tolist()
+                    found = True
+                    break
+            if not found:
+                # Default placeholder if specific channel is absent
+                if canonical in ["speed", "throttle", "brake", "gear", "lat_accel", "long_accel"]:
+                    telemetry[canonical] = [0.0] * 10
 
-                    return Session(
-                        session_id=session_id,
-                        car=car_name,
-                        track=track_name,
-                        date=ld_parser.date_time,
-                        telemetry=telemetry,
-                        laps=laps,
-                        source_file=self.file_path,
-                    )
-                except Exception as inner_e:
-                    # In test mocks with dummy text data ("Mock MoTeC file data"), provide graceful fallback
-                    logger.warning(f"Binary parsing failed ({inner_e}), checking text/mock fallback")
-                    return Session(
-                        session_id="mock_session_001",
-                        car="Porsche 911 GT3 R (992)",
-                        track="Ricardo Tormo de Valencia",
-                        date=datetime.now(),
-                        telemetry={
-                            "speed": [100.5, 110.2, 120.0],
-                            "throttle": [0.75, 0.80, 0.85],
-                            "brake": [0.20, 0.15, 0.10],
-                            "gear": [3.0, 4.0, 5.0],
-                            "lat_accel": [2.3, 2.5, 2.7],
-                            "long_accel": [5.0, 5.2, 5.4],
-                        },
-                        source_file=self.file_path,
-                    )
+        # Auto-detect GPS Latitude / Longitude or Local Cartesian Position
+        x_coords, y_coords = self._extract_spatial_coordinates(ld_parser.channels)
+        if x_coords is not None and y_coords is not None:
+            telemetry["x"] = x_coords
+            telemetry["y"] = y_coords
+            logger.info(f"Extracted {len(x_coords)} native spatial coordinates from MoTeC telemetry")
 
-            elif self.file_path.lower().endswith(".csv"):
-                from importers.csv_importer import CSVImporter
-                return CSVImporter(self.file_path).parse()
+        # Check for companion .ldx file
+        ldx_path = os.path.splitext(self.file_path)[0] + ".ldx"
+        laps: List[Lap] = []
+        if os.path.exists(ldx_path):
+            ldx_parser = MoTeCLDXParser(ldx_path).parse()
+            for lap_info in ldx_parser.laps:
+                laps.append(Lap(
+                    lap_number=lap_info["lap_number"],
+                    lap_time=lap_info["lap_time"],
+                    start_time=lap_info.get("start_time"),
+                    end_time=lap_info.get("end_time"),
+                    is_valid=True,
+                ))
 
-            else:
-                # Other formats
-                raise ValueError(f"Unsupported format: {self.file_path}")
+        car_name = ld_parser.vehicle if ld_parser.vehicle else "Porsche 911 GT3 R (992)"
+        track_name = ld_parser.venue if ld_parser.venue else "Ricardo Tormo de Valencia"
+        filename = os.path.basename(self.file_path)
+        session_id = os.path.splitext(filename)[0]
 
-        except Exception as e:
-            logger.error(f"Error parsing file: {str(e)}")
-            raise
+        return Session(
+            session_id=session_id,
+            car=car_name,
+            track=track_name,
+            date=ld_parser.date_time,
+            telemetry=telemetry,
+            laps=laps,
+            source_file=self.file_path,
+        )
 
     def get_session_summary(self) -> SessionSummary:
         """
