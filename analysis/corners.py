@@ -250,7 +250,7 @@ def analyze_corner(
         racing_line_code = "suboptimal"
         racing_line_advice = "La trayectoria en curva no optimiza el paso por el vértice; abre la aproximación y asegura el piano interior."
 
-    # Technical driving diagnosis grounded in verified telemetry facts
+    # Diagnosis text built only from the deltas computed above
     diagnosis_parts = []
     if brake_delta_dist is not None:
         if brake_delta_dist < -12.0:

@@ -1,7 +1,6 @@
 """
-IdoRacing Analytics — High-Performance Motorsport Telemetry Suite FastAPI Backend.
-Exposes REST APIs for sessions, lap comparison, corner segmentation, Ollama AI (qwen3.8:27b-32k),
-OpenAI/OpenRouter integration, and closed-loop circuit track maps.
+IdoRacing Analytics FastAPI backend: session import and storage, lap comparison,
+corner analysis, track outlines and the AI race engineer endpoints.
 """
 
 import glob

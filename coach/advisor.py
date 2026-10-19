@@ -1,6 +1,6 @@
 """
 AI and Rule-Based Driving Coach Advisor.
-Synthesizes verified numerical metrics from LapComparison into structured technical reports.
+Turns a LapComparison into a structured coaching report, with an LLM when one is available and rules otherwise.
 """
 
 from datetime import datetime
@@ -31,7 +31,7 @@ class CoachAdvisor:
         otherwise generates a deterministic, rule-based report.
         synthetic marks a comparison built on placeholder telemetry, which caps confidence at low.
         """
-        # 1. Extract verified numerical facts and metrics
+        # 1. Extract numerical facts and metrics
         facts: list[str] = []
 
         # Formatted sector summary string (prevents [object Object] in UI)
@@ -164,11 +164,16 @@ class CoachAdvisor:
                 f"VUELTA COMPARACIÓN: Vuelta {comparison.comparison_lap}\n"
                 f"DIFERENCIA TOTAL: {comparison.time_difference:+.3f}s\n"
                 f"SECTORES: {sector_str}\n"
-                f"ZONAS Y TRAIL BRAKING ANALIZADOS:\n"
             )
+            if synthetic:
+                prompt_data += (
+                    "AVISO: estas vueltas solo tienen tiempos; las trazas por curva son simuladas. "
+                    "Dilo en el informe y no des consejos de pilotaje basados en ellas.\n"
+                )
+            prompt_data += "ZONAS Y TRAIL BRAKING ANALIZADOS:\n"
             for c in comparison.corners:
-                t_eval = getattr(c, "trail_eval", "Óptimo")
-                t_adv = getattr(c, "trail_advice", "")
+                t_eval = c.trail_eval
+                t_adv = c.trail_advice or ""
                 prompt_data += (
                     f"- {c.corner_name} (T{c.corner_number}): Pérdida {c.time_delta_corner:+.3f}s, "
                     f"Vmin Ref: {c.ref_min_speed} km/h, Vmin Comp: {c.comp_min_speed} km/h "
@@ -314,7 +319,6 @@ def generate_race_engineer_response(
                 f"- **Recomendación de trazada:** {r_advice}"
             )
 
-    # Pep radio greetings (natural and authentic)
     if is_en:
         ack = f"Pit wall radio check on T{c_num}. " if (corner and c_num) else "Pit wall radio check. "
     else:

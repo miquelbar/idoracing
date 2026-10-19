@@ -441,7 +441,7 @@ def reconstruct_track_from_dynamics(
     return x.tolist(), y.tolist()
 
 
-def load_verified_circuit_coordinates(circuit_slug: str) -> tuple[np.ndarray, np.ndarray] | None:
+def load_circuit_centreline(circuit_slug: str) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Load a circuit centreline from data/circuits/<slug>.json.
     Returns (coordinates_array_Nx2, cumulative_distances_N) or None if not available.
@@ -490,9 +490,9 @@ def generate_track_coordinates(
     total_dist = float(distance[-1]) if len(distance) > 0 else 0.0
 
     if "sebring" in t_norm:
-        verified = load_verified_circuit_coordinates("sebring")
-        if verified is not None:
-            coords, dists = verified
+        centreline = load_circuit_centreline("sebring")
+        if centreline is not None:
+            coords, dists = centreline
             norm_dists = dists / dists[-1]
             norm_target = (distance - distance[0]) / max(1.0, distance[-1] - distance[0])
 
