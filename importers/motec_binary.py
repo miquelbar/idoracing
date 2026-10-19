@@ -1,6 +1,9 @@
 """
 MoTeC .ld and .ldx binary and XML parser for Assetto Corsa Competizione (ACC) telemetry.
 Implements binary decoding according to the MoTeC Logged Data (.ld) structure and XML lap markers (.ldx).
+
+The header, channel and event layouts follow gotzl/ldparser
+(https://github.com/gotzl/ldparser), licensed under GPL-3.0.
 """
 
 from datetime import datetime

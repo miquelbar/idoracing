@@ -1,0 +1,21 @@
+IdoRacing Analytics
+Copyright (C) 2026 miquelbar
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 of the License. See LICENSE for the full text.
+
+Third-party material
+--------------------
+
+importers/motec_binary.py
+  The MoTeC .ld header, channel and event layouts (struct formats and the
+  constant fields written into generated files) follow gotzl/ldparser,
+  https://github.com/gotzl/ldparser
+  Copyright (c) gotzl, licensed under the GNU General Public License v3.0.
+
+data/circuits/sebring.json
+  Sebring International Raceway centreline derived from OpenStreetMap data
+  via track-atlas.
+  © OpenStreetMap contributors, available under the Open Database License
+  (ODbL) v1.0, https://opendatacommons.org/licenses/odbl/

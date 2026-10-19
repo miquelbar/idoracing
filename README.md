@@ -4,7 +4,7 @@
 > **Multi-sim telemetry analysis. Built for faster laps.**
 
 [![CI](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml/badge.svg)](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![TypeScript: 5+](https://img.shields.io/badge/typescript-5+-blue.svg)](https://www.typescriptlang.org/)
@@ -270,5 +270,8 @@ Feel free to open an issue or submit a pull request. Please check [CONTRIBUTING.
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+The MoTeC `.ld` reader in `importers/motec_binary.py` is based on the file layout documented by [gotzl/ldparser](https://github.com/gotzl/ldparser) (GPL-3.0). The Sebring centreline in `data/circuits/sebring.json` is derived from OpenStreetMap data, © OpenStreetMap contributors, available under the [Open Database License](https://opendatacommons.org/licenses/odbl/). See [NOTICE](NOTICE) for details.
+
 Enjoy faster laps and cleaner racing! 🏁
