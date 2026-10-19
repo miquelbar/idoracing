@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 
 from domain.session import Lap, Session, SessionSummary
+from importers.laps import LAP_RESET_DROP_M, mark_partial_laps_invalid, without_boundary_wrap
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,6 @@ CHANNEL_MAP = {
 }
 REQUIRED_CHANNELS = ("speed", "throttle", "brake", "gear", "lat_accel", "long_accel")
 
-# A lap-distance channel drops back to ~0 at the line; anything smaller is GPS noise.
-LAP_RESET_DROP_M = 500.0
-
-
-COMPLETE_LAP_FRACTION = 0.95
-
 # Channels only one exporter writes, used to tell which simulator produced a MoTeC file.
 SIMULATOR_SIGNATURES = (
     ("Path Lateral", "Le Mans Ultimate"),
@@ -39,30 +34,6 @@ SIMULATOR_SIGNATURES = (
 
 def _simulator_from_channels(channels: dict[str, Any]) -> str | None:
     return next((sim for channel, sim in SIMULATOR_SIGNATURES if channel in channels), None)
-
-
-def _distance_covered(telemetry: dict[str, list[float]]) -> float:
-    if "distance" in telemetry:
-        return float(np.ptp(telemetry["distance"]))
-    speed_ms = np.asarray(telemetry["speed"]) / 3.6
-    return float(np.sum(speed_ms[1:] * np.diff(telemetry["time"])))
-
-
-def _without_boundary_wrap(distance: list[float]) -> list[float]:
-    """
-    Lap distance is the car's position along the track, so it is kept as recorded: a lap that starts
-    from the grid or the pit exit starts mid-track. The lap-number and lap-distance channels are logged
-    at different rates, so the reset at the line can land a few samples inside the neighbouring lap;
-    those samples are moved back next to their lap.
-    """
-    d = np.asarray(distance, dtype=np.float64)
-    for i in np.where(np.diff(d) < -LAP_RESET_DROP_M)[0]:
-        jump = d[i] - d[i + 1]
-        if i < len(d) / 2:
-            d[: i + 1] -= jump
-        else:
-            d[i + 1 :] += jump
-    return d.tolist()
 
 
 def _resample(values: np.ndarray, n: int) -> np.ndarray:
@@ -155,8 +126,7 @@ class MoTeCImporter:
     def _split_laps(self, telemetry: dict[str, list[float]], ldx_laps: list[dict[str, Any]]) -> list[Lap]:
         """
         Cut session channels into laps using .ldx markers, else the lap-number channel, else lap-distance
-        resets. Laps that cover less than COMPLETE_LAP_FRACTION of the longest lap (out and in laps) are
-        marked invalid.
+        resets. Out and in laps are marked invalid.
         """
         time = np.asarray(telemetry["time"])
         bounds: list[tuple[int, int, int]] = []
@@ -187,7 +157,7 @@ class MoTeCImporter:
             t0 = lap_telemetry["time"][0]
             lap_telemetry["time"] = [t - t0 for t in lap_telemetry["time"]]
             if "distance" in lap_telemetry:
-                lap_telemetry["distance"] = _without_boundary_wrap(lap_telemetry["distance"])
+                lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
             laps.append(
                 Lap(
                     lap_number=lap_number,
@@ -199,10 +169,7 @@ class MoTeCImporter:
                 )
             )
 
-        spans = [_distance_covered(lap.telemetry) for lap in laps]
-        longest = max(spans, default=0.0)
-        for lap, span in zip(laps, spans, strict=True):
-            lap.is_valid = span >= COMPLETE_LAP_FRACTION * longest
+        mark_partial_laps_invalid(laps)
         return laps
 
     def get_session_summary(self) -> SessionSummary:
