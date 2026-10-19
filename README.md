@@ -42,7 +42,7 @@ Supports:
 ### 2. 🔍 Corner-by-corner inspector
 - **Phase table** comparing reference and your lap for each corner: braking point, brake pressure into the apex, minimum speed and gear, throttle pick-up after the apex, and exit speed.
 - **Diagnosis** per corner (early braking, early release of the brake, early apex, traction-limited exit...) from fixed thresholds on those numbers.
-- **Line offset in metres**: when both laps carry position data, how much wider or tighter your line is than the reference lap at entry, apex and exit. Le Mans Ultimate and Assetto Corsa MoTeC exports have it (GPS or world coordinates); ACC's MoTeC export does not appear to include a position channel, so ACC laps show the qualitative reading only.
+- **Line offset in metres**: when both laps carry position data, how much wider or tighter your line is than the reference lap at entry, apex and exit. Le Mans Ultimate and Assetto Corsa MoTeC exports have it (GPS or world coordinates). ACC's MoTeC export does not appear to include a position channel, so for ACC record with [idoracing-recorder](recorder/README.md); laps without position show the qualitative reading only.
 - **Corner diagram**: a schematic picture of the line the diagnosis suggests. It is an illustration, not your measured trajectory.
 - **Ask Pep** about the selected corner in one click.
 

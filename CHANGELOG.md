@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `idoracing-recorder`, a standalone Windows recorder for ACC that writes CSV sessions with car position from the game's shared memory, and CSV import of its metadata, position and lap validity.
 - Line offset in metres versus the reference lap at corner entry, apex and exit, for laps recorded with position data (LMU and AC MoTeC exports).
 
 ### Changed
