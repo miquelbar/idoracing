@@ -135,6 +135,28 @@ class MoTeCChannel:
         return self.data
 
 
+# Offsets in the event -> venue -> vehicle chain the header's event pointer leads to.
+EVENT_VENUE_PTR_OFFSET = 1152
+VENUE_VEHICLE_PTR_OFFSET = 1098
+VEHICLE_LONG_NAME = slice(64, 192)
+
+
+def _vehicle_name_from_event(f, event_ptr: int) -> str:
+    """LMU leaves the header's vehicle field empty and stores the car in the vehicle block instead."""
+    f.seek(event_ptr + EVENT_VENUE_PTR_OFFSET)
+    (venue_ptr,) = struct.unpack("<H", f.read(2))
+    if not venue_ptr:
+        return ""
+    f.seek(venue_ptr + VENUE_VEHICLE_PTR_OFFSET)
+    (vehicle_ptr,) = struct.unpack("<H", f.read(2))
+    if not vehicle_ptr:
+        return ""
+    f.seek(vehicle_ptr)
+    block = f.read(VEHICLE_LONG_NAME.stop)
+    name = _decode_cstring(block[VEHICLE_LONG_NAME]) or _decode_cstring(block[:64])
+    return name if name.isprintable() else ""
+
+
 class MoTeCLDParser:
     """Parser for MoTeC .ld binary log files."""
 
@@ -208,6 +230,9 @@ class MoTeCLDParser:
                     self.date_time = datetime.strptime(f"{raw_date} {raw_time}", "%d/%m/%Y %H:%M")
                 except ValueError:
                     self.date_time = datetime.now()
+
+            if not self.vehicle and unpacked[3]:
+                self.vehicle = _vehicle_name_from_event(f, unpacked[3])
 
             # Read all channels from linked list
             curr_ptr = meta_ptr

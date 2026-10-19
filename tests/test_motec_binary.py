@@ -132,3 +132,28 @@ def test_one_byte_integer_channels_are_read_as_int8(tmp_path):
     values = _ld_with_encoded_channel(tmp_path, raw.tobytes(), 4, 0x03, 1, shift=0, mul=1, scale=1, dec=0)
 
     assert values.tolist() == [1.0, 2.0, 3.0, 6.0]
+
+
+def test_vehicle_name_falls_back_to_the_event_chain(tmp_path):
+    import struct
+
+    data = bytearray(
+        create_synthetic_ld_bytes(
+            driver="D",
+            vehicle="",
+            venue="Spa",
+            date_time=datetime(2026, 10, 19, 10, 0, 0),
+            channels_data={"SPEED": np.zeros(4, dtype=np.float32)},
+        )
+    )
+    event_ptr = len(data)
+    venue_ptr = event_ptr + 1154
+    vehicle_ptr = venue_ptr + 1100
+    data += b"\0" * 1152 + struct.pack("<H", venue_ptr)
+    data += b"Spa".ljust(1098, b"\0") + struct.pack("<H", vehicle_ptr)
+    data += b"GT3".ljust(64, b"\0") + b"BMW GT3 Custom Team".ljust(128, b"\0")
+    struct.pack_into("<I", data, struct.calcsize("<I4xII20x"), event_ptr)
+    path = tmp_path / "lmu.ld"
+    path.write_bytes(bytes(data))
+
+    assert MoTeCLDParser(str(path)).parse().vehicle == "BMW GT3 Custom Team"
