@@ -1,12 +1,12 @@
 import React from 'react';
 import { Bot, ChevronRight } from 'lucide-react';
 import type { ComparisonResponse } from '../types/telemetry';
-import { formatLapTime } from '../utils/formatters';
+import { formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage } from '../i18n';
 
 interface TelemetryHeaderBarProps {
   comparison?: ComparisonResponse | null;
-  gameName: string;
+  gameName: string | null;
   trackName: string;
   carName: string;
   lapCount?: number;
@@ -38,8 +38,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   reportAvailable = false,
 }) => {
   const { t } = useLanguage();
-  const isLMU = gameName.toLowerCase().includes('le mans');
-  const isiRacing = gameName.toLowerCase().includes('iracing');
+  const badge = simBadge(gameName);
 
   const refS1 = comparison?.ref_sectors?.['S1'] ?? 0;
   const refS2 = comparison?.ref_sectors?.['S2'] ?? 0;
@@ -59,15 +58,10 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {/* Game Pill */}
         <span
-          className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 border ${
-            isLMU
-              ? 'bg-blue-950/70 border-blue-500/40 text-blue-300'
-              : isiRacing
-              ? 'bg-red-950/70 border-red-500/40 text-red-300'
-              : 'bg-red-950/60 border-[#E10600]/40 text-[#FF4D4D]'
-          }`}
+          className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 border ${badge.className}`}
+          title={gameName || undefined}
         >
-          {isLMU ? 'LMU' : isiRacing ? 'iRacing' : 'ACC'}
+          {badge.label}
         </span>
 
         {/* Track & Car */}

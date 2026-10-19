@@ -81,3 +81,5 @@ def test_existing_databases_get_their_generated_laps_flagged(tmp_path):
 
     assert store.get_session("lmu_race").laps[0].synthetic is True
     assert store.get_session("stint").laps[0].synthetic is False
+    assert store.get_session("lmu_race").simulator == "Le Mans Ultimate"
+    assert store.get_session("stint").simulator is None

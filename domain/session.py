@@ -29,6 +29,7 @@ class Session(BaseModel):
     telemetry: dict[str, list[float]] = Field(default_factory=dict, description="Session-wide telemetry channels")
     laps: list[Lap] = Field(default_factory=list, description="List of segmented laps")
     source_file: str | None = Field(default=None, description="Original source filename or path")
+    simulator: str | None = Field(default=None, description="Simulator that recorded the session, when it can be told")
 
     @model_validator(mode="after")
     def validate_telemetry_channels(self) -> "Session":
@@ -63,6 +64,7 @@ class SessionSummary(BaseModel):
     average_speed: float
     lap_count: int = 0
     id: str | None = None
+    simulator: str | None = None
 
 
 class CornerAnalysis(BaseModel):

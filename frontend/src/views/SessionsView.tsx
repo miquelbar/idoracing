@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { uploadTelemetryFile } from '../services/api';
 import type { AutoDiscoverData, ComparisonResponse, SessionDetail, SessionSummary } from '../types/telemetry';
-import { detectSimGame, errorMessage, formatDate, formatLapTime } from '../utils/formatters';
+import { detectSimGame, errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage } from '../i18n';
 
 interface SessionsViewProps {
@@ -62,9 +62,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
   const filteredSessions = sessions.filter((s) => {
     const game = detectSimGame(s);
-    if (filterGame === 'acc') return game.includes('Assetto');
-    if (filterGame === 'lmu') return game.includes('Le Mans');
-    if (filterGame === 'iracing') return game.includes('iRacing');
+    if (filterGame === 'acc') return game === 'Assetto Corsa Competizione';
+    if (filterGame === 'lmu') return game === 'Le Mans Ultimate';
+    if (filterGame === 'iracing') return game === 'iRacing';
     return true;
   });
 
@@ -251,8 +251,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               {filteredSessions.map((sess) => {
                 const isActive = sess.session_id === selectedSessionId;
                 const simName = detectSimGame(sess);
-                const isLMU = simName.toLowerCase().includes('le mans');
-                const isiRacing = simName.toLowerCase().includes('iracing');
+                const badge = simBadge(simName);
 
                 return (
                   <div
@@ -267,15 +266,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       <div>
                         {/* Sim Badge */}
                         <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-telemetry mb-1.5 border ${
-                            isLMU
-                              ? 'bg-blue-950/70 border-blue-500/40 text-blue-300'
-                              : isiRacing
-                              ? 'bg-red-950/70 border-red-500/40 text-red-300'
-                              : 'bg-red-950/60 border-[#E10600]/40 text-[#FF4D4D]'
-                          }`}
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-telemetry mb-1.5 border ${badge.className}`}
                         >
-                          {simName}
+                          {simName ?? badge.label}
                         </span>
 
                         {/* Track & Car */}

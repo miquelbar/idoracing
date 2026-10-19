@@ -42,20 +42,29 @@ export function formatDate(dateVal?: string | Date | null): string {
 }
 
 export function detectSimGame(
-  session?: { session_id?: string; car?: string; track?: string } | null,
-  comparison?: { game_name?: string } | null
-): string {
+  session?: { session_id?: string; simulator?: string | null } | null,
+  comparison?: { game_name?: string | null } | null
+): string | null {
+  if (session?.simulator) return session.simulator;
   if (comparison?.game_name) return comparison.game_name;
-  if (!session) return 'Assetto Corsa Competizione';
-  const id = (session.session_id || '').toLowerCase();
-  const car = (session.car || '').toLowerCase();
-  if (id.startsWith('lmu') || car.includes('lmgt3') || car.includes('hypercar') || car.includes('lmp2')) {
-    return 'Le Mans Ultimate';
-  }
-  if (id.includes('iracing')) {
-    return 'iRacing';
-  }
-  return 'Assetto Corsa Competizione';
+  if ((session?.session_id || '').toLowerCase().includes('iracing')) return 'iRacing';
+  return null;
+}
+
+const SIM_BADGES: { match: string; label: string; className: string }[] = [
+  { match: 'Le Mans Ultimate', label: 'LMU', className: 'bg-blue-950/70 border-blue-500/40 text-blue-300' },
+  { match: 'iRacing', label: 'iRacing', className: 'bg-red-950/70 border-red-500/40 text-red-300' },
+  { match: 'Assetto Corsa Competizione', label: 'ACC', className: 'bg-red-950/60 border-[#E10600]/40 text-[#FF4D4D]' },
+  { match: 'Assetto Corsa', label: 'AC', className: 'bg-amber-950/60 border-amber-500/40 text-amber-300' },
+];
+
+export function simBadge(simulator: string | null): { label: string; className: string } {
+  return (
+    SIM_BADGES.find((b) => b.match === simulator) ?? {
+      label: 'SIM',
+      className: 'bg-white/5 border-white/15 text-gray-400',
+    }
+  );
 }
 
 const METRIC_LABELS: Record<string, { es: string; en: string }> = {

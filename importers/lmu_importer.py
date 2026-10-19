@@ -94,4 +94,5 @@ class LMUImporter:
             telemetry={},
             laps=laps,
             source_file=self.filepath,
+            simulator="Le Mans Ultimate",
         )

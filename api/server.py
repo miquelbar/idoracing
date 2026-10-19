@@ -154,7 +154,7 @@ class ComparisonResponse(BaseModel):
     delta_time_total: float
     track_name: str
     car_name: str
-    game_name: str | None = "Assetto Corsa Competizione"
+    game_name: str | None = None
     distance: list[float]
     ref_speed: list[float]
     comp_speed: list[float]
@@ -404,13 +404,8 @@ def get_lap_comparison(
     ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
     comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
 
-    detected_game = "Assetto Corsa Competizione"
-    sid = matched_session.session_id.lower()
-    sf = (matched_session.source_file or "").lower()
-    car = matched_session.car.lower()
-    if "lmu" in sid or "le mans" in sf or "lmgt3" in car or "hypercar" in car or "lmp2" in car:
-        detected_game = "Le Mans Ultimate"
-    elif "iracing" in sid or "iracing" in sf:
+    detected_game = matched_session.simulator
+    if detected_game is None and "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower():
         detected_game = "iRacing"
 
     return ComparisonResponse(

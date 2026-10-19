@@ -29,6 +29,17 @@ LAP_RESET_DROP_M = 500.0
 
 COMPLETE_LAP_FRACTION = 0.95
 
+# Channels only one exporter writes, used to tell which simulator produced a MoTeC file.
+SIMULATOR_SIGNATURES = (
+    ("Path Lateral", "Le Mans Ultimate"),
+    ("ROTY", "Assetto Corsa Competizione"),
+    ("Car Coord X", "Assetto Corsa"),
+)
+
+
+def _simulator_from_channels(channels: dict[str, Any]) -> str | None:
+    return next((sim for channel, sim in SIMULATOR_SIGNATURES if channel in channels), None)
+
 
 def _distance_covered(telemetry: dict[str, list[float]]) -> float:
     if "distance" in telemetry:
@@ -114,6 +125,7 @@ class MoTeCImporter:
             telemetry=telemetry,
             laps=laps,
             source_file=self.file_path,
+            simulator=_simulator_from_channels(ld_parser.channels),
         )
 
     def _canonical_telemetry(self, channels: dict[str, Any]) -> dict[str, list[float]]:

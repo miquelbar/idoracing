@@ -74,6 +74,11 @@ class Storage:
             );
             """)
 
+            session_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(sessions)")}
+            if "simulator" not in session_columns:
+                cursor.execute("ALTER TABLE sessions ADD COLUMN simulator TEXT")
+                cursor.execute("UPDATE sessions SET simulator = 'Le Mans Ultimate' WHERE source_file LIKE '%.xml'")
+
             lap_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(laps)")}
             if "synthetic" not in lap_columns:
                 cursor.execute("ALTER TABLE laps ADD COLUMN synthetic INTEGER NOT NULL DEFAULT 0")
@@ -112,8 +117,9 @@ class Storage:
             cursor.execute(
                 """
             INSERT OR REPLACE INTO sessions (
-                id, session_id, car, track, date, source_file, best_lap_time, duration, average_speed, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, session_id, car, track, date, source_file, best_lap_time, duration, average_speed, created_at,
+                simulator
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     session.id,
@@ -126,6 +132,7 @@ class Storage:
                     duration,
                     avg_speed,
                     datetime.now().isoformat(),
+                    session.simulator,
                 ),
             )
 
@@ -198,6 +205,7 @@ class Storage:
                 telemetry=session_telemetry,
                 laps=laps,
                 source_file=s_row["source_file"],
+                simulator=s_row["simulator"],
             )
 
     def list_sessions(
@@ -210,7 +218,7 @@ class Storage:
             cursor = conn.cursor()
             query = """
             SELECT s.id, s.session_id, s.car, s.track, s.date, s.best_lap_time, s.duration, s.average_speed,
-                   COUNT(l.id) as lap_count
+                   s.simulator, COUNT(l.id) as lap_count
             FROM sessions s
             LEFT JOIN laps l ON s.id = l.session_id
             WHERE 1=1
@@ -240,6 +248,7 @@ class Storage:
                         best_lap_time=float(r["best_lap_time"] or 0.0),
                         average_speed=float(r["average_speed"] or 0.0),
                         lap_count=int(r["lap_count"] or 0),
+                        simulator=r["simulator"],
                     )
                 )
             return summaries

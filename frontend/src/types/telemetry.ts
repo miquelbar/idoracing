@@ -97,7 +97,7 @@ export interface ComparisonResponse {
   delta_time_total: number;
   track_name: string;
   car_name: string;
-  game_name?: string;
+  game_name?: string | null;
   distance: number[];
   ref_speed: number[];
   comp_speed: number[];
@@ -145,6 +145,7 @@ export interface SessionDetail {
   date: string;
   laps: LapSummary[];
   source_file?: string | null;
+  simulator?: string | null;
 }
 
 export interface ImportResult {
@@ -180,6 +181,7 @@ export interface SessionSummary {
   average_speed?: number;
   lap_count: number;
   laps?: LapSummary[];
+  simulator?: string | null;
 }
 
 export interface AutoDiscoverFile {

@@ -196,3 +196,16 @@ def test_a_lap_started_from_the_grid_keeps_its_track_position(tmp_path):
 
     assert lap0_distance[0] == pytest.approx(260.0)
     assert lap0_distance[-1] > lap0_distance[-3]
+
+
+@pytest.mark.parametrize(
+    ("channel", "simulator"),
+    [("Path Lateral", "Le Mans Ultimate"), ("ROTY", "Assetto Corsa Competizione"), ("Car Coord X", "Assetto Corsa")],
+)
+def test_simulator_is_told_from_exporter_specific_channels(tmp_path, channel, simulator):
+    channels = _flat_channels(50)
+    channels[channel] = np.zeros(50)
+    ld = tmp_path / "sim.ld"
+    _write_ld(ld, channels)
+
+    assert MoTeCImporter(str(ld)).parse().simulator == simulator

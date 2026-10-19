@@ -388,7 +388,7 @@ export const App: React.FC = () => {
         <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-4">
             <span>
-              IDORACING ANALYTICS v{status?.version || '2026.2'} • {activeGame}
+              IDORACING ANALYTICS v{status?.version || '2026.2'}{activeGame ? ` • ${activeGame}` : ''}
             </span>
             <span className="hidden md:inline text-gray-700">|</span>
             <span className="hidden md:inline text-gray-400">
