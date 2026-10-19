@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from analysis.line_offset import corner_line_offsets, has_recorded_position
 from analysis.tracks import known_track_corners
 from domain.session import CornerAnalysis
 
@@ -15,6 +16,8 @@ CORNER_MIN_DROP_KMH = 12.0
 CORNER_MAX_HALF_SPAN_M = 250.0
 SLOW_CORNER_KMH = 110.0
 FAST_CORNER_KMH = 160.0
+# Line offsets below this are within position noise and are not called out in the diagnosis.
+LINE_OFFSET_NOTE_M = 0.5
 
 
 def analyze_corner(
@@ -251,6 +254,18 @@ def analyze_corner(
         racing_line_advice = "La trayectoria en curva no optimiza el paso por el vértice; abre la aproximación y asegura el piano interior."
 
     # Diagnosis text built only from the deltas computed above
+    line_offsets = (
+        corner_line_offsets(
+            aligned_data["ref_x"][mask],
+            aligned_data["ref_y"][mask],
+            aligned_data["comp_x"][mask],
+            aligned_data["comp_y"][mask],
+            apex_idx=ref_apex_idx,
+        )
+        if has_recorded_position(aligned_data)
+        else None
+    )
+
     diagnosis_parts = []
     if brake_delta_dist is not None:
         if brake_delta_dist < -12.0:
@@ -270,6 +285,10 @@ def analyze_corner(
         diagnosis_parts.append(
             f"Aceleración retrasada {th_delta_dist:.1f}m en la salida comprometiendo la recta posterior."
         )
+
+    if line_offsets is not None and abs(line_offsets[1]) >= LINE_OFFSET_NOTE_M:
+        side = "más abierto" if line_offsets[1] > 0 else "más cerrado"
+        diagnosis_parts.append(f"Ápice {abs(line_offsets[1]):.1f}m {side} que la referencia.")
 
     if abs(time_delta_corner) < 0.04:
         timing_summary = f"Paso consistente (delta {time_delta_corner:+.3f}s)."
@@ -362,6 +381,9 @@ def analyze_corner(
         racing_line_code=racing_line_code,
         racing_line_advice=racing_line_advice,
         racing_line_svg=racing_line_svg,
+        line_offset_entry_m=line_offsets[0] if line_offsets else None,
+        line_offset_apex_m=line_offsets[1] if line_offsets else None,
+        line_offset_exit_m=line_offsets[2] if line_offsets else None,
     )
 
 

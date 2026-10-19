@@ -140,6 +140,9 @@ class CornerDTO(BaseModel):
     racing_line_code: str
     racing_line_advice: str
     racing_line_svg: dict[str, Any] | None = None
+    line_offset_entry_m: float | None = None
+    line_offset_apex_m: float | None = None
+    line_offset_exit_m: float | None = None
 
 
 class ComparisonResponse(BaseModel):
@@ -392,6 +395,9 @@ def get_lap_comparison(
                 racing_line_code=c.racing_line_code,
                 racing_line_advice=c.racing_line_advice,
                 racing_line_svg=c.racing_line_svg,
+                line_offset_entry_m=c.line_offset_entry_m,
+                line_offset_apex_m=c.line_offset_apex_m,
+                line_offset_exit_m=c.line_offset_exit_m,
             )
         )
 

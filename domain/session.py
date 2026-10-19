@@ -105,6 +105,15 @@ class CornerAnalysis(BaseModel):
     racing_line_code: str = "optimal"
     racing_line_advice: str = ""
     racing_line_svg: dict[str, Any] | None = None
+    line_offset_entry_m: float | None = Field(
+        default=None, description="Metres wider (+) or tighter (-) than the reference at entry"
+    )
+    line_offset_apex_m: float | None = Field(
+        default=None, description="Metres wider (+) or tighter (-) than the reference at the apex"
+    )
+    line_offset_exit_m: float | None = Field(
+        default=None, description="Metres wider (+) or tighter (-) than the reference at exit"
+    )
 
 
 class LapComparison(BaseModel):
