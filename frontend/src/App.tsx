@@ -28,12 +28,28 @@ import { SettingsView } from './views/SettingsView';
 import { SetupHistoryView } from './views/SetupHistoryView';
 import { TelemetryView } from './views/TelemetryView';
 
-/** Fastest two valid laps, or the first two laps when fewer than two are valid. */
+/** Fastest valid lap as reference, paired with the next best lap or valid comparison lap. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
-  if (!session || session.laps.length < 2) return [1, 2];
+  if (!session || session.laps.length === 0) return [1, 2];
+  if (session.laps.length === 1) return [session.laps[0].lap_number, session.laps[0].lap_number];
+
   const valid = session.laps.filter((l) => l.lap_time > 0 && l.is_valid).sort((a, b) => a.lap_time - b.lap_time);
-  const [ref, comp] = valid.length >= 2 ? valid : session.laps;
-  return [ref.lap_number, comp.lap_number];
+  if (valid.length >= 2) {
+    return [valid[0].lap_number, valid[1].lap_number];
+  }
+  if (valid.length === 1) {
+    const refLap = valid[0];
+    const otherLaps = session.laps.filter((l) => l.lap_number !== refLap.lap_number && l.lap_time > 0);
+    const compLap = otherLaps.length > 0 ? otherLaps[0] : (session.laps.find((l) => l.lap_number !== refLap.lap_number) ?? refLap);
+    return [refLap.lap_number, compLap.lap_number];
+  }
+
+  const sorted = [...session.laps].sort((a, b) => {
+    if (a.lap_time <= 0) return 1;
+    if (b.lap_time <= 0) return -1;
+    return a.lap_time - b.lap_time;
+  });
+  return [sorted[0].lap_number, sorted[1]?.lap_number ?? sorted[0].lap_number];
 }
 
 function getTabFromHash(): NavTab {
