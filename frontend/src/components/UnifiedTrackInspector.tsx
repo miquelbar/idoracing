@@ -42,6 +42,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   onAskEngineerAboutCorner,
 }) => {
   const { lang, t } = useLanguage();
+  const formatPostApex = (metres: number | null) => (metres === null ? '—' : `+${metres}m ${t('post_apex_meters')}`);
   const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
   const [hoveredCornerNum, setHoveredCornerNum] = useState<number | null>(null);
   const corners = comparison.corners || [];
@@ -362,8 +363,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   const cornerSvgData = selectedCorner?.racing_line_svg;
   const isLeft = cornerSvgData?.turn_dir === 'left';
   const hasSubviraje = cornerSvgData?.has_subviraje;
-  const isEarlyApex = (selectedCorner?.racing_line_eval || '').includes('Prematuro');
-  const isOptimal = (selectedCorner?.racing_line_eval || '').includes('Óptima');
+  const isEarlyApex = selectedCorner?.racing_line_code === 'early_apex';
+  const isOptimal = selectedCorner?.racing_line_code === 'optimal';
 
   // Overall lap delta
   const totalGap = comparison.delta_time && comparison.delta_time.length > 0
@@ -431,14 +432,14 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       compTrailSum += compBrakes[i] || 0;
       trailCount++;
     }
-    const refTrailPct = trailCount > 0 ? Math.round((refTrailSum / trailCount) * 100) : 20;
-    const compTrailPct = trailCount > 0 ? Math.round((compTrailSum / trailCount) * 100) : 15;
-    const trailEval = selectedCorner.trail_braking_eval || 'Óptimo';
+    const refTrailPct = Math.round((refTrailSum / trailCount) * 100);
+    const compTrailPct = Math.round((compTrailSum / trailCount) * 100);
+    const trailCode = selectedCorner.trail_braking_code;
 
     // 3. Línea y Ápice (Track position)
-    const isSubviraje = cornerSvgData?.has_subviraje || (selectedCorner.balance_eval || '').includes('Subviraje');
-    const isEarly = (selectedCorner.racing_line_eval || '').includes('Prematuro');
-    const isLineOptimal = (selectedCorner.racing_line_eval || '').includes('Óptima');
+    const isSubviraje = cornerSvgData?.has_subviraje || selectedCorner.balance_code === 'understeer';
+    const isEarly = selectedCorner.racing_line_code === 'early_apex';
+    const isLineOptimal = selectedCorner.racing_line_code === 'optimal';
 
     // 4. Velocidad mínima (Apex Vmin) & Marcha fusionada
     const minRef = Math.round(selectedCorner.v_min_ref);
@@ -458,19 +459,16 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     }
 
     const apexDist = dists[apexIdx] || selectedCorner.apex_distance;
-    const refThDist = refThIdx !== -1 ? Math.max(0, Math.round(dists[refThIdx] - apexDist)) : 8;
-    const compThDist =
-      compThIdx !== -1
-        ? Math.max(0, Math.round(dists[compThIdx] - apexDist))
-        : refThDist + Math.round(selectedCorner.throttle_pickup_delta || 0);
+    const refThDist = refThIdx !== -1 ? Math.max(0, Math.round(dists[refThIdx] - apexDist)) : null;
+    const compThDist = compThIdx !== -1 ? Math.max(0, Math.round(dists[compThIdx] - apexDist)) : null;
     const thDelta =
       selectedCorner.throttle_pickup_delta !== undefined && selectedCorner.throttle_pickup_delta !== null
         ? selectedCorner.throttle_pickup_delta
-        : compThDist - refThDist;
+        : (compThDist ?? 0) - (refThDist ?? 0);
 
     // 6. Velocidad de salida (Exit speed)
-    const exitRef = Math.round(selectedCorner.v_exit_ref ?? (refSpeeds[exitIdx] ?? (selectedCorner.v_min_ref + 25)));
-    const exitComp = Math.round(selectedCorner.v_exit_comp ?? (compSpeeds[exitIdx] ?? (selectedCorner.v_min_comp + 20)));
+    const exitRef = Math.round(selectedCorner.v_exit_ref ?? refSpeeds[exitIdx]);
+    const exitComp = Math.round(selectedCorner.v_exit_comp ?? compSpeeds[exitIdx]);
     const exitDelta = Number((exitComp - exitRef).toFixed(1));
 
     return {
@@ -483,7 +481,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       trail: {
         refPct: refTrailPct,
         compPct: compTrailPct,
-        eval: trailEval,
+        code: trailCode,
       },
       position: {
         isSubviraje,
@@ -527,8 +525,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       } else if (braking.delta > 8) {
         entryText = `Braking ${Math.round(braking.delta)}m late and arriving overloaded. Move braking point back to stabilize front tyres before turn-in.`;
       } else if (position.isSubviraje) {
-        entryText = 'Turning in 1.5m tight before turn-in. Open up against the outer kerb and maintain 15-20% trail braking into the apex to help the nose rotate.';
-      } else if (trail.eval.includes('Soltado') || trail.compPct < 8) {
+        entryText = 'The car pushes wide on turn-in. Open up against the outer kerb and keep some brake pressure into the apex to help the nose rotate.';
+      } else if (trail.code === 'early_release' || trail.compPct < 8) {
         entryText = 'Releasing the brake abruptly before turn-in. Smoothly bleed off brake pressure (trail braking) to keep front axle loaded.';
       } else {
         entryText = 'Well-synchronized braking approach. Keep eyes pinned on the apex and maintain smooth progressive pedal transition.';
@@ -541,8 +539,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       } else if (braking.delta > 8) {
         entryText = `Frenas ${Math.round(braking.delta)}m más tarde y entras pasado. Anticipa la presión de freno para no saturar el tren delantero al girar.`;
       } else if (position.isSubviraje) {
-        entryText = 'Entras 1.5m cerrado antes de girar. Ábrete pegado al piano exterior y mantén un 15-20% de freno hasta el vértice (trail braking) para rotar el morro.';
-      } else if (trail.eval.includes('Soltado') || trail.compPct < 8) {
+        entryText = 'El morro se abre al girar. Ábrete pegado al piano exterior y mantén algo de freno hasta el vértice (trail braking) para rotar el morro.';
+      } else if (trail.code === 'early_release' || trail.compPct < 8) {
         entryText = 'Sueltas el freno bruscamente antes de girar. Modula el pedal en regresión (trail braking) para no aligerar el eje delantero en la entrada.';
       } else {
         entryText = 'Frenada y aproximación sincronizadas. Mantén la vista en el vértice y una modulación estable del pedal.';
@@ -553,7 +551,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     let apexText = '';
     if (isEn) {
       if (position.isSubviraje) {
-        apexText = `You miss the inside kerb by 1.8m and lose ${Math.abs(min.delta).toFixed(0)} km/h of apex speed due to understeer from turning in with saturated front tyres.`;
+        apexText = `You run wide of the inside kerb and lose ${Math.abs(min.delta).toFixed(0)} km/h of apex speed to understeer.`;
       } else if (position.isEarly) {
         apexText = 'Turning in too early (early apex). You pinch the trajectory at the apex and are forced to hesitate before applying throttle.';
       } else if (min.gearDiff < 0) {
@@ -565,7 +563,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       }
     } else {
       if (position.isSubviraje) {
-        apexText = `Te quedas a 1.8m del piano interior y pierdes ${Math.abs(min.delta).toFixed(0)} km/h de paso por curva por subviraje al girar con los neumáticos saturados.`;
+        apexText = `No llegas al piano interior y pierdes ${Math.abs(min.delta).toFixed(0)} km/h de paso por curva por subviraje.`;
       } else if (position.isEarly) {
         apexText = 'Te tiras al vértice demasiado pronto (vértice prematuro). Estrangulas la salida y te ves forzado a esperar para acelerar.';
       } else if (min.gearDiff < 0) {
@@ -846,14 +844,14 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                       <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
                         {phaseMetrics.braking.isFlatOut
                           ? '--'
-                          : `${phaseMetrics.trail.eval.includes('Soltado') ? t('abrupt_trail') : t('progressive_trail')} (${phaseMetrics.trail.compPct}%)`}
+                          : `${phaseMetrics.trail.code === 'early_release' ? t('abrupt_trail') : t('progressive_trail')} (${phaseMetrics.trail.compPct}%)`}
                       </td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
-                        {phaseMetrics.trail.eval.includes('Soltado') ? (
+                        {phaseMetrics.trail.code === 'early_release' ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
                             {t('lack_rotation')}
                           </span>
-                        ) : phaseMetrics.trail.eval.includes('Exceso') ? (
+                        ) : phaseMetrics.trail.code === 'over_braking' ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
                             {t('front_overload')}
                           </span>
@@ -871,9 +869,9 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                       <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{t('outside_to_kerb')}</td>
                       <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
                         {phaseMetrics.position.isSubviraje
-                          ? (lang === 'en' ? '+1.5m tight / +1.8m apex' : '+1.5m cerrada / +1.8m ápice')
+                          ? (lang === 'en' ? 'Wide of the apex' : 'Abierto en el ápice')
                           : phaseMetrics.position.isEarly
-                          ? (lang === 'en' ? 'Early turn-in (-2.1m)' : 'Cierra antes (-2.1m)')
+                          ? (lang === 'en' ? 'Early turn-in' : 'Cierra antes')
                           : t('outside_to_kerb')}
                       </td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
@@ -930,8 +928,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     {/* 5. Aplicación de gas (Throttle onset) */}
                     <tr className="hover:bg-white/[0.02] transition">
                       <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('throttle_onset_row')}</td>
-                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">+{phaseMetrics.throttle.refDist}m {t('post_apex_meters')}</td>
-                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">+{phaseMetrics.throttle.compDist}m {t('post_apex_meters')}</td>
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{formatPostApex(phaseMetrics.throttle.refDist)}</td>
+                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">{formatPostApex(phaseMetrics.throttle.compDist)}</td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
                         {Math.abs(phaseMetrics.throttle.delta) < 2 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">

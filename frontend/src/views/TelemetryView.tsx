@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { AIDebriefDrawer } from '../components/AIDebriefDrawer';
 import { TelemetryCharts } from '../components/TelemetryCharts';
 import { UnifiedTrackInspector } from '../components/UnifiedTrackInspector';
@@ -38,7 +39,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   onOpenDebrief,
   onCloseDebrief,
 }) => {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
 
@@ -145,47 +146,60 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full min-h-0 overflow-hidden">
-      {/* 1. Left Column (~58% = 7 cols): Canales de Telemetría Sincronizados de arriba a abajo */}
-      <div className="lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden">
-        <TelemetryCharts
-          comparison={comparison}
-          hoverDistance={hoverDistance}
-          onHoverDistance={onHoverDistance}
+    <div className="flex flex-col gap-2 h-full min-h-0 overflow-hidden">
+      {comparison.telemetry_source === 'synthetic' && (
+        <div
+          role="status"
+          className="shrink-0 flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-200"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+          <span>
+            <strong className="text-amber-100">{t('synthetic_banner_title')}</strong> {t('synthetic_banner_body')}
+          </span>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 flex-1 min-h-0 overflow-hidden">
+        {/* 1. Left Column (~58% = 7 cols): Canales de Telemetría Sincronizados de arriba a abajo */}
+        <div className="lg:col-span-7 flex flex-col h-full min-h-0 overflow-hidden">
+          <TelemetryCharts
+            comparison={comparison}
+            hoverDistance={hoverDistance}
+            onHoverDistance={onHoverDistance}
+            selectedCorner={selectedCorner}
+            onResetZoom={() => onSelectCorner(null)}
+          />
+        </div>
+
+        {/* 2. Right Column (~42% = 5 cols): Un solo Visor Unificado de Pista & Curvas */}
+        <div className="lg:col-span-5 flex flex-col h-full min-h-0 overflow-hidden">
+          <UnifiedTrackInspector
+            comparison={comparison}
+            selectedCorner={selectedCorner}
+            onSelectCorner={onSelectCorner}
+            hoverDistance={hoverDistance}
+            onHoverDistance={onHoverDistance}
+            onAskEngineerAboutCorner={handleAskAboutCorner}
+          />
+        </div>
+
+        {/* 3. Slide-over AI Debrief & Live Team Radio Drawer */}
+        <AIDebriefDrawer
+          isOpen={isDebriefOpen}
+          onClose={onCloseDebrief}
+          report={report}
+          loadingReport={loadingReport}
+          reportError={reportError}
+          onGenerateDebrief={handleGenerateDebrief}
+          activeModel={activeModel}
+          chatMessages={chatMessages}
+          chatLoading={chatLoading}
+          onSendMessage={handleSendChatMessage}
           selectedCorner={selectedCorner}
-          onResetZoom={() => onSelectCorner(null)}
+          trackName={comparison.track_name}
+          carName={comparison.car_name}
+          initialTab={debriefTab}
         />
       </div>
-
-      {/* 2. Right Column (~42% = 5 cols): Un solo Visor Unificado de Pista & Curvas */}
-      <div className="lg:col-span-5 flex flex-col h-full min-h-0 overflow-hidden">
-        <UnifiedTrackInspector
-          comparison={comparison}
-          selectedCorner={selectedCorner}
-          onSelectCorner={onSelectCorner}
-          hoverDistance={hoverDistance}
-          onHoverDistance={onHoverDistance}
-          onAskEngineerAboutCorner={handleAskAboutCorner}
-        />
-      </div>
-
-      {/* 3. Slide-over AI Debrief & Live Team Radio Drawer */}
-      <AIDebriefDrawer
-        isOpen={isDebriefOpen}
-        onClose={onCloseDebrief}
-        report={report}
-        loadingReport={loadingReport}
-        reportError={reportError}
-        onGenerateDebrief={handleGenerateDebrief}
-        activeModel={activeModel}
-        chatMessages={chatMessages}
-        chatLoading={chatLoading}
-        onSendMessage={handleSendChatMessage}
-        selectedCorner={selectedCorner}
-        trackName={comparison.track_name}
-        carName={comparison.car_name}
-        initialTab={debriefTab}
-      />
     </div>
   );
 };

@@ -10,11 +10,9 @@ import {
   MessageSquare,
   RefreshCw,
   Send,
-  Sliders,
   Sparkles,
   Target,
   User,
-  Wrench,
   X,
   Zap,
 } from 'lucide-react';
@@ -321,7 +319,6 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   };
 
   const isEn = lang === 'en';
-  const isPorsche = carName.toLowerCase().includes('911') || carName.toLowerCase().includes('porsche');
 
   // Dynamic quick prompts oriented to the active circuit and selected corner
   const quickPrompts = isEn
@@ -574,83 +571,6 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       </ul>
                     </div>
 
-                    {/* 3. Dinámica del Vehículo & Transferencia de Pesos */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                        <Sliders className="w-4 h-4 text-[#00D2BE]" />
-                        <span>{t('vehicle_dynamics_title')}</span>
-                      </div>
-                      <div className="space-y-2 text-xs text-gray-300">
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
-                          <div>
-                            <strong className="text-white">
-                              {isEn ? 'Architecture & Weight Transfer: ' : 'Arquitectura y Comportamiento Dinámico: '}
-                            </strong>
-                            <span>
-                              {isPorsche
-                                ? isEn
-                                  ? 'In the Porsche 911 GT3 R (992), rear-engine mass distribution (~38/62) requires trailing 15-20% residual brake pressure into the apex to load front tyres and prevent entry push. Releasing brake abruptly immediately unloads the front axle.'
-                                  : 'En el Porsche 911 GT3 R (992), el reparto posterior (~38/62) exige mantener un 15-20% de freno residual hasta el ápice para asentar el morro y eliminar el subviraje de entrada. Soltar el freno bruscamente descarga el tren delantero.'
-                                : isEn
-                                  ? 'Balanced chassis platform provides stable high-speed braking; trail off progressively to maintain optimal lateral grip across the front axle.'
-                                  : 'Plataforma equilibrada con frenada muy estable; requiere modular el soltado regresivo para mantener agarre lateral delantero.'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#00D2BE] mt-0.5 font-bold">•</span>
-                          <div>
-                            <strong className="text-white">
-                              {isEn ? 'Apex Throttle Transition: ' : 'Transición al Acelerador en Ápice: '}
-                            </strong>
-                            <span>
-                              {isEn
-                                ? 'Avoid overlapping throttle while holding steering lock. Unwind the steering wheel at least 40% before stomping full throttle.'
-                                : 'No aceleres con dirección cerrada al máximo. Abre volante al menos un 40% antes de hundir el pedal para no inducir subviraje por transferencia a la zaga.'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 4. Recomendaciones de Setup de Competición */}
-                    <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
-                        <Wrench className="w-4 h-4 text-emerald-400" />
-                        <span>{t('setup_advice_title')}</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
-                          <span className="text-[10px] text-gray-400 uppercase font-telemetry block">
-                            {isEn ? 'Brake Bias' : 'Reparto de Frenada'}
-                          </span>
-                          <span className="text-emerald-300 font-bold font-telemetry block">
-                            {isPorsche ? '54.0% – 55.0%' : '53.5% – 54.5%'}
-                          </span>
-                          <p className="text-[11px] text-gray-400 leading-tight">
-                            {isEn
-                              ? '1 click rearward if experiencing entry push; 0.5% forward if rear is nervous under straight braking.'
-                              : 'Retrasar 1 clic si hay subviraje al entrar frenando; adelantar 0.5% si la trasera se insinúa a alta velocidad.'}
-                          </p>
-                        </div>
-
-                        <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 space-y-1">
-                          <span className="text-[10px] text-gray-400 uppercase font-telemetry block">
-                            {isEn ? 'Hot Tyre Pressures' : 'Presiones en Caliente'}
-                          </span>
-                          <span className="text-emerald-300 font-bold font-telemetry block">
-                            26.8 – 27.2 psi
-                          </span>
-                          <p className="text-[11px] text-gray-400 leading-tight">
-                            {isEn
-                              ? 'Target after 3 push laps for optimal contact patch.'
-                              : 'Objetivo tras 3 vueltas lanzadas para máxima superficie de contacto.'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* 5. Plan de Ejercicios */}
                     <div className="p-3.5 rounded-xl bg-[#0E131E] border border-white/5 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider font-telemetry">
@@ -685,8 +605,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                         )}
                       </div>
                       <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 font-telemetry text-xs text-purple-200">
-                        {report.verification_indicator ||
-                          'Comprobar aumento de velocidad mínima en vértice (+5 km/h) sin penalizar tracción.'}
+                        {report.verification_indicator || '—'}
                       </div>
                     </div>
                   </div>
@@ -700,8 +619,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     </h3>
                     <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
                       {isEn
-                        ? 'Synthesizes sector deltas, trail braking modulation, vehicle dynamics, setup recommendations, and actionable exercises.'
-                        : 'Sintetiza pérdidas por sector, modulación de trail braking en todas las curvas, dinámica de pesos y recomendaciones de setup.'}
+                        ? 'Summarises sector deltas, trail braking per corner, and exercises for the next session.'
+                        : 'Resume las pérdidas por sector, el trail braking en cada curva y ejercicios para la siguiente sesión.'}
                     </p>
                     <button
                       onClick={() => onGenerateDebrief(false)}
