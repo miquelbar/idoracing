@@ -40,3 +40,33 @@ def test_offset_sign_is_left_of_travel_direction():
     assert signed_offsets(ref_x, ref_y, ref_x, ref_y + 2.0) == pytest.approx(np.full(51, 2.0))
     assert turn_direction(*_arc(30.0, 0, 90)) == 1
     assert turn_direction(*_arc(30.0, 0, 90, left=False)) == -1
+
+
+def test_a_measured_wide_apex_overrides_the_inferred_line_evaluation():
+    from analysis.corners import analyze_corner
+
+    ref_x, ref_y = _arc(50.0, 0, 120)
+    comp_x, comp_y = _arc(52.5, 0, 120)
+    distance = np.arange(200) * 2.0
+    speed = 100.0 + np.abs(distance - 200.0) * 0.2
+    flat = np.zeros(200)
+    aligned = {
+        "distance": distance,
+        "ref_speed": speed,
+        "comp_speed": speed,
+        "ref_brake": flat,
+        "comp_brake": flat,
+        "ref_throttle": flat + 1.0,
+        "comp_throttle": flat + 1.0,
+        "time_delta": flat,
+        "ref_x": ref_x,
+        "ref_y": ref_y,
+        "comp_x": comp_x,
+        "comp_y": comp_y,
+    }
+
+    corner = analyze_corner({"number": 1, "name": "T1", "start": 0.0, "end": 398.0}, aligned)
+
+    assert corner.line_offset_apex_m == pytest.approx(2.5, abs=0.1)
+    assert corner.racing_line_code == "late_apex"
+    assert "2.5m más abierto" in corner.diagnosis

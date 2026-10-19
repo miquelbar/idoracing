@@ -18,6 +18,8 @@ SLOW_CORNER_KMH = 110.0
 FAST_CORNER_KMH = 160.0
 # Line offsets below this are within position noise and are not called out in the diagnosis.
 LINE_OFFSET_NOTE_M = 0.5
+# Offsets from this size up override the racing-line evaluation inferred from speed and timing.
+LINE_OFFSET_EVAL_M = 1.0
 
 
 def analyze_corner(
@@ -217,6 +219,18 @@ def analyze_corner(
         balance_code = "stable"
         balance_advice = "Paso consistente con margen menor de optimización en vértice."
 
+    line_offsets = (
+        corner_line_offsets(
+            aligned_data["ref_x"][mask],
+            aligned_data["ref_y"][mask],
+            aligned_data["comp_x"][mask],
+            aligned_data["comp_y"][mask],
+            apex_idx=ref_apex_idx,
+        )
+        if has_recorded_position(aligned_data)
+        else None
+    )
+
     # Racing line (Trazada) evaluation
     apex_dist_delta = (
         float(sub_dist[comp_apex_idx] - sub_dist[ref_apex_idx])
@@ -253,19 +267,24 @@ def analyze_corner(
         racing_line_code = "suboptimal"
         racing_line_advice = "La trayectoria en curva no optimiza el paso por el vértice; abre la aproximación y asegura el piano interior."
 
-    # Diagnosis text built only from the deltas computed above
-    line_offsets = (
-        corner_line_offsets(
-            aligned_data["ref_x"][mask],
-            aligned_data["ref_y"][mask],
-            aligned_data["comp_x"][mask],
-            aligned_data["comp_y"][mask],
-            apex_idx=ref_apex_idx,
-        )
-        if has_recorded_position(aligned_data)
-        else None
-    )
+    # A measured line beats one inferred from speed and timing.
+    if line_offsets is not None and abs(line_offsets[1]) >= LINE_OFFSET_EVAL_M:
+        if line_offsets[1] > 0:
+            racing_line_eval = "Vértice Pasado / Abierto"
+            racing_line_code = "late_apex"
+            racing_line_advice = (
+                f"Pasas por el vértice {line_offsets[1]:.1f}m más abierto que en tu vuelta de referencia; "
+                "retrasa un poco el giro y busca el piano interior."
+            )
+        else:
+            racing_line_eval = "Trazada Cerrada / Pérdida de Vértice"
+            racing_line_code = "missed_apex"
+            racing_line_advice = (
+                f"Pasas por el vértice {abs(line_offsets[1]):.1f}m más cerrado que en tu vuelta de referencia; "
+                "comprueba que no estés girando antes de tiempo y estrangulando la salida."
+            )
 
+    # Diagnosis text built only from the deltas computed above
     diagnosis_parts = []
     if brake_delta_dist is not None:
         if brake_delta_dist < -12.0:
