@@ -116,7 +116,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-white/5 text-[11px] font-telemetry text-gray-400">
-              {t('ollama_recommended')}: <strong className="text-white">qwen3.8:27b-32k</strong>
+              {t('ollama_recommended')}: <strong className="text-white">qwen3.8:27b</strong>
             </div>
           </div>
 
@@ -173,7 +173,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
                   type="text"
                   value={ollamaModel}
                   onChange={(e) => setOllamaModel(e.target.value)}
-                  placeholder="qwen3.8:27b-32k"
+                  placeholder="qwen3.8:27b"
                   className="w-full bg-[#121622] border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-[#00D2BE]"
                 />
               )}

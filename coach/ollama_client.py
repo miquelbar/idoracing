@@ -12,7 +12,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
+DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b")
 DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120.0"))
 DEFAULT_AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes")
 

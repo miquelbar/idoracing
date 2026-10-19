@@ -8,7 +8,7 @@
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![React: 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![TypeScript: 6](https://img.shields.io/badge/typescript-6-blue.svg)](https://www.typescriptlang.org/)
-[![Ollama: Ready](https://img.shields.io/badge/ollama-qwen3.8%3A27b--32k-orange.svg)](https://ollama.ai/)
+[![Ollama: Ready](https://img.shields.io/badge/ollama-qwen3.8%3A27b-orange.svg)](https://ollama.ai/)
 
 **IdoRacing Analytics** is an open-source telemetry viewer and AI race engineer for sim racers. It lines up two of your laps by distance, shows where the time goes corner by corner, and explains it in plain words, either with a local LLM through Ollama or with a rule-based fallback.
 
@@ -153,7 +153,7 @@ If you want free, 100% private AI race coaching:
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # Pull a model (any Ollama chat model works; set OLLAMA_MODEL to its tag)
-ollama pull qwen3.8:27b-32k
+ollama pull qwen3.8:27b
 ```
 *(Alternatively, configure an OpenAI-compatible API key in the web app under **Ajustes IA** / **AI Settings**, or in `.env`.)*
 
@@ -205,7 +205,7 @@ There are no frontend tests yet; `npm run build` type-checks the app in strict m
 |---|---|---|
 | `LLM_PROVIDER` | `ollama` | AI Provider: `ollama` or `openai` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `qwen3.8:27b-32k` | Local model name (e.g., `qwen3.8:27b-32k`, `qwen3:14b`) |
+| `OLLAMA_MODEL` | `qwen3.8:27b` | Local model name (e.g., `qwen3.8:27b`, `qwen3:14b`) |
 | `OLLAMA_TIMEOUT` | `90.0` | Timeout in seconds for AI response generation |
 | `OPENAI_API_KEY` | *(empty)* | Optional API key for OpenAI / OpenRouter / DeepSeek |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Optional endpoint (use `https://openrouter.ai/api/v1` for OpenRouter) |

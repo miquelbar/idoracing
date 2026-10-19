@@ -46,7 +46,7 @@ storage = Storage()
 llm_client = LLMClient(
     provider=os.environ.get("LLM_PROVIDER", "ollama"),
     ollama_base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"),
-    ollama_model=os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k"),
+    ollama_model=os.environ.get("OLLAMA_MODEL", "qwen3.8:27b"),
     openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
     openai_base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
@@ -98,7 +98,7 @@ class SystemStatus(BaseModel):
 
 class SettingsDTO(BaseModel):
     provider: str = "ollama"
-    ollama_model: str = "qwen3.8:27b-32k"
+    ollama_model: str = "qwen3.8:27b"
     ollama_base_url: str = "http://localhost:11434"
     openai_api_key: str | None = ""
     openai_base_url: str | None = "https://api.openai.com/v1"

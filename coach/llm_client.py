@@ -1,6 +1,6 @@
 """
 Unified LLM Client for IdoRacing Analytics.
-Supports Local Ollama (qwen3.8:27b-32k) and OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, vLLM).
+Supports Local Ollama (qwen3.8:27b) and OpenAI-compatible APIs (OpenAI, OpenRouter, Groq, vLLM).
 """
 
 import logging
@@ -31,7 +31,7 @@ class LLMClient:
         self.enabled = enabled
 
         # Ollama config
-        self.ollama_model = ollama_model or os.environ.get("OLLAMA_MODEL", "qwen3.8:27b-32k")
+        self.ollama_model = ollama_model or os.environ.get("OLLAMA_MODEL", "qwen3.8:27b")
         self.ollama_base_url = ollama_base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.ollama = OllamaClient(
             base_url=self.ollama_base_url,
