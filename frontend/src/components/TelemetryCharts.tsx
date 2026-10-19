@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, RotateCcw } from 'lucide-react';
 import type { ComparisonResponse, CornerDTO } from '../types/telemetry';
 import { useLanguage } from '../i18n';
@@ -21,6 +21,29 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 }) => {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 850, height: 500 });
+
+  useEffect(() => {
+    const el = chartWrapperRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w > 50 && h > 50) {
+        setDimensions((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+      }
+    };
+
+    updateSize();
+
+    const ro = new ResizeObserver(() => {
+      updateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Filter or slice distance window based on selected corner
   const { filteredIndices, domainMin, domainMax } = useMemo(() => {
@@ -52,17 +75,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   }, [comparison, selectedCorner]);
 
   // SVG Chart Geometry with Proportional Channel Heights:
-  // 35% Speed (175px), 15% Delta (75px), 35% Pedals (175px), 15% Gear (75px)
-  const width = 850;
-  const totalHeight = 500;
-  const hSpeed = 175;  // 35%
-  const hDelta = 75;   // 15%
-  const hPedals = 175; // 35%
-  const hGear = 75;    // 15%
-  const padLeft = 45;
+  // 35% Speed, 15% Delta, 35% Pedals, 15% Gear
+  const width = dimensions.width;
+  const totalHeight = dimensions.height;
+  const hSpeed = Math.round(totalHeight * 0.35);
+  const hDelta = Math.round(totalHeight * 0.15);
+  const hPedals = Math.round(totalHeight * 0.35);
+  const hGear = totalHeight - hSpeed - hDelta - hPedals;
+  const padLeft = 48;
   const padRight = 20;
 
-  const chartWidth = width - padLeft - padRight;
+  const chartWidth = Math.max(10, width - padLeft - padRight);
 
   const toX = useCallback(
     (dist: number) => {
@@ -278,7 +301,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       maxSpeed: maxSpeedVal,
       maxDelta: maxDeltaVal,
     };
-  }, [comparison, filteredIndices, toX, hoverDistance]);
+  }, [comparison, filteredIndices, toX, hoverDistance, hSpeed, hDelta, hPedals, hGear]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -386,10 +409,35 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       </div>
 
       {/* SVG Stack Chart Canvas */}
-      <div className="relative flex-1 bg-night-2/60 rounded-lg border border-white/5 overflow-hidden">
+      <div className="relative flex-1 bg-night-2/60 rounded-lg border border-white/5 overflow-hidden" ref={chartWrapperRef}>
+        {/* Floating Channel Badges */}
+        <div
+          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
+          style={{ top: 8, left: padLeft + 12 }}
+        >
+          {t('speed_ch')}
+        </div>
+        <div
+          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
+          style={{ top: hSpeed + 8, left: padLeft + 12 }}
+        >
+          {t('delta_ch')}
+        </div>
+        <div
+          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
+          style={{ top: hSpeed + hDelta + 8, left: padLeft + 12 }}
+        >
+          {t('pedals_ch')}
+        </div>
+        <div
+          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
+          style={{ top: hSpeed + hDelta + hPedals + 8, left: padLeft + 12 }}
+        >
+          {t('gear_ch')}
+        </div>
+
         <svg
           viewBox={`0 0 ${width} ${totalHeight}`}
-          preserveAspectRatio="none"
           className="w-full h-full cursor-crosshair select-none"
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
@@ -440,10 +488,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={hSpeed / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
             <text x={padLeft - 6} y={hSpeed - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
-            <text x={padLeft + 8} y={16} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              {t('speed_ch')}
-            </text>
-
             <path d={speedRefPath} fill="none" stroke={COLORS.brand} strokeWidth="2" strokeOpacity="0.85" />
             <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.5" />
           </g>
@@ -458,10 +502,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={14} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
             <text x={padLeft - 6} y={hDelta / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
             <text x={padLeft - 6} y={hDelta - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
-
-            <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              {t('delta_ch')}
-            </text>
 
             {/* Delta Area Fill */}
             <path d={deltaFillPath} fill="url(#delta-gradient)" />
@@ -479,10 +519,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={15} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">100%</text>
             <text x={padLeft - 6} y={hPedals / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
             <text x={padLeft - 6} y={hPedals - 5} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
-
-            <text x={padLeft + 8} y={15} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              {t('pedals_ch')}
-            </text>
 
             {/* Brake translucent fill under comp braking curve */}
             <path d={brkCompFillPath} fill="rgba(255, 24, 1, 0.18)" />
@@ -504,10 +540,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={16} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
             <text x={padLeft - 6} y={hGear / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
             <text x={padLeft - 6} y={hGear - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
-
-            <text x={padLeft + 8} y={14} fill="#A0AEC0" fontSize="10px" fontWeight="bold" fontFamily="'JetBrains Mono', monospace">
-              {t('gear_ch')}
-            </text>
 
             <path d={gearRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
             <path d={gearCompPath} fill="none" stroke="#E2E8F0" strokeWidth="2" />

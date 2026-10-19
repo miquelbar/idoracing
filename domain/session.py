@@ -74,6 +74,7 @@ class CornerAnalysis(BaseModel):
     corner_name: str
     start_dist: float
     end_dist: float
+    apex_dist: float | None = None
     ref_entry_speed: float = 0.0
     comp_entry_speed: float = 0.0
     delta_v_entry: float = 0.0

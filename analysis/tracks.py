@@ -14,38 +14,46 @@ logger = logging.getLogger(__name__)
 
 # Hand-placed outline of Circuit Ricardo Tormo (Valencia, 4005 m); approximate, not surveyed
 VALENCIA_WAYPOINTS = [
-    (0.0, 300.0, 420.0),  # Start / Finish line
-    (300.0, 600.0, 420.0),  # Main straight
-    (580.0, 800.0, 420.0),  # Turn 1 Braking
-    (780.0, 850.0, 360.0),  # Turn 1 (Aspar) Apex
-    (920.0, 810.0, 270.0),  # Turn 1 Exit / Turn 2 Entry
-    (1080.0, 720.0, 240.0),  # Turn 2 (Doohan) Apex
-    (1220.0, 640.0, 250.0),  # Turn 2 Exit / Turn 3 Entry
-    (1320.0, 600.0, 270.0),  # Turn 3 Apex
-    (1420.0, 570.0, 300.0),  # Turn 4 Braking
-    (1530.0, 540.0, 340.0),  # Turn 4 (Nico Terol) Apex
-    (1660.0, 490.0, 310.0),  # Turn 4 Exit / Turn 5 Entry
-    (1750.0, 450.0, 280.0),  # Turn 5 Apex
-    (1840.0, 420.0, 250.0),  # Turn 6 Entry
-    (1940.0, 390.0, 220.0),  # Turn 6 Apex
-    (2040.0, 380.0, 190.0),  # Turn 7 Entry
-    (2100.0, 400.0, 170.0),  # Turn 7 Apex
-    (2160.0, 430.0, 160.0),  # Turn 8 Entry
-    (2260.0, 460.0, 150.0),  # Turn 8 (Bernat Martínez) Apex
-    (2380.0, 430.0, 130.0),  # Turn 8 Exit
-    (2460.0, 370.0, 110.0),  # Turn 9 Apex
-    (2550.0, 310.0, 110.0),  # Turn 10 Entry
-    (2650.0, 250.0, 110.0),  # Turn 10 Apex
-    (2800.0, 190.0, 120.0),  # Turn 11 Braking
-    (2980.0, 150.0, 160.0),  # Turn 11 (Champi Herreros) Apex
-    (3120.0, 140.0, 220.0),  # Turn 11 Exit / Turn 12 Entry
-    (3260.0, 130.0, 280.0),  # Turn 12 Apex
-    (3400.0, 120.0, 320.0),  # Turn 13 Entry
-    (3520.0, 110.0, 350.0),  # Turn 13 Apex
-    (3620.0, 110.0, 380.0),  # Turn 14 Entry
-    (3740.0, 130.0, 410.0),  # Turn 14 (Adrián Campos) Apex
-    (3900.0, 180.0, 420.0),  # Final corner exit onto Pit Straight
-    (4005.0, 300.0, 420.0),  # Closes loop at Start / Finish line
+    (0.0, -317.2, 198.5),
+    (150.9, -193.5, 111.9),
+    (314.2, -59.5, 18.5),
+    (461.1, 61.2, -65.9),
+    (571.8, 102.7, -163.6),
+    (691.4, 60.9, -274.8),
+    (825.7, 10.1, -399.4),
+    (905.7, -42.7, -453.3),
+    (963.3, -75.9, -414.6),
+    (1049.9, -84.9, -329.0),
+    (1160.3, -32.1, -235.7),
+    (1247.3, 5.0, -160.1),
+    (1330.3, -47.4, -98.9),
+    (1413.4, -125.2, -87.6),
+    (1495.8, -161.4, -156.9),
+    (1598.5, -153.6, -259.2),
+    (1686.5, -171.5, -342.4),
+    (1756.7, -237.4, -341.2),
+    (1849.6, -312.7, -287.2),
+    (1965.8, -409.1, -222.4),
+    (2094.8, -498.5, -131.6),
+    (2205.4, -548.5, -33.1),
+    (2273.4, -518.5, 23.0),
+    (2352.2, -444.8, 10.3),
+    (2455.4, -376.6, -65.0),
+    (2572.1, -331.6, -171.1),
+    (2657.5, -263.4, -218.9),
+    (2711.8, -230.9, -183.5),
+    (2790.5, -262.1, -112.5),
+    (2899.9, -315.9, -17.6),
+    (3010.1, -377.2, 73.3),
+    (3105.0, -468.7, 91.1),
+    (3217.5, -575.2, 123.0),
+    (3344.1, -656.4, 217.9),
+    (3463.5, -681.5, 333.8),
+    (3536.5, -664.9, 402.3),
+    (3598.8, -607.2, 395.3),
+    (3690.5, -531.5, 344.3),
+    (3809.2, -434.0, 277.0),
+    (3947.5, -317.2, 198.5),
 ]
 
 # Hand-placed outline of Sebring International Raceway (6019 m), used if data/circuits/sebring.json is missing
@@ -73,141 +81,141 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
     {
         "number": 1,
         "name": "Curva Aspar",
-        "start": 580.0,
-        "apex": 780.0,
-        "end": 900.0,
-        "gear": 3,
-        "target_speed": 142.0,
+        "start": 360.0,
+        "apex": 490.0,
+        "end": 640.0,
+        "gear": 4,
+        "target_speed": 153.0,
         "turn_dir": "left",
     },
     {
         "number": 2,
         "name": "Curva Doohan",
-        "start": 920.0,
-        "apex": 1080.0,
-        "end": 1220.0,
-        "gear": 3,
-        "target_speed": 128.0,
+        "start": 780.0,
+        "apex": 935.0,
+        "end": 1040.0,
+        "gear": 2,
+        "target_speed": 76.0,
         "turn_dir": "right",
     },
     {
         "number": 3,
         "name": "Curva 3",
-        "start": 1220.0,
-        "apex": 1320.0,
-        "end": 1420.0,
+        "start": 1040.0,
+        "apex": 1090.0,
+        "end": 1160.0,
         "gear": 4,
-        "target_speed": 175.0,
+        "target_speed": 150.0,
         "turn_dir": "right",
     },
     {
         "number": 4,
         "name": "Curva Nico Terol",
-        "start": 1420.0,
-        "apex": 1530.0,
-        "end": 1660.0,
+        "start": 1160.0,
+        "apex": 1255.0,
+        "end": 1330.0,
         "gear": 2,
-        "target_speed": 78.0,
+        "target_speed": 101.0,
         "turn_dir": "right",
     },
     {
         "number": 5,
         "name": "Curva 5",
-        "start": 1660.0,
-        "apex": 1750.0,
-        "end": 1840.0,
+        "start": 1330.0,
+        "apex": 1425.0,
+        "end": 1520.0,
         "gear": 3,
-        "target_speed": 138.0,
+        "target_speed": 110.0,
         "turn_dir": "left",
     },
     {
         "number": 6,
         "name": "Curva 6",
-        "start": 1840.0,
-        "apex": 1940.0,
-        "end": 2040.0,
+        "start": 1580.0,
+        "apex": 1705.0,
+        "end": 1820.0,
         "gear": 3,
-        "target_speed": 145.0,
+        "target_speed": 90.0,
         "turn_dir": "left",
     },
     {
         "number": 7,
         "name": "Curva 7",
-        "start": 2040.0,
-        "apex": 2100.0,
-        "end": 2160.0,
-        "gear": 3,
-        "target_speed": 152.0,
+        "start": 1820.0,
+        "apex": 1940.0,
+        "end": 2080.0,
+        "gear": 4,
+        "target_speed": 165.0,
         "turn_dir": "left",
     },
     {
         "number": 8,
         "name": "Curva Bernat Martinez",
-        "start": 2160.0,
-        "apex": 2260.0,
-        "end": 2380.0,
-        "gear": 2,
-        "target_speed": 92.0,
+        "start": 2120.0,
+        "apex": 2235.0,
+        "end": 2340.0,
+        "gear": 3,
+        "target_speed": 93.0,
         "turn_dir": "right",
     },
     {
         "number": 9,
         "name": "Curva 9",
-        "start": 2380.0,
-        "apex": 2460.0,
-        "end": 2550.0,
-        "gear": 3,
-        "target_speed": 130.0,
+        "start": 2340.0,
+        "apex": 2435.0,
+        "end": 2540.0,
+        "gear": 4,
+        "target_speed": 150.0,
         "turn_dir": "left",
     },
     {
         "number": 10,
         "name": "Curva 10",
-        "start": 2550.0,
-        "apex": 2650.0,
+        "start": 2560.0,
+        "apex": 2688.0,
         "end": 2800.0,
-        "gear": 3,
-        "target_speed": 135.0,
+        "gear": 2,
+        "target_speed": 74.0,
         "turn_dir": "left",
     },
     {
         "number": 11,
         "name": "Curva Champi Herreros",
-        "start": 2800.0,
-        "apex": 2980.0,
+        "start": 2900.0,
+        "apex": 3035.0,
         "end": 3120.0,
-        "gear": 2,
-        "target_speed": 85.0,
+        "gear": 3,
+        "target_speed": 127.0,
         "turn_dir": "right",
     },
     {
         "number": 12,
         "name": "Curva 12",
         "start": 3120.0,
-        "apex": 3260.0,
-        "end": 3400.0,
-        "gear": 3,
-        "target_speed": 125.0,
+        "apex": 3160.0,
+        "end": 3220.0,
+        "gear": 4,
+        "target_speed": 155.0,
         "turn_dir": "left",
     },
     {
         "number": 13,
         "name": "Curva 13",
-        "start": 3400.0,
-        "apex": 3520.0,
-        "end": 3620.0,
-        "gear": 3,
-        "target_speed": 138.0,
+        "start": 3220.0,
+        "apex": 3270.0,
+        "end": 3380.0,
+        "gear": 5,
+        "target_speed": 172.0,
         "turn_dir": "left",
     },
     {
         "number": 14,
         "name": "Curva Adrian Campos",
-        "start": 3620.0,
-        "apex": 3740.0,
-        "end": 3950.0,
+        "start": 3400.0,
+        "apex": 3535.0,
+        "end": 3660.0,
         "gear": 2,
-        "target_speed": 89.0,
+        "target_speed": 78.0,
         "turn_dir": "left",
     },
 ]
@@ -508,7 +516,7 @@ def generate_track_coordinates(
         base_len = 6019.0
     elif "valencia" in t_norm or "ricardo tormo" in t_norm or "cheste" in t_norm:
         raw_waypoints = VALENCIA_WAYPOINTS
-        base_len = 4005.0
+        base_len = 3947.5
     elif (
         telemetry is not None
         and "ref_speed" in telemetry

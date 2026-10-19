@@ -40,7 +40,7 @@ def test_corner_analysis():
     # Check Turn 1 (Aspar)
     t1 = next(c for c in corners if c.corner_number == 1)
     assert t1.ref_min_speed > 135.0
-    assert t1.comp_min_speed < 135.0
+    assert t1.comp_min_speed < t1.ref_min_speed
     # Slower comparison lap must yield negative delta (comp - ref)
     assert t1.speed_delta_min < -5.0
     assert t1.delta_v_min < -5.0

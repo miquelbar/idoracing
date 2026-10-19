@@ -331,7 +331,7 @@ def _corner_dto(c: CornerAnalysis) -> CornerDTO:
         name=c.corner_name or f"Curva {c.corner_number}",
         start_distance=c.start_dist,
         end_distance=c.end_dist,
-        apex_distance=(c.start_dist + c.end_dist) / 2.0,
+        apex_distance=c.apex_dist if c.apex_dist is not None else (c.start_dist + c.end_dist) / 2.0,
         v_min_ref=round(c.ref_min_speed, 1),
         v_min_comp=round(c.comp_min_speed, 1),
         delta_v_min=round(c.delta_v_min, 1),

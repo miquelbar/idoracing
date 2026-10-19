@@ -403,11 +403,18 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
     ref_lat = _channel(aligned_data, "ref_lat_accel", mask)
     turn_dir = corner_def.get("turn_dir") or ("left" if len(ref_lat) and float(np.mean(ref_lat)) > 0 else "right")
 
+    measured_apex = (
+        float(s.sub_dist[s.ref_apex_idx])
+        if len(s.sub_dist) > s.ref_apex_idx
+        else float(corner_def.get("apex", (start_d + end_d) / 2.0))
+    )
+
     return CornerAnalysis(
         corner_number=number,
         corner_name=name,
         start_dist=float(start_d),
         end_dist=float(end_d),
+        apex_dist=round(measured_apex, 1),
         ref_entry_speed=round(s.ref_entry_speed, 1),
         comp_entry_speed=round(s.comp_entry_speed, 1),
         delta_v_entry=round(s.delta_entry, 1),
