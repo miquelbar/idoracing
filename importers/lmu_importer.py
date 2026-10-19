@@ -24,7 +24,7 @@ class LMUImporter:
         tree = ET.parse(self.filepath)
         root = tree.getroot()
 
-        track = root.findtext(".//TrackVenue") or root.findtext(".//TrackCourse") or "Le Mans Circuit"
+        track = root.findtext(".//TrackVenue") or root.findtext(".//TrackCourse") or "Unknown track"
         time_str = root.findtext(".//TimeString") or ""
 
         date_val = datetime.now()
@@ -42,7 +42,7 @@ class LMUImporter:
         if player_driver is None:
             player_driver = root.find(".//Driver")
 
-        car = "Porsche 911 GT3 R LMGT3"
+        car = "Unknown car"
         laps: list[Lap] = []
 
         if player_driver is not None:
