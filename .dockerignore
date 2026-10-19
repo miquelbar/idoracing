@@ -15,3 +15,5 @@ test_data/
 .specs/
 .env
 .DS_Store
+frontend/node_modules/
+frontend/dist/
