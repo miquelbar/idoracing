@@ -424,10 +424,7 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     const isFlatOut = refBrakeIdx === -1 && compBrakeIdx === -1;
     const refBrakeDist = refBrakeIdx !== -1 ? Math.round(dists[refBrakeIdx]) : Math.round(selectedCorner.start_distance);
     const compBrakeDist = compBrakeIdx !== -1 ? Math.round(dists[compBrakeIdx]) : Math.round(selectedCorner.start_distance);
-    const brakeDelta =
-      selectedCorner.braking_point_delta !== undefined && selectedCorner.braking_point_delta !== 0
-        ? selectedCorner.braking_point_delta
-        : compBrakeDist - refBrakeDist;
+    const brakeDelta = compBrakeDist - refBrakeDist;
 
     // 2. Suelta de freno / Trail braking
     const trailWindowStart = Math.max(0, apexIdx - 12);
@@ -468,10 +465,8 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     const apexDist = dists[apexIdx] || selectedCorner.apex_distance;
     const refThDist = refThIdx !== -1 ? Math.max(0, Math.round(dists[refThIdx] - apexDist)) : null;
     const compThDist = compThIdx !== -1 ? Math.max(0, Math.round(dists[compThIdx] - apexDist)) : null;
-    const thDelta =
-      selectedCorner.throttle_pickup_delta !== undefined && selectedCorner.throttle_pickup_delta !== null
-        ? selectedCorner.throttle_pickup_delta
-        : (compThDist ?? 0) - (refThDist ?? 0);
+    // The delta must agree with the two cells it is printed next to.
+    const thDelta = refThDist !== null && compThDist !== null ? compThDist - refThDist : null;
 
     // 6. Velocidad de salida (Exit speed)
     const exitRef = Math.round(selectedCorner.v_exit_ref ?? refSpeeds[exitIdx]);
@@ -600,25 +595,26 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
       }
     }
 
+    const throttleDelta = throttle.delta ?? 0;
     // 3. Salida y Tracción
     let exitText = '';
     if (isEn) {
-      if (exit.delta < -5 && throttle.delta > 5) {
-        exitText = `Having killed apex speed, you exit at ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) with delayed throttle (+${Math.round(throttle.delta)}m). You bleed time all the way down the straight.`;
+      if (exit.delta < -5 && throttleDelta > 5) {
+        exitText = `Having killed apex speed, you exit at ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) with delayed throttle (+${Math.round(throttleDelta)}m). You bleed time all the way down the straight.`;
       } else if (exit.delta < -5) {
         exitText = `Exiting at ${exit.comp} km/h (${exit.delta.toFixed(0)} km/h) even though throttle timing is close to reference. Carrying apex speed will give you free tenths.`;
-      } else if (throttle.delta > 8) {
-        exitText = `Delayed throttle onset (+${Math.round(throttle.delta)}m post-apex). Start feeding 20-30% throttle earlier as you unwind the steering lock.`;
+      } else if (throttleDelta > 8) {
+        exitText = `Delayed throttle onset (+${Math.round(throttleDelta)}m post-apex). Start feeding 20-30% throttle earlier as you unwind the steering lock.`;
       } else {
         exitText = 'Clean and progressive traction on exit. Excellent use of track width right up to the exit kerb without lifting.';
       }
     } else {
-      if (exit.delta < -5 && throttle.delta > 5) {
-        exitText = `Al matar la velocidad en el vértice, sales a ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) y aceleras con retraso (+${Math.round(throttle.delta)}m). Pierdes tiempo en toda la recta.`;
+      if (exit.delta < -5 && throttleDelta > 5) {
+        exitText = `Al matar la velocidad en el vértice, sales a ${exit.comp} km/h (${exit.delta > 0 ? '+' : ''}${exit.delta.toFixed(0)} km/h) y aceleras con retraso (+${Math.round(throttleDelta)}m). Pierdes tiempo en toda la recta.`;
       } else if (exit.delta < -5) {
         exitText = `Al matar la velocidad en el vértice, sales a ${exit.comp} km/h (${exit.delta.toFixed(0)} km/h) aunque abres gas en el mismo punto que la referencia. Cuidar la velocidad mínima te dará décimas gratis.`;
-      } else if (throttle.delta > 8) {
-        exitText = `Aceleración retrasada (+${Math.round(throttle.delta)}m tras el vértice). Empieza a aplicar el 20-30% de acelerador antes mientras desenroscas volante.`;
+      } else if (throttleDelta > 8) {
+        exitText = `Aceleración retrasada (+${Math.round(throttleDelta)}m tras el vértice). Empieza a aplicar el 20-30% de acelerador antes mientras desenroscas volante.`;
       } else {
         exitText = 'Tracción limpia y progresiva a la salida. Excelente aprovechamiento del ancho de salida hacia la recta posterior.';
       }
@@ -985,7 +981,9 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                       <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{formatPostApex(phaseMetrics.throttle.refDist)}</td>
                       <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">{formatPostApex(phaseMetrics.throttle.compDist)}</td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
-                        {Math.abs(phaseMetrics.throttle.delta) < 2 ? (
+                        {phaseMetrics.throttle.delta === null ? (
+                          <span className="text-gray-500">—</span>
+                        ) : Math.abs(phaseMetrics.throttle.delta) < 2 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
                             ✓ {t('synchronized_label')}
                           </span>
