@@ -166,3 +166,18 @@ def test_percent_pedals_are_rescaled_to_unit_range(tmp_path):
     session = MoTeCImporter(str(ld)).parse()
 
     assert max(session.telemetry["throttle"]) == pytest.approx(0.8)
+
+
+def test_laps_follow_the_lap_number_channel_and_partial_laps_are_invalid(tmp_path):
+    n = 300
+    channels = _flat_channels(n)
+    channels["Lap Number"] = np.concatenate([np.full(40, 2.0), np.full(200, 3.0), np.full(60, 4.0)])
+    channels["Lap Distance"] = np.concatenate(
+        [np.linspace(3500, 4000, 40), np.linspace(0, 4000, 200), np.linspace(0, 1200, 60)]
+    )
+    ld = tmp_path / "lmu_stint.ld"
+    _write_ld(ld, channels)
+
+    session = MoTeCImporter(str(ld)).parse()
+
+    assert [(lap.lap_number, lap.is_valid) for lap in session.laps] == [(2, False), (3, True), (4, False)]

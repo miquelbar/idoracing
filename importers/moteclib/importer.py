@@ -13,17 +13,39 @@ CHANNEL_MAP = {
     "speed": ["SPEED", "Corr Speed", "speed", "Ground Speed"],
     "throttle": ["Throttle Pos", "THROTTLE", "throttle", "Accel Pedal Pos"],
     "brake": ["Brake Pos", "BRAKE", "brake", "Brake Pedal Pos"],
-    "gear": ["GEAR", "gear", "Current Gear"],
-    "lat_accel": ["G Force Lat", "G_LAT", "glat", "lat_accel", "Lateral Accel"],
-    "long_accel": ["G Force Long", "G_LON", "glong", "long_accel", "Longitudinal Accel"],
-    "steer_angle": ["Steered Angle", "STEERANGLE", "steer_angle", "Steering Angle"],
+    "gear": ["GEAR", "Gear", "gear", "Current Gear"],
+    "lat_accel": ["G Force Lat", "G_LAT", "CG Accel Lateral", "glat", "lat_accel", "Lateral Accel"],
+    "long_accel": ["G Force Long", "G_LON", "CG Accel Longitudinal", "glong", "long_accel", "Longitudinal Accel"],
+    "steer_angle": ["Steered Angle", "STEERANGLE", "Steering Angle", "Steering", "steer_angle"],
     "rpm": ["Engine RPM", "RPMS", "rpm"],
     "distance": ["Distance", "Lap Distance", "LAP_DIST", "distance"],
+    "lap": ["Lap Number", "LAP_NUMBER"],
 }
 REQUIRED_CHANNELS = ("speed", "throttle", "brake", "gear", "lat_accel", "long_accel")
 
 # A lap-distance channel drops back to ~0 at the line; anything smaller is GPS noise.
 LAP_RESET_DROP_M = 500.0
+
+
+COMPLETE_LAP_FRACTION = 0.95
+
+
+def _distance_covered(telemetry: dict[str, list[float]]) -> float:
+    if "distance" in telemetry:
+        return float(np.ptp(telemetry["distance"]))
+    speed_ms = np.asarray(telemetry["speed"]) / 3.6
+    return float(np.sum(speed_ms[1:] * np.diff(telemetry["time"])))
+
+
+def _continuous_from_zero(distance: list[float]) -> list[float]:
+    """
+    Lap distance starting at 0 with no backwards jumps. The lap-number and lap-distance channels are
+    logged at different rates, so the distance reset can land a few samples inside the neighbouring lap.
+    """
+    d = np.asarray(distance, dtype=np.float64)
+    for i in np.where(np.diff(d) < -LAP_RESET_DROP_M)[0]:
+        d[i + 1 :] += d[i] - d[i + 1]
+    return (d - d[0]).tolist()
 
 
 def _resample(values: np.ndarray, n: int) -> np.ndarray:
@@ -113,7 +135,11 @@ class MoTeCImporter:
         return telemetry
 
     def _split_laps(self, telemetry: dict[str, list[float]], ldx_laps: list[dict[str, Any]]) -> list[Lap]:
-        """Cut session channels into laps using .ldx markers, else lap-distance resets."""
+        """
+        Cut session channels into laps using .ldx markers, else the lap-number channel, else lap-distance
+        resets. Laps that cover less than COMPLETE_LAP_FRACTION of the longest lap (out and in laps) are
+        marked invalid.
+        """
         time = np.asarray(telemetry["time"])
         bounds: list[tuple[int, int, int]] = []
 
@@ -122,6 +148,11 @@ class MoTeCImporter:
                 start = int(np.searchsorted(time, info["start_time"]))
                 end = int(np.searchsorted(time, info["end_time"]))
                 bounds.append((info["lap_number"], start, end))
+        elif "lap" in telemetry:
+            lap_no = np.round(np.asarray(telemetry["lap"])).astype(int)
+            changes = (np.where(np.diff(lap_no) != 0)[0] + 1).tolist()
+            edges = [0] + changes + [len(lap_no)]
+            bounds = [(int(lap_no[edges[i]]), edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
         elif "distance" in telemetry:
             dist = np.asarray(telemetry["distance"])
             resets = (np.where(np.diff(dist) < -LAP_RESET_DROP_M)[0] + 1).tolist()
@@ -138,8 +169,7 @@ class MoTeCImporter:
             t0 = lap_telemetry["time"][0]
             lap_telemetry["time"] = [t - t0 for t in lap_telemetry["time"]]
             if "distance" in lap_telemetry:
-                d0 = lap_telemetry["distance"][0]
-                lap_telemetry["distance"] = [d - d0 for d in lap_telemetry["distance"]]
+                lap_telemetry["distance"] = _continuous_from_zero(lap_telemetry["distance"])
             laps.append(
                 Lap(
                     lap_number=lap_number,
@@ -150,6 +180,11 @@ class MoTeCImporter:
                     end_time=float(time[end - 1]),
                 )
             )
+
+        spans = [_distance_covered(lap.telemetry) for lap in laps]
+        longest = max(spans, default=0.0)
+        for lap, span in zip(laps, spans, strict=True):
+            lap.is_valid = span >= COMPLETE_LAP_FRACTION * longest
         return laps
 
     def get_session_summary(self) -> SessionSummary:
