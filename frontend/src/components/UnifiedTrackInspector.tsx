@@ -33,6 +33,9 @@ function formatGear(gear: number, lang: string): string {
   return `${gear}ª`;
 }
 
+// Same threshold as the backend: smaller line offsets are within position noise.
+const LINE_OFFSET_NOTE_M = 0.5;
+
 export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
   comparison,
   selectedCorner,
@@ -43,6 +46,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
 }) => {
   const { lang, t } = useLanguage();
   const formatPostApex = (metres: number | null) => (metres === null ? '—' : `+${metres}m ${t('post_apex_meters')}`);
+  const formatOffset = (metres: number) =>
+    Math.abs(metres) < 0.05
+      ? '0.0 m'
+      : `${Math.abs(metres).toFixed(1)} m ${metres > 0 ? t('offset_outside') : t('offset_inside')}`;
   const [cornerViewMode, setCornerViewMode] = useState<'phase' | 'track2d'>('phase');
   const [hoveredCornerNum, setHoveredCornerNum] = useState<number | null>(null);
   const corners = comparison.corners;
@@ -487,6 +494,14 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         isSubviraje,
         isEarly,
         isLineOptimal,
+        offsets:
+          selectedCorner.line_offset_apex_m != null
+            ? {
+                entry: selectedCorner.line_offset_entry_m ?? 0,
+                apex: selectedCorner.line_offset_apex_m,
+                exit: selectedCorner.line_offset_exit_m ?? 0,
+              }
+            : null,
       },
       min: {
         ref: minRef,
@@ -550,7 +565,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     // 2. Vértice y Rotación
     let apexText = '';
     if (isEn) {
-      if (position.isSubviraje) {
+      if (position.offsets && Math.abs(position.offsets.apex) >= LINE_OFFSET_NOTE_M) {
+        apexText =
+          position.offsets.apex > 0
+            ? `You reach the apex ${position.offsets.apex.toFixed(1)} m wider than on your reference lap${min.delta < 0 ? ` and ${Math.abs(min.delta).toFixed(0)} km/h slower` : ''}. Turn in a touch later and aim for the inside kerb.`
+            : `You reach the apex ${Math.abs(position.offsets.apex).toFixed(1)} m tighter than on your reference lap. Check you are not turning in too early and pinching the exit.`;
+      } else if (position.isSubviraje) {
         apexText = `You run wide of the inside kerb and lose ${Math.abs(min.delta).toFixed(0)} km/h of apex speed to understeer.`;
       } else if (position.isEarly) {
         apexText = 'Turning in too early (early apex). You pinch the trajectory at the apex and are forced to hesitate before applying throttle.';
@@ -562,7 +582,12 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
         apexText = `Clean apex passage clipped tight to the inside kerb (${min.comp} km/h) in optimal ${formatGear(min.compGear, 'en')} gear.`;
       }
     } else {
-      if (position.isSubviraje) {
+      if (position.offsets && Math.abs(position.offsets.apex) >= LINE_OFFSET_NOTE_M) {
+        apexText =
+          position.offsets.apex > 0
+            ? `Llegas al ápice ${position.offsets.apex.toFixed(1)} m más abierto que en tu vuelta de referencia${min.delta < 0 ? ` y ${Math.abs(min.delta).toFixed(0)} km/h más lento` : ''}. Gira un poco más tarde y busca el piano interior.`
+            : `Llegas al ápice ${Math.abs(position.offsets.apex).toFixed(1)} m más cerrado que en tu vuelta de referencia. Revisa que no estés girando antes de tiempo y estrangulando la salida.`;
+      } else if (position.isSubviraje) {
         apexText = `No llegas al piano interior y pierdes ${Math.abs(min.delta).toFixed(0)} km/h de paso por curva por subviraje.`;
       } else if (position.isEarly) {
         apexText = 'Te tiras al vértice demasiado pronto (vértice prematuro). Estrangulas la salida y te ves forzado a esperar para acelerar.';
@@ -866,16 +891,45 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
                     {/* 3. Línea y Ápice (Track position) */}
                     <tr className="hover:bg-white/[0.02] transition">
                       <td className="py-1 pr-2 text-left font-medium text-gray-300">{t('track_position_row')}</td>
-                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">{t('outside_to_kerb')}</td>
-                      <td className="py-1 px-2 text-right text-white font-bold whitespace-nowrap">
-                        {phaseMetrics.position.isSubviraje
-                          ? (lang === 'en' ? 'Wide of the apex' : 'Abierto en el ápice')
-                          : phaseMetrics.position.isEarly
-                          ? (lang === 'en' ? 'Early turn-in' : 'Cierra antes')
-                          : t('outside_to_kerb')}
+                      <td className="py-1 px-2 text-right text-gray-400 whitespace-nowrap">
+                        {phaseMetrics.position.offsets ? t('reference_line') : t('outside_to_kerb')}
+                      </td>
+                      <td
+                        className="py-1 px-2 text-right text-white font-bold whitespace-nowrap"
+                        title={phaseMetrics.position.offsets ? undefined : t('no_position_data')}
+                      >
+                        {phaseMetrics.position.offsets ? (
+                          <>
+                            {t('offset_apex_short')} {formatOffset(phaseMetrics.position.offsets.apex)}
+                            <span className="block text-[10px] font-normal text-gray-400">
+                              {t('offset_entry_short')} {formatOffset(phaseMetrics.position.offsets.entry)} ·{' '}
+                              {t('offset_exit_short')} {formatOffset(phaseMetrics.position.offsets.exit)}
+                            </span>
+                          </>
+                        ) : phaseMetrics.position.isSubviraje ? (
+                          lang === 'en' ? 'Wide of the apex' : 'Abierto en el ápice'
+                        ) : phaseMetrics.position.isEarly ? (
+                          lang === 'en' ? 'Early turn-in' : 'Cierra antes'
+                        ) : (
+                          t('outside_to_kerb')
+                        )}
                       </td>
                       <td className="py-1 pl-2 text-right font-black whitespace-nowrap">
-                        {phaseMetrics.position.isSubviraje ? (
+                        {phaseMetrics.position.offsets ? (
+                          Math.abs(phaseMetrics.position.offsets.apex) < LINE_OFFSET_NOTE_M ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#00FF7F]/15 text-[#00FF7F] font-bold text-[10px]">
+                              ✓ {t('on_reference_line')}
+                            </span>
+                          ) : phaseMetrics.position.offsets.apex > 0 ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
+                              {t('wider_by')} {Math.abs(phaseMetrics.position.offsets.apex).toFixed(1)} m
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold text-[10px]">
+                              {t('tighter_by')} {Math.abs(phaseMetrics.position.offsets.apex).toFixed(1)} m
+                            </span>
+                          )
+                        ) : phaseMetrics.position.isSubviraje ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#FF1801]/15 text-[#FF7B72] font-bold text-[10px]">
                             {t('understeer_offset')}
                           </span>

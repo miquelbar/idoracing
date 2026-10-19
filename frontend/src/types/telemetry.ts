@@ -68,6 +68,9 @@ export interface CornerDTO {
   balance_advice?: string;
   racing_line_eval?: string;
   racing_line_code: RacingLineCode;
+  line_offset_entry_m?: number | null;
+  line_offset_apex_m?: number | null;
+  line_offset_exit_m?: number | null;
   racing_line_advice?: string;
   racing_line_svg?: {
     corner_number: number;
