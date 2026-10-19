@@ -21,6 +21,7 @@ import type {
   SystemStatus,
 } from './types/telemetry';
 import { detectSimGame, errorMessage } from './utils/formatters';
+import { translate } from './i18n';
 import { EngineerView } from './views/EngineerView';
 import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
@@ -143,7 +144,7 @@ export const App: React.FC = () => {
       // 4. Fetch telemetry comparison
       await loadComparison(p1, p2, activeSessionId);
     } catch (err) {
-      setError(errorMessage(err, 'Error inicializando el sistema de telemetría'));
+      setError(errorMessage(err, translate('err_init')));
     } finally {
       setLoading(false);
     }
@@ -164,7 +165,7 @@ export const App: React.FC = () => {
       setCompLapNumber(p2);
       await loadComparison(p1, p2, sessionId);
     } catch (err) {
-      setError(errorMessage(err, 'Error cambiando de sesión'));
+      setError(errorMessage(err, translate('err_switch_session')));
     } finally {
       setLoading(false);
     }
@@ -176,7 +177,7 @@ export const App: React.FC = () => {
       setRefLapNumber(lapNumber);
       await loadComparison(lapNumber, compLapNumber, selectedSessionId);
     } catch (err) {
-      setError(errorMessage(err, 'Error seleccionando vuelta de referencia'));
+      setError(errorMessage(err, translate('err_select_ref')));
     }
   };
 
@@ -186,7 +187,7 @@ export const App: React.FC = () => {
       setCompLapNumber(lapNumber);
       await loadComparison(refLapNumber, lapNumber, selectedSessionId);
     } catch (err) {
-      setError(errorMessage(err, 'Error seleccionando vuelta comparada'));
+      setError(errorMessage(err, translate('err_select_comp')));
     }
   };
 
@@ -196,7 +197,7 @@ export const App: React.FC = () => {
       await generateDemoSession();
       await loadInitialData();
     } catch (err) {
-      setError(errorMessage(err, 'Error cargando sesión demo'));
+      setError(errorMessage(err, translate('err_load_demo')));
     } finally {
       setLoadingDemo(false);
     }
@@ -209,7 +210,7 @@ export const App: React.FC = () => {
       await loadInitialData();
       handleNavigateTab('telemetry');
     } catch (err) {
-      setError(errorMessage(err, 'Error importando archivo local'));
+      setError(errorMessage(err, translate('err_import_local')));
       setLoading(false);
     }
   };

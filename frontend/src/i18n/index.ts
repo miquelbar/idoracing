@@ -234,6 +234,53 @@ export const translations = {
     model_name_label: 'Nombre del Modelo:',
     save_config_btn: 'Guardar Configuración',
     saving_btn: 'Guardando...',
+    qp_corner_line: '¿Cómo mejorar la trazada en T{num} ({name})?',
+    qp_corner_loss: '¿Por qué pierdo {delta}s en T{num}?',
+    qp_corner_gear: '¿La marcha {gear}ª es adecuada para la salida de T{num}?',
+    qp_corner_brake: '¿Cómo modular el freno y trail braking en T{num}?',
+    qp_lap_sector: '¿En qué sector pierdo más tiempo en {track}?',
+    qp_lap_trail: '¿Cómo puedo optimizar la técnica de trail braking con el {car}?',
+    qp_lap_priority: '¿Qué curvas debería priorizar para ganar más tiempo?',
+    qp_lap_consistency: '¿Cómo evalúas la consistencia de frenada en esta tanda?',
+    debrief_cta_title: '¿Quieres un debrief integral con IA?',
+    debrief_cta_body: 'Resume las pérdidas por sector, el trail braking en cada curva y ejercicios para la siguiente sesión.',
+    debrief_cta_button: 'Generar Análisis de Vuelta',
+    track_colon: 'Pista:',
+    pep_role: 'Pep · Ingeniero de Pista',
+    you_role: 'Tú',
+    pep_thinking: 'Pep está consultando los canales de telemetría de {track}...',
+    ask_pep_corner_placeholder: 'Pregunta a Pep sobre Curva {num} ({name}), telemetría o setup...',
+    ask_pep_track_placeholder: 'Pregunta a Pep sobre {track}, puntos de frenada o técnica...',
+    wide_of_apex: 'Abierto en el ápice',
+    early_turn_in: 'Cierra antes',
+    line_optimal: 'Trazada Geométrica Óptima',
+    line_early_apex: 'Vértice Prematuro (Early Apex)',
+    line_late_apex: 'Vértice Pasado / Abierto',
+    line_missed_apex: 'Trazada Cerrada / Pérdida de Vértice',
+    line_pinched_exit: 'Salida Estrangulada / Falta de Ancho',
+    line_suboptimal: 'Trazada Subóptima en Curva',
+    engineer_radio_intro: 'Canal de radio abierto. He revisado la telemetría de tus vueltas. ¿Sobre qué curva o aspecto de tu conducción quieres que profundicemos?',
+    debrief_error: 'Error generando debrief técnico',
+    radio_error_engineer: 'Error de comunicación en radio con el ingeniero de pista.',
+    telemetry_radio_intro: 'Copiado en el muro por radio. Soy Pep, tu ingeniero de pista en **{track}** con el **{car}**.\n\nPuedes seleccionar cualquier curva para evaluar puntos de frenada, trail braking y velocidades de paso, o preguntarme directamente por la radio.',
+    fallback_track: 'pista',
+    fallback_car: 'vehículo',
+    report_error: 'Error al generar el informe',
+    radio_error_backend: 'Error de comunicación en radio. Comprueba que el servidor local esté activo.',
+    ask_about_corner_question: '¿Cómo puedo optimizar la Curva {num} ({name})? He cedido {delta}s. La telemetría detecta: {balance} y {gear}.',
+    err_init: 'Error inicializando el sistema de telemetría',
+    err_switch_session: 'Error cambiando de sesión',
+    err_select_ref: 'Error seleccionando vuelta de referencia',
+    err_select_comp: 'Error seleccionando vuelta comparada',
+    err_load_demo: 'Error cargando sesión demo',
+    err_import_local: 'Error importando archivo local',
+    err_load_history: 'Error cargando el historial de vueltas',
+    upload_ok: 'Archivo \'{file}\' subido con éxito. Pista detectada: {track}.',
+    imported_session: 'Sesión importada',
+    err_upload: 'Error al procesar el archivo subido',
+    report_available: 'Informe telemétrico disponible.',
+    engineer_question_placeholder: 'Ej: ¿Por qué pierdo tiempo en la Curva 11?',
+    recent_date: 'Reciente',
   },
   en: {
     // Navigation & Topbar
@@ -466,6 +513,53 @@ export const translations = {
     model_name_label: 'Model Name:',
     save_config_btn: 'Save Configuration',
     saving_btn: 'Saving...',
+    qp_corner_line: 'How to optimize the racing line in T{num} ({name})?',
+    qp_corner_loss: 'Why am I losing {delta}s in T{num}?',
+    qp_corner_gear: 'Is gear {gear} optimal for exit in T{num}?',
+    qp_corner_brake: 'How to modulate brake pedal and trail braking in T{num}?',
+    qp_lap_sector: 'In which sector am I losing the most time at {track}?',
+    qp_lap_trail: 'How can I optimize trail braking technique in the {car}?',
+    qp_lap_priority: 'Which corners should I prioritize to gain the most lap time?',
+    qp_lap_consistency: 'How would you evaluate my braking consistency across this stint?',
+    debrief_cta_title: 'Want a comprehensive AI telemetry debrief?',
+    debrief_cta_body: 'Summarises sector deltas, trail braking per corner, and exercises for the next session.',
+    debrief_cta_button: 'Generate Lap Analysis',
+    track_colon: 'Track:',
+    pep_role: 'Pep · Race Engineer',
+    you_role: 'You',
+    pep_thinking: 'Pep is inspecting telemetry channels for {track}...',
+    ask_pep_corner_placeholder: 'Ask Pep about Turn {num} ({name}), telemetry or setup...',
+    ask_pep_track_placeholder: 'Ask Pep about {track}, braking points or technique...',
+    wide_of_apex: 'Wide of the apex',
+    early_turn_in: 'Early turn-in',
+    line_optimal: 'Optimal Line',
+    line_early_apex: 'Early Apex',
+    line_late_apex: 'Late / Wide Apex',
+    line_missed_apex: 'Tight Trajectory / Apex Loss',
+    line_pinched_exit: 'Pinched Exit / Track Width Unused',
+    line_suboptimal: 'Suboptimal Line',
+    engineer_radio_intro: 'Radio channel open. Telemetry processed. Which corner, trail braking phase, or setup parameter would you like to analyze?',
+    debrief_error: 'Error generating debrief',
+    radio_error_engineer: 'Radio communication error with Race Engineer.',
+    telemetry_radio_intro: 'Pit wall radio check. I\'m Pep, your Performance Engineering Partner at **{track}** with the **{car}**.\n\nSelect any corner to evaluate braking points, trail braking, and apex speeds, or ask me directly over the radio.',
+    fallback_track: 'track',
+    fallback_car: 'car',
+    report_error: 'Error generating technical report',
+    radio_error_backend: 'Radio communication error. Please ensure local backend server is operational.',
+    ask_about_corner_question: 'How can I optimize Turn {num} ({name})? I lost {delta}s. Telemetry diagnosis: {balance} and {gear}.',
+    err_init: 'Error starting the telemetry system',
+    err_switch_session: 'Error switching session',
+    err_select_ref: 'Error selecting the reference lap',
+    err_select_comp: 'Error selecting the comparison lap',
+    err_load_demo: 'Error loading the demo session',
+    err_import_local: 'Error importing the local file',
+    err_load_history: 'Error loading the lap history',
+    upload_ok: 'File \'{file}\' uploaded. Track detected: {track}.',
+    imported_session: 'Imported session',
+    err_upload: 'Error processing the uploaded file',
+    report_available: 'Telemetry report available.',
+    engineer_question_placeholder: 'e.g. Why am I losing time in Turn 11?',
+    recent_date: 'Recent',
   },
 };
 
@@ -486,6 +580,18 @@ export function setLanguage(lang: Language) {
   listeners.forEach((fn) => fn(lang));
 }
 
+export type TranslationKey = keyof (typeof translations)['es'];
+
+function translateTo(lang: Language, key: TranslationKey, vars?: Record<string, string | number>): string {
+  const text = translations[lang][key] || translations['es'][key] || String(key);
+  return vars ? text.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match)) : text;
+}
+
+/** For text built outside render (error handlers, callbacks): uses the language active right now. */
+export function translate(key: TranslationKey, vars?: Record<string, string | number>): string {
+  return translateTo(getLanguage(), key, vars);
+}
+
 export function useLanguage() {
   const [lang, setLangState] = useState<Language>(getLanguage());
 
@@ -497,9 +603,7 @@ export function useLanguage() {
     };
   }, []);
 
-  const t = (key: keyof typeof translations['es']): string => {
-    return translations[lang][key] || translations['es'][key] || String(key);
-  };
+  const t = (key: TranslationKey, vars?: Record<string, string | number>): string => translateTo(lang, key, vars);
 
   const changeLanguage = (newLang: Language) => {
     setLanguage(newLang);

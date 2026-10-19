@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { fetchLapHistory } from '../services/api';
 import type { LapHistoryData } from '../types/telemetry';
-import { useLanguage } from '../i18n';
+import { translate, useLanguage } from '../i18n';
 import { errorMessage } from '../utils/formatters';
 
 const formatSpeed = (kmh: number | null) => (kmh === null ? '—' : `${kmh} km/h`);
@@ -39,7 +39,7 @@ export const SetupHistoryView: React.FC<SetupHistoryViewProps> = ({
       const hist = await fetchLapHistory(selectedSessionId || undefined, compLap);
       setHistoryData(hist);
     } catch (err) {
-      setError(errorMessage(err, 'Error cargando el historial de vueltas'));
+      setError(errorMessage(err, translate('err_load_history')));
     } finally {
       setLoading(false);
     }

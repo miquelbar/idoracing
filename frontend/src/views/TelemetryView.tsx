@@ -48,10 +48,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content:
-        lang === 'en'
-          ? `Pit wall radio check. I'm Pep, your Performance Engineering Partner at **${comparison.track_name || 'track'}** with the **${comparison.car_name || 'car'}**.\n\nSelect any corner to evaluate braking points, trail braking, and apex speeds, or ask me directly over the radio.`
-          : `Copiado en el muro por radio. Soy Pep, tu ingeniero de pista en **${comparison.track_name || 'pista'}** con el **${comparison.car_name || 'vehículo'}**.\n\nPuedes seleccionar cualquier curva para evaluar puntos de frenada, trail braking y velocidades de paso, o preguntarme directamente por la radio.`,
+      content: t('telemetry_radio_intro', {
+        track: comparison.track_name || t('fallback_track'),
+        car: comparison.car_name || t('fallback_car'),
+      }),
     },
   ]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -68,7 +68,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
       );
       onReportGenerated(rep);
     } catch (err) {
-      setReportError(errorMessage(err, lang === 'en' ? 'Error generating technical report' : 'Error al generar el informe'));
+      setReportError(errorMessage(err, t('report_error')));
     } finally {
       setLoadingReport(false);
     }
@@ -119,10 +119,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         ...prev,
         {
           role: 'assistant',
-          content:
-            lang === 'en'
-              ? 'Radio communication error. Please ensure local backend server is operational.'
-              : 'Error de comunicación en radio. Comprueba que el servidor local esté activo.',
+          content: t('radio_error_backend'),
         },
       ]);
     } finally {
@@ -133,14 +130,13 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   const [debriefTab, setDebriefTab] = useState<'debrief' | 'radio'>('debrief');
 
   const handleAskAboutCorner = (corner: CornerDTO) => {
-    const isEn = lang === 'en';
-    const question = isEn
-      ? `How can I optimize Turn ${corner.corner_number} (${corner.name})? I lost ${
-          corner.delta_time > 0 ? '+' : ''
-        }${corner.delta_time.toFixed(3)}s. Telemetry diagnosis: ${corner.balance_eval} and ${corner.gear_eval}.`
-      : `¿Cómo puedo optimizar la Curva ${corner.corner_number} (${corner.name})? He cedido ${
-          corner.delta_time > 0 ? '+' : ''
-        }${corner.delta_time.toFixed(3)}s. La telemetría detecta: ${corner.balance_eval} y ${corner.gear_eval}.`;
+    const question = t('ask_about_corner_question', {
+      num: corner.corner_number,
+      name: corner.name,
+      delta: `${corner.delta_time > 0 ? '+' : ''}${corner.delta_time.toFixed(3)}`,
+      balance: corner.balance_eval ?? '',
+      gear: corner.gear_eval ?? '',
+    });
     setDebriefTab('radio');
     onOpenDebrief();
     handleSendChatMessage(question);

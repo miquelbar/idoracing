@@ -285,35 +285,20 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
     copyToClipboard(text);
   };
 
-  const isEn = lang === 'en';
 
-  // Dynamic quick prompts oriented to the active circuit and selected corner
-  const quickPrompts = isEn
-    ? selectedCorner
-      ? [
-          `How to optimize the racing line in T${selectedCorner.corner_number} (${selectedCorner.name})?`,
-          `Why am I losing ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)}s in T${selectedCorner.corner_number}?`,
-          `Is gear ${selectedCorner.comp_gear || 3} optimal for exit in T${selectedCorner.corner_number}?`,
-          `How to modulate brake pedal and trail braking in T${selectedCorner.corner_number}?`,
-        ]
-      : [
-          `In which sector am I losing the most time at ${trackName}?`,
-          `How can I optimize trail braking technique in the ${carName}?`,
-          'Which corners should I prioritize to gain the most lap time?',
-          'How would you evaluate my braking consistency across this stint?',
-        ]
-    : selectedCorner
+  const signedDelta = (seconds: number) => `${seconds > 0 ? '+' : ''}${seconds.toFixed(3)}`;
+  const quickPrompts = selectedCorner
     ? [
-        `¿Cómo mejorar la trazada en T${selectedCorner.corner_number} (${selectedCorner.name})?`,
-        `¿Por qué pierdo ${selectedCorner.delta_time > 0 ? '+' : ''}${selectedCorner.delta_time.toFixed(3)}s en T${selectedCorner.corner_number}?`,
-        `¿La marcha ${selectedCorner.comp_gear || 3}ª es adecuada para la salida de T${selectedCorner.corner_number}?`,
-        `¿Cómo modular el freno y trail braking en T${selectedCorner.corner_number}?`,
+        t('qp_corner_line', { num: selectedCorner.corner_number, name: selectedCorner.name }),
+        t('qp_corner_loss', { num: selectedCorner.corner_number, delta: signedDelta(selectedCorner.delta_time) }),
+        t('qp_corner_gear', { num: selectedCorner.corner_number, gear: selectedCorner.comp_gear || 3 }),
+        t('qp_corner_brake', { num: selectedCorner.corner_number }),
       ]
     : [
-        `¿En qué sector pierdo más tiempo en ${trackName}?`,
-        `¿Cómo puedo optimizar la técnica de trail braking con el ${carName}?`,
-        '¿Qué curvas debería priorizar para ganar más tiempo?',
-        '¿Cómo evalúas la consistencia de frenada en esta tanda?',
+        t('qp_lap_sector', { track: trackName }),
+        t('qp_lap_trail', { car: carName }),
+        t('qp_lap_priority'),
+        t('qp_lap_consistency'),
       ];
 
   return (
@@ -582,19 +567,17 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                   <div className="p-8 rounded-xl bg-night-7 border border-white/5 text-center space-y-3 my-6">
                     <Sparkles className="w-10 h-10 text-brand mx-auto opacity-80" />
                     <h3 className="text-sm font-bold text-white">
-                      {isEn ? 'Want a comprehensive AI telemetry debrief?' : '¿Quieres un debrief integral con IA?'}
+                      {t('debrief_cta_title')}
                     </h3>
                     <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
-                      {isEn
-                        ? 'Summarises sector deltas, trail braking per corner, and exercises for the next session.'
-                        : 'Resume las pérdidas por sector, el trail braking en cada curva y ejercicios para la siguiente sesión.'}
+                      {t('debrief_cta_body')}
                     </p>
                     <button
                       onClick={() => onGenerateDebrief(false)}
                       className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md inline-flex items-center gap-2"
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      <span>{isEn ? 'Generate Lap Analysis' : 'Generar Análisis de Vuelta'}</span>
+                      <span>{t('debrief_cta_button')}</span>
                     </button>
                   </div>
                 )
@@ -607,7 +590,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               {/* Circuit & Corner Awareness Banner */}
               <div className="px-3 py-1.5 rounded-lg bg-night-7 border border-white/5 flex items-center justify-between text-xs font-telemetry">
                 <div className="flex items-center gap-2 truncate">
-                  <span className="text-gray-400">{isEn ? 'Track:' : 'Pista:'}</span>
+                  <span className="text-gray-400">{t('track_colon')}</span>
                   <span className="text-white font-bold truncate">{trackName}</span>
                   <span className="text-gray-600">·</span>
                   <span className="text-brand font-semibold truncate">{carName}</span>
@@ -674,7 +657,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
                         {/* Copy button on message */}
                         <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
-                          <span>{m.role === 'assistant' ? (isEn ? 'Pep · Race Engineer' : 'Pep · Ingeniero de Pista') : (isEn ? 'You' : 'Tú')}</span>
+                          <span>{m.role === 'assistant' ? t('pep_role') : t('you_role')}</span>
                           <button
                             onClick={() => copyToClipboard(m.content, idx)}
                             className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
@@ -707,9 +690,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-night-7/60 border border-white/5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                     <span>
-                      {isEn
-                        ? `Pep is inspecting telemetry channels for ${trackName}...`
-                        : `Pep está consultando los canales de telemetría de ${trackName}...`}
+                      {t('pep_thinking', { track: trackName })}
                     </span>
                   </div>
                 )}
@@ -730,12 +711,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={
                   selectedCorner
-                    ? isEn
-                      ? `Ask Pep about Turn ${selectedCorner.corner_number} (${selectedCorner.name}), telemetry or setup...`
-                      : `Pregunta a Pep sobre Curva ${selectedCorner.corner_number} (${selectedCorner.name}), telemetría o setup...`
-                    : isEn
-                    ? `Ask Pep about ${trackName}, braking points or technique...`
-                    : `Pregunta a Pep sobre ${trackName}, puntos de frenada o técnica...`
+                    ? t('ask_pep_corner_placeholder', { num: selectedCorner.corner_number, name: selectedCorner.name })
+                    : t('ask_pep_track_placeholder', { track: trackName })
                 }
                 className="flex-1 bg-night-4 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand font-telemetry"
               />

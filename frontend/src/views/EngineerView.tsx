@@ -30,7 +30,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   onReportGenerated,
   activeModel,
 }) => {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const [loadingReport, setLoadingReport] = useState(false);
   const [errorReport, setErrorReport] = useState<string | null>(null);
 
@@ -38,10 +38,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content:
-        lang === 'en'
-          ? 'Radio channel open. Telemetry processed. Which corner, trail braking phase, or setup parameter would you like to analyze?'
-          : 'Canal de radio abierto. He revisado la telemetría de tus vueltas. ¿Sobre qué curva o aspecto de tu conducción quieres que profundicemos?',
+      content: t('engineer_radio_intro'),
     },
   ]);
   const [inputMessage, setInputMessage] = useState('');
@@ -55,7 +52,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
       const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh, comparison.session_id);
       onReportGenerated(rep);
     } catch (err) {
-      setErrorReport(errorMessage(err, lang === 'en' ? 'Error generating debrief' : 'Error generando debrief técnico'));
+      setErrorReport(errorMessage(err, t('debrief_error')));
     } finally {
       setLoadingReport(false);
     }
@@ -87,7 +84,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         ...newMessages,
         {
           role: 'assistant',
-          content: lang === 'en' ? 'Radio communication error with Race Engineer.' : 'Error de comunicación en radio con el ingeniero de pista.',
+          content: t('radio_error_engineer'),
         },
       ]);
     } finally {
@@ -169,7 +166,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
               <span className="font-bold text-brand block mb-1 uppercase tracking-wider text-[11px]">
                 Diagnóstico del Ingeniero ({report.confidence || 'Alta'} Confianza):
               </span>
-              {report.raw_report ? report.raw_report.split('\n\n')[0] : 'Informe telemétrico disponible.'}
+              {report.raw_report ? report.raw_report.split('\n\n')[0] : t('report_available')}
             </div>
 
             {/* Section 1: Facts */}
@@ -303,7 +300,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Ej: ¿Por qué pierdo tiempo en la Curva 11?"
+            placeholder={t('engineer_question_placeholder')}
             className="flex-1 bg-[#141A28] border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand"
           />
           <button

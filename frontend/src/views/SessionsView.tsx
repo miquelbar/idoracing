@@ -54,7 +54,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   loading,
   comparison,
 }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'import'>('sessions');
   const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing'>('all');
   const [uploading, setUploading] = useState(false);
@@ -86,13 +86,13 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       const res = await uploadTelemetryFile(file);
       setStatusMsg({
         type: 'success',
-        text: `Archivo '${file.name}' subido con éxito. Pista detectada: ${res.track || 'Sesión importada'}.`,
+        text: t('upload_ok', { file: file.name, track: res.track || t('imported_session') }),
       });
       if (res.session_id) {
         onSelectSession(res.session_id);
       }
     } catch (err) {
-      setStatusMsg({ type: 'error', text: errorMessage(err, 'Error al procesar el archivo subido') });
+      setStatusMsg({ type: 'error', text: errorMessage(err, t('err_upload')) });
     } finally {
       setUploading(false);
     }
@@ -313,7 +313,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         <span className="text-[10px] text-gray-400 block uppercase">{t('date_col')}</span>
                         <span className="text-gray-300 font-semibold text-xs flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3 text-gray-500" />
-                          {formatDate(sess.date)}
+                          {sess.date ? formatDate(sess.date, lang) : t('recent_date')}
                         </span>
                       </div>
                     </div>

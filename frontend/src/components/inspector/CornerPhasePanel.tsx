@@ -1,9 +1,18 @@
 import React from 'react';
 import { Sliders, Zap } from 'lucide-react';
-import type { CornerDTO } from '../../types/telemetry';
-import { useLanguage } from '../../i18n';
+import type { CornerDTO, RacingLineCode } from '../../types/telemetry';
+import { useLanguage, type TranslationKey } from '../../i18n';
 import { formatGear, LINE_OFFSET_NOTE_M, type PhaseMetrics } from '../../utils/cornerPhases';
 import type { CornerViewMode } from './trackGeometry';
+
+const RACING_LINE_LABEL: Record<RacingLineCode, TranslationKey> = {
+  optimal: 'line_optimal',
+  early_apex: 'line_early_apex',
+  late_apex: 'line_late_apex',
+  missed_apex: 'line_missed_apex',
+  pinched_exit: 'line_pinched_exit',
+  suboptimal: 'line_suboptimal',
+};
 
 interface CornerPhasePanelProps {
   selectedCorner: CornerDTO;
@@ -133,9 +142,9 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       </span>
                     </>
                   ) : phaseMetrics.position.isUndersteer ? (
-                    lang === 'en' ? 'Wide of the apex' : 'Abierto en el ápice'
+                    t('wide_of_apex')
                   ) : phaseMetrics.position.isEarly ? (
-                    lang === 'en' ? 'Early turn-in' : 'Cierra antes'
+                    t('early_turn_in')
                   ) : (
                     t('outside_to_kerb')
                   )}
@@ -263,9 +272,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
               {t('primary_rec_label')}
             </span>
             <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-brand">
-              {lang === 'en' && selectedCorner.racing_line_eval === 'Trazada Cerrada / Pérdida de Vértice'
-                ? 'Tight Trajectory / Apex Loss'
-                : (selectedCorner.racing_line_eval || t('optimal_badge'))}
+              {t(RACING_LINE_LABEL[selectedCorner.racing_line_code])}
             </span>
           </div>
 

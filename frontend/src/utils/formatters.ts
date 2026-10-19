@@ -26,18 +26,17 @@ export function formatSpeed(kmh?: number | null): string {
   return `${Math.round(kmh)} km/h`;
 }
 
-export function formatDate(dateVal?: string | Date | null): string {
-  if (!dateVal) return 'Reciente';
+export function formatDate(dateVal: string | Date, lang: string): string {
   try {
     const d = typeof dateVal === 'string' ? new Date(dateVal) : dateVal;
-    if (isNaN(d.getTime())) return 'Reciente';
-    return d.toLocaleDateString('es-ES', {
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
   } catch {
-    return 'Reciente';
+    return '—';
   }
 }
 
