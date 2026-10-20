@@ -126,6 +126,15 @@ function renderFormattedMarkdown(text: string): React.ReactNode {
     }
 
     // Markdown Headers
+    if (trimmed.startsWith('#### ')) {
+      flushList();
+      elements.push(
+        <h5 key={`h5-${lineIdx}`} className="text-[11px] font-bold text-brand uppercase tracking-wider mt-2.5 mb-0.5 font-telemetry">
+          {formatInline(trimmed.substring(5))}
+        </h5>
+      );
+      return;
+    }
     if (trimmed.startsWith('### ')) {
       flushList();
       elements.push(
