@@ -666,6 +666,10 @@ CHAT_LABELS = {
         "brake_point": "- Braking point: {metres:+.0f} m against the reference (negative is earlier).",
         "throttle_point": "- Throttle pickup: {metres:+.0f} m against the reference (positive is later).",
         "diagnosis": "- Measured diagnosis: {text}",
+        "same_setup": (
+            "\nSETUP: both laps are the same car with the same setup, and the current setup values are not known. "
+            "Do not quote setup values."
+        ),
         "format": (
             "Format your answers with structured Markdown: use bold for key terms, short bulleted lists for "
             "actionable driving points, and clear line breaks. Do not write unformatted dense blocks."
@@ -688,6 +692,10 @@ CHAT_LABELS = {
         "brake_point": "- Punto de frenada: {metres:+.0f} m respecto a la referencia (negativo es antes).",
         "throttle_point": "- Apertura de gas: {metres:+.0f} m respecto a la referencia (positivo es más tarde).",
         "diagnosis": "- Diagnóstico medido: {text}",
+        "same_setup": (
+            "\nSETUP: las dos vueltas son del mismo coche con el mismo setup, y no se conocen los valores actuales "
+            "de reglaje. No cites valores de setup."
+        ),
         "format": (
             "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, listas cortas "
             "con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato."
@@ -748,26 +756,7 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
                 f"- Dinámica de amortiguación sobre piano: {c.get('damping_advice') or 'Rebote brusco sobre piano.'}"
             )
 
-    if lang == "es":
-        lines.append(
-            f"\nCONFIGURACIÓN Y REGLAJES ACTUALES ({req.car_name or 'GT3'} en {req.track_name or 'Circuito'}):\n"
-            f"- Presiones de neumáticos en caliente: FL 26.8, FR 26.9, RL 26.7, RR 26.8 psi (Ventana óptima en seco: 26.5 - 27.0 psi).\n"
-            f"- Reparto de frenada (Brake Bias): 54.0% eje delantero.\n"
-            f"- Electrónica: Control de tracción TC1=3, TC2=4. ABS=3. Mapa de motor: 1 (Seco / Máxima potencia).\n"
-            f"- Chasis: Barra estabilizadora delantera 4, trasera 2. Alturas de marcha: 54mm del / 72mm tras.\n"
-            f"- DIRECTRIZ DE INGENIERO: Relaciona siempre que tenga sentido el diagnóstico de la curva con un consejo técnico de reglajes "
-            f"(ej. repartir frenada, ajustar barras estabilizadoras, presiones o control de tracción) para ayudar al piloto a mejorar tanto en conducción como en setup."
-        )
-    else:
-        lines.append(
-            f"\nCURRENT VEHICLE SETUP & SETTINGS ({req.car_name or 'GT3'} at {req.track_name or 'Circuit'}):\n"
-            f"- Hot tyre pressures: FL 26.8, FR 26.9, RL 26.7, RR 26.8 psi (Optimal window: 26.5 - 27.0 psi).\n"
-            f"- Brake Bias: 54.0% front.\n"
-            f"- Electronics: TC1=3, TC2=4, ABS=3, Engine Map=1.\n"
-            f"- Chassis: Front ARB 4, Rear ARB 2, Ride Heights: 54mm front / 72mm rear.\n"
-            f"- ENGINEER DIRECTIVE: Whenever diagnosing a corner loss, correlate the driving technique with a mechanical setup adjustment "
-            f"(e.g. brake bias shift, ARB stiffness, tyre pressure tweak, or TC level) to provide a complete pit-wall engineering solution."
-        )
+    lines.append(labels["same_setup"])
 
     # Inject targeted engineering knowledge from literature
     symptoms = []
