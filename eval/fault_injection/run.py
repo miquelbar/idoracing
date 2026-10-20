@@ -46,6 +46,7 @@ CAUSE_BY_CODE = {
 # The diagnosis sentence reaches the coach too, so a cause it states counts as named.
 CAUSE_BY_DIAGNOSIS = {
     "Frenada anticipada": "early_brake",
+    "Suelta el freno": "early_release",
     "Aceleración retrasada": "late_throttle",
     "Pérdida de velocidad en vértice": "low_vmin",
     "Subviraje por sobreconducción": "overdriving",
@@ -232,9 +233,10 @@ def cases_for(sample) -> tuple[list[Case], dict]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=Path("fault_injection_results.json"))
+    parser.add_argument("--only", help="run a single sample, by key")
     args = parser.parse_args()
     results = {}
-    for sample in SAMPLES:
+    for sample in [s for s in SAMPLES if not args.only or s.key == args.only]:
         cases, controls = cases_for(sample)
         results[sample.key] = {"controls": controls, "cases": [asdict(c) for c in cases]}
     args.out.write_text(json.dumps(results, indent=1))

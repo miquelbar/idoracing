@@ -43,3 +43,35 @@ Limits of this harness: early apexing as planted costs almost no time (median 0.
 ## Decision
 
 The analysis is good at **where** and **how much inside the corner**, and weak on **why**. It clears the 80 % line on causes by one or two points, never names some faults that cost more than its own significance line, and adds wrong causes in about a quarter of laps, which then reach the coach as fact. Fixing findings 1, 2 and 3 is a separate change to `analysis/corners.py`, to be measured with this same harness, keeping one of the two laps aside to check that thresholds tuned on one car hold on the other.
+
+## Second round, after the rule changes
+
+**Date:** 2026-10-20. Same harness, same faults, same acceptance lines. Thresholds were set on the LMU BMW lap and then checked on the AC Tatuus lap without touching anything.
+
+Changes in `analysis/corners.py`:
+
+- With a position channel, a line within 1 m of the reference is reported as the reference line; the line is no longer inferred from speed when it was measured.
+- "Too much brake in the turn" needs more brake before the apex than the reference, not just a slower apex. A corner whose brake onset and release match the reference says so.
+- "Early release" compares where the brake comes off with the reference, net of any shift in the onset.
+- Early braking, late throttle and early release are named from 8 m (was 15 m and 12 m, or tied to the onset).
+- A corner's time runs from where braking for it starts (on either lap) to where braking for the next one starts, so a late throttle is charged with the straight it costs.
+- The braking point is searched from the end of the previous corner, not from the speed peak.
+
+And the chat now receives the braking point, throttle pickup and diagnosis sentence, which the frontend measured but never sent.
+
+Single faults, early apex left out (it costs almost no time as planted):
+
+| Check | LMU BMW GT3 (tuning) before / after | AC Tatuus (held out) before / after | Line |
+|---|---|---|---|
+| Where: top loss is the planted corner | 98 % / 98 % (112/114) | 98 % / 98 % (89/91) | 90 % |
+| Why: cause named | 82 % / 96 % (240/250) | 81 % / 97 % (165/170) | 80 % |
+| Wrong cause in the labels | 28 % / 0 % (0/250) | 32 % / 0 % (0/170) | 5 % |
+| Time within tolerance of the true cost | 87 % / 93 % (106/114) | 85 % / 95 % (86/91) | 90 % |
+| Late throttle: share of the true cost reported, median | 0.77 / 0.96 | 0.62 / 1.00 | |
+| Untouched corners flagged | 27 / 0 | 9 / 0 | 1 per lap |
+| Three faults per lap, cause named | 76 % / 91 % | 71 % / 92 % | |
+| Two faults in one corner, both named | 43 to 100 % / 100 % | 57 to 100 % / 100 % | |
+
+All 80 existing tests pass.
+
+What is still short: a 3 km/h slower apex is named in 62 % (the line sits at 3 km/h); early release by 20 m on the Tatuus in 71 %; early apex is never named, and when it costs time it is called early braking or early release, because as planted it moves the whole brake phase earlier. On real against real (Tatuus lap 0 against lap 1, T1 left out), corners now get zero to three causes instead of one to four.

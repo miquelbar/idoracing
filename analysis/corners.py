@@ -21,6 +21,11 @@ FAST_CORNER_KMH = 160.0
 LINE_OFFSET_NOTE_M = 0.5
 # Offsets from this size up override the racing-line evaluation inferred from speed and timing.
 LINE_OFFSET_EVAL_M = 1.0
+BRAKE_ON = 0.08
+# A brake onset, brake release or throttle pickup this far from the reference is named as a cause.
+INPUT_SHIFT_M = 8.0
+# Pre-apex brake this much above the reference counts as braking into the turn.
+EXTRA_PRE_APEX_BRAKE = 0.10
 
 
 class Evaluation(NamedTuple):
@@ -45,10 +50,13 @@ class CornerSignals:
     comp_apex_idx: int
     ref_brake_point: float | None
     comp_brake_point: float | None
+    ref_release_point: float | None
+    comp_release_point: float | None
     ref_throttle_point: float | None
     comp_throttle_point: float | None
     comp_max_brake: float
     comp_pre_apex_brake: float
+    ref_pre_apex_brake: float
     understeer: bool
     line_offsets: tuple[float, float, float] | None
     excess_steer_deg: float | None = None
@@ -81,6 +89,23 @@ class CornerSignals:
         return float(self.comp_throttle_point - self.ref_throttle_point)
 
     @property
+    def release_delta(self) -> float | None:
+        if self.ref_release_point is None or self.comp_release_point is None:
+            return None
+        return float(self.comp_release_point - self.ref_release_point)
+
+    @property
+    def released_early(self) -> bool:
+        """The brake came off earlier than the reference by more than its onset moved."""
+        if self.release_delta is None:
+            return False
+        return self.release_delta - (self.brake_delta or 0.0) < -INPUT_SHIFT_M
+
+    @property
+    def extra_pre_apex_brake(self) -> bool:
+        return self.comp_pre_apex_brake - self.ref_pre_apex_brake > EXTRA_PRE_APEX_BRAKE
+
+    @property
     def apex_dist_delta(self) -> float:
         if len(self.sub_dist) <= max(self.comp_apex_idx, self.ref_apex_idx):
             return 0.0
@@ -107,7 +132,42 @@ def _first_point(values: np.ndarray, threshold: float, sub_dist: np.ndarray, off
 
 def _brake_point(brake: np.ndarray, apex_idx: int, sub_dist: np.ndarray) -> float | None:
     """First point above 8 % brake before the apex."""
-    return _first_point(brake[:apex_idx], 0.08, sub_dist) if apex_idx > 0 else None
+    return _first_point(brake[:apex_idx], BRAKE_ON, sub_dist) if apex_idx > 0 else None
+
+
+def _release_point(brake: np.ndarray, apex_idx: int, sub_dist: np.ndarray) -> float | None:
+    """Last point above 8 % brake before the apex."""
+    hits = np.where(brake[:apex_idx] > BRAKE_ON)[0]
+    return float(sub_dist[hits[-1]]) if len(hits) > 0 else None
+
+
+def _approach(corner_def: dict, aligned: dict[str, np.ndarray], prefix: str, mask: np.ndarray) -> tuple:
+    """Brake trace from the end of the previous corner to this lap's apex, so an early brake is still seen."""
+    dist = aligned["distance"]
+    window = dist[mask]
+    apex_d = float(window[int(np.argmin(aligned[f"{prefix}_speed"][mask]))]) if len(window) else 0.0
+    reach = (dist >= corner_def.get("approach_start", corner_def["start"])) & (dist <= apex_d)
+    return aligned[f"{prefix}_brake"][reach], dist[reach]
+
+
+def _approach_points(corner_def: dict, aligned: dict[str, np.ndarray], prefix: str, mask: np.ndarray) -> tuple:
+    brake, sub_dist = _approach(corner_def, aligned, prefix, mask)
+    end = len(brake)
+    pre_apex = brake[max(0, end - 10) : end]
+    return (
+        _brake_point(brake, end, sub_dist),
+        _release_point(brake, end, sub_dist),
+        float(np.mean(pre_apex)) if len(pre_apex) else 0.0,
+    )
+
+
+def braking_starts(corner_def: dict, aligned: dict[str, np.ndarray]) -> list[float]:
+    """Where each lap starts braking for this corner, searched from the end of the previous one."""
+    mask = (aligned["distance"] >= corner_def["start"]) & (aligned["distance"] <= corner_def["end"])
+    if not np.any(mask):
+        return []
+    starts = [_approach_points(corner_def, aligned, prefix, mask)[0] for prefix in ("ref", "comp")]
+    return [d for d in starts if d is not None]
 
 
 def _throttle_point(throttle: np.ndarray, apex_idx: int, sub_dist: np.ndarray) -> float | None:
@@ -129,23 +189,32 @@ def _detect_understeer(
     return bool(brake_delta and brake_delta > 15.0 and delta_vmin < -5.0)
 
 
+def _zone_time_delta(corner_def: dict, aligned: dict[str, np.ndarray]) -> float:
+    """
+    Time lost from where braking for this corner starts to where braking for the next one starts, so
+    a late throttle is charged with what it costs down the following straight.
+    """
+    dist, t_delta = aligned["distance"], aligned["time_delta"]
+    lo = int(np.searchsorted(dist, corner_def.get("zone_start", corner_def["start"])))
+    hi = min(int(np.searchsorted(dist, corner_def.get("zone_end", corner_def["end"]))), len(dist) - 1)
+    return float(t_delta[hi] - t_delta[lo]) if hi > lo else 0.0
+
+
 def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray) -> CornerSignals:
     sub_dist = aligned["distance"][mask]
     ref_sp, comp_sp = aligned["ref_speed"][mask], aligned["comp_speed"][mask]
-    ref_br, comp_br = aligned["ref_brake"][mask], aligned["comp_brake"][mask]
-    t_delta = aligned["time_delta"][mask]
+    comp_br = aligned["comp_brake"][mask]
     ref_apex_idx = int(np.argmin(ref_sp)) if len(ref_sp) > 0 else 0
     comp_apex_idx = int(np.argmin(comp_sp)) if len(comp_sp) > 0 else 0
 
-    ref_brake_point = _brake_point(ref_br, ref_apex_idx, sub_dist)
-    comp_brake_point = _brake_point(comp_br, comp_apex_idx, sub_dist)
+    ref_brake_point, ref_release_point, ref_pre_apex_brake = _approach_points(corner_def, aligned, "ref", mask)
+    comp_brake_point, comp_release_point, comp_pre_apex_brake = _approach_points(corner_def, aligned, "comp", mask)
     brake_delta = (
         float(comp_brake_point - ref_brake_point)
         if ref_brake_point is not None and comp_brake_point is not None
         else None
     )
     delta_vmin = float(np.min(comp_sp)) - float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0
-    pre_apex = comp_br[max(0, comp_apex_idx - 10) : comp_apex_idx]
 
     # Ackermann Steer-to-G ratio & excess steering angle (MoTeC analysis)
     ref_st, comp_st = _channel(aligned, "ref_steer_angle", mask), _channel(aligned, "comp_steer_angle", mask)
@@ -179,15 +248,18 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
         comp_min_speed=float(np.min(comp_sp)) if len(comp_sp) > 0 else 0.0,
         ref_exit_speed=float(ref_sp[-1]) if len(ref_sp) > 0 else 0.0,
         comp_exit_speed=float(comp_sp[-1]) if len(comp_sp) > 0 else 0.0,
-        time_delta=float(t_delta[-1] - t_delta[0]) if len(t_delta) > 0 else 0.0,
+        time_delta=_zone_time_delta(corner_def, aligned),
         ref_apex_idx=ref_apex_idx,
         comp_apex_idx=comp_apex_idx,
         ref_brake_point=ref_brake_point,
         comp_brake_point=comp_brake_point,
+        ref_release_point=ref_release_point,
+        comp_release_point=comp_release_point,
         ref_throttle_point=_throttle_point(aligned["ref_throttle"][mask], ref_apex_idx, sub_dist),
         comp_throttle_point=_throttle_point(aligned["comp_throttle"][mask], comp_apex_idx, sub_dist),
         comp_max_brake=float(np.max(comp_br)) if len(comp_br) > 0 else 0.0,
-        comp_pre_apex_brake=float(np.mean(pre_apex)) if len(pre_apex) > 0 else 0.0,
+        comp_pre_apex_brake=comp_pre_apex_brake,
+        ref_pre_apex_brake=ref_pre_apex_brake,
         understeer=_detect_understeer(aligned, mask, brake_delta, delta_vmin),
         line_offsets=(
             corner_line_offsets(
@@ -210,17 +282,24 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
 def _evaluate_trail_braking(s: CornerSignals) -> Evaluation:
     brake_delta = s.brake_delta
     if s.significant_loss:
-        if s.comp_pre_apex_brake < 0.04 and brake_delta and brake_delta < -8.0:
+        if s.released_early:
             return Evaluation(
                 "Soltado Prematuro",
                 "early_release",
-                "Sueltas el pedal antes del vértice sin trail braking; el morro se aligera y pierdes rotación en entrada.",
+                f"Sueltas el pedal {abs(s.release_delta):.0f}m antes que en la referencia, sin trail braking hasta el "
+                "vértice; el morro se aligera y pierdes rotación en entrada.",
             )
-        if s.comp_pre_apex_brake > 0.35 or s.understeer or s.delta_vmin <= -4.0:
+        if s.extra_pre_apex_brake:
             return Evaluation(
                 "Exceso de Freno en Giro",
                 "over_braking",
                 "Mantienes demasiado freno mientras giras volante en el ápice, sobrecargando los neumáticos y matando la velocidad mínima.",
+            )
+        if abs(brake_delta or 0.0) < INPUT_SHIFT_M and abs(s.release_delta or 0.0) < INPUT_SHIFT_M:
+            return Evaluation(
+                "Frenada como la Referencia",
+                "neutral",
+                "Empiezas y sueltas el freno donde en la referencia; el tiempo no se pierde en la frenada.",
             )
         return Evaluation(
             "Frenada Inconsistente",
@@ -260,13 +339,13 @@ def _evaluate_balance(s: CornerSignals) -> Evaluation:
             "understeer",
             "El morro no muerde el vértice o se entra con exceso de frenada/subviraje. Modula el freno en regresión (trail braking) y retrasa el viraje para recuperar agarre lateral en el ápice.",
         )
-    if s.delta_vmin > -3.0 and (s.delta_exit <= -4.0 or (throttle_delta and throttle_delta > 12.0)):
+    if s.delta_vmin > -3.0 and (s.delta_exit <= -4.0 or (throttle_delta and throttle_delta > INPUT_SHIFT_M)):
         return Evaluation(
             "Déficit de Tracción / Salida Comprometida",
             "traction",
             "Problema en la fase de salida y tracción: apertura de gas demorada, exceso de volante girado o marcha no idónea que penaliza la aceleración.",
         )
-    if s.delta_entry <= -5.0 or (brake_delta and brake_delta < -15.0):
+    if s.delta_entry <= -5.0 or (brake_delta and brake_delta < -INPUT_SHIFT_M):
         return Evaluation(
             "Exceso de Frenada / Entrada Anticipada",
             "early_braking",
@@ -283,7 +362,13 @@ def _evaluate_balance(s: CornerSignals) -> Evaluation:
 
 def _evaluate_line(s: CornerSignals) -> Evaluation:
     # A measured line beats one inferred from speed and timing.
-    if s.line_offsets is not None and abs(s.line_offsets[1]) >= LINE_OFFSET_EVAL_M:
+    if s.line_offsets is not None and abs(s.line_offsets[1]) < LINE_OFFSET_EVAL_M:
+        return Evaluation(
+            "Trazada como la Referencia",
+            "optimal",
+            "La posición medida en el vértice coincide con tu vuelta de referencia; el tiempo no se pierde en la trazada.",
+        )
+    if s.line_offsets is not None:
         apex = s.line_offsets[1]
         if apex > 0:
             return Evaluation(
@@ -341,9 +426,9 @@ def _diagnosis(s: CornerSignals) -> str:
     parts = []
     brake_delta, throttle_delta = s.brake_delta, s.throttle_delta
     if brake_delta is not None:
-        if brake_delta < -12.0:
+        if brake_delta < -INPUT_SHIFT_M:
             parts.append(f"Frenada anticipada {abs(brake_delta):.1f}m antes que la referencia.")
-        elif brake_delta > 12.0:
+        elif brake_delta > INPUT_SHIFT_M:
             parts.append(f"Frenada tardía {brake_delta:.1f}m pasada de referencia.")
     if s.delta_vmin <= -3.0:
         parts.append(f"Pérdida de velocidad en vértice ({s.delta_vmin:.1f} km/h).")
@@ -351,7 +436,9 @@ def _diagnosis(s: CornerSignals) -> str:
         parts.append(f"Mayor velocidad de paso en vértice (+{s.delta_vmin:.1f} km/h).")
     if s.delta_exit <= -4.0:
         parts.append(f"Velocidad de salida penalizada ({s.delta_exit:.1f} km/h).")
-    if throttle_delta is not None and throttle_delta > 12.0:
+    if s.released_early:
+        parts.append(f"Suelta el freno {abs(s.release_delta):.1f}m antes que la referencia.")
+    if throttle_delta is not None and throttle_delta > INPUT_SHIFT_M:
         parts.append(f"Aceleración retrasada {throttle_delta:.1f}m en la salida comprometiendo la recta posterior.")
     if s.line_offsets is not None and abs(s.line_offsets[1]) >= LINE_OFFSET_NOTE_M:
         side = "más abierto" if s.line_offsets[1] > 0 else "más cerrado"
@@ -620,4 +707,24 @@ def extract_corners_analysis(
     if corners_list is None:
         corners_list = detect_corners(aligned_data["distance"], aligned_data["ref_speed"])
 
-    return [analyze_corner(c_def, aligned_data) for c_def in corners_list]
+    return [analyze_corner(c_def, aligned_data) for c_def in with_time_zones(corners_list, aligned_data)]
+
+
+def with_time_zones(corners_list: list[dict], aligned: dict[str, np.ndarray]) -> list[dict]:
+    """
+    Each corner gets the stretch it is charged for: from the earlier of the two laps' braking points
+    (or its window start) to the next corner's, and the approach where its braking point is searched.
+    """
+    dist = aligned["distance"]
+    zoned = []
+    previous_end = float(dist[0]) if len(dist) else 0.0
+    for c in corners_list:
+        c = {**c, "approach_start": previous_end}
+        c["zone_start"] = min([c["start"], *braking_starts(c, aligned)])
+        zoned.append(c)
+        previous_end = c["end"]
+    lap_end = float(dist[-1]) if len(dist) else 0.0
+    next_starts = [n["zone_start"] for n in zoned[1:]] + [lap_end]
+    for c, next_start in zip(zoned, next_starts, strict=False):
+        c["zone_end"] = next_start
+    return zoned
