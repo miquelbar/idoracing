@@ -126,9 +126,7 @@ class CornerAnalysis(BaseModel):
     kerb_strike_detected: bool = Field(
         default=False, description="Whether a high-frequency kerb strike impact was detected"
     )
-    damping_advice: str | None = Field(
-        default=None, description="Fast vs slow damping recommendations"
-    )
+    damping_advice: str | None = Field(default=None, description="Fast vs slow damping recommendations")
 
 
 class LapComparison(BaseModel):

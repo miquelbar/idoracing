@@ -1,6 +1,7 @@
 """Unit tests for race stint pace and degradation analysis."""
 
 from datetime import datetime
+
 from analysis.stint_analysis import analyze_session_stint
 from domain.session import Lap, Session
 
@@ -18,7 +19,14 @@ def test_stint_analysis_stable_pace():
         car="Porsche 992 GT3 R",
         date=now,
         laps=laps,
-        telemetry={"speed": [100.0], "throttle": [1.0], "brake": [0.0], "gear": [3], "lat_accel": [0.0], "long_accel": [0.0]},
+        telemetry={
+            "speed": [100.0],
+            "throttle": [1.0],
+            "brake": [0.0],
+            "gear": [3],
+            "lat_accel": [0.0],
+            "long_accel": [0.0],
+        },
     )
     res = analyze_session_stint(sess)
     assert res["valid_laps"] == 3
@@ -41,7 +49,14 @@ def test_stint_analysis_rear_traction_decay():
         car="Porsche 992 GT3 R",
         date=now,
         laps=laps,
-        telemetry={"speed": [100.0], "throttle": [1.0], "brake": [0.0], "gear": [3], "lat_accel": [0.0], "long_accel": [0.0]},
+        telemetry={
+            "speed": [100.0],
+            "throttle": [1.0],
+            "brake": [0.0],
+            "gear": [3],
+            "lat_accel": [0.0],
+            "long_accel": [0.0],
+        },
     )
     res = analyze_session_stint(sess)
     assert res["degradation_type"] == "rear_traction_decay"

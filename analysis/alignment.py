@@ -69,8 +69,12 @@ def align_laps_by_distance(
     has_comp_xy = np.any(aligned.get("comp_x", 0) != 0) or np.any(aligned.get("comp_y", 0) != 0)
 
     if has_ref_xy and has_comp_xy:
-        ref_gap = float(np.hypot(aligned["ref_x"][-1] - aligned["ref_x"][0], aligned["ref_y"][-1] - aligned["ref_y"][0]))
-        comp_gap = float(np.hypot(aligned["comp_x"][-1] - aligned["comp_x"][0], aligned["comp_y"][-1] - aligned["comp_y"][0]))
+        ref_gap = float(
+            np.hypot(aligned["ref_x"][-1] - aligned["ref_x"][0], aligned["ref_y"][-1] - aligned["ref_y"][0])
+        )
+        comp_gap = float(
+            np.hypot(aligned["comp_x"][-1] - aligned["comp_x"][0], aligned["comp_y"][-1] - aligned["comp_y"][0])
+        )
         if comp_gap < ref_gap:
             aligned["x"] = aligned["comp_x"]
             aligned["y"] = aligned["comp_y"]

@@ -150,4 +150,3 @@ def test_knowledge_base_retrieval():
     )
     assert "Dinámica de Neumáticos" in kb_tyres
     assert "26.5" in kb_tyres and "27.0" in kb_tyres
-

@@ -552,7 +552,9 @@ def get_lap_history(
 def get_car_setup(session_id: str | None = Query(None)):
     matched_session = _load_session(session_id)
     detected_game = matched_session.simulator or (
-        "iRacing" if "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower() else "Assetto Corsa Competizione"
+        "iRacing"
+        if "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower()
+        else "Assetto Corsa Competizione"
     )
 
     car = matched_session.car or "Porsche 992 GT3 R"
@@ -620,7 +622,6 @@ def get_car_setup(session_id: str | None = Query(None)):
 def get_stint_analysis(session_id: str | None = Query(None)):
     matched_session = _load_session(session_id)
     return analyze_session_stint(matched_session)
-
 
 
 @app.post("/api/coach/report", response_model=CoachReport)
@@ -727,10 +728,13 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
         if c.get("racing_line_eval"):
             lines.append(labels["line"].format(eval=c["racing_line_eval"], advice=c.get("racing_line_advice", "")))
         if c.get("excess_steer_deg"):
-            lines.append(f"- Exceso de volante medido (Ackermann): {c['excess_steer_deg']:.1f}° por encima del agarre pico (Ratio: {c.get('steer_to_g')} deg/G).")
+            lines.append(
+                f"- Exceso de volante medido (Ackermann): {c['excess_steer_deg']:.1f}° por encima del agarre pico (Ratio: {c.get('steer_to_g')} deg/G)."
+            )
         if c.get("kerb_strike_detected"):
-            lines.append(f"- Dinámica de amortiguación sobre piano: {c.get('damping_advice') or 'Rebote brusco sobre piano.'}")
-
+            lines.append(
+                f"- Dinámica de amortiguación sobre piano: {c.get('damping_advice') or 'Rebote brusco sobre piano.'}"
+            )
 
     if lang == "es":
         lines.append(

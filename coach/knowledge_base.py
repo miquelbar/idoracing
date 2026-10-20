@@ -6,10 +6,10 @@ to ground LLM engineering advice in real motorsport science and simulator physic
 
 from __future__ import annotations
 
+import contextlib
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent / "knowledge"
 
@@ -27,7 +27,10 @@ def detect_architecture(car_name: str | None) -> str:
     name = car_name.lower()
     if "porsche" in name or "991" in name or "992" in name or "911" in name:
         return "RR"
-    if any(k in name for k in ("bmw", "aston", "amr", "mercedes", "amg", "bentley", "mustang", "corvette", "nissan", "gt-r")):
+    if any(
+        k in name
+        for k in ("bmw", "aston", "amr", "mercedes", "amg", "bentley", "mustang", "corvette", "nissan", "gt-r")
+    ):
         return "FR"
     # Ferrari, Audi, Lamborghini, McLaren, Honda, Acura, etc.
     return "MR"
@@ -45,10 +48,8 @@ class SimracingKnowledgeBase:
         if not self.directory.exists():
             return
         for md_file in self.directory.glob("*.md"):
-            try:
+            with contextlib.suppress(OSError):
                 self._cache[md_file.stem] = md_file.read_text(encoding="utf-8")
-            except Exception:
-                pass
 
     def get_section(self, file_stem: str) -> str:
         return self._cache.get(file_stem, "")
@@ -90,7 +91,10 @@ class SimracingKnowledgeBase:
 
         # 2. Tyre dynamics (if mentioned or relevant)
         tyre_text = self.get_section("tire_dynamics")
-        if any(w in combined for w in ("presion", "neumatic", "goma", "tire", "caliente", "temperatura", "psi", "dhe", "slip")):
+        if any(
+            w in combined
+            for w in ("presion", "neumatic", "goma", "tire", "caliente", "temperatura", "psi", "dhe", "slip")
+        ):
             snippets.append(f"### Dinámica de Neumáticos (Paul Haney / ACC DHE)\n{tyre_text}")
         elif "frenad" in combined or "trail" in combined or "gir" in combined:
             # Include at least the slip angle & friction circle rule

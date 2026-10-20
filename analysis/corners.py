@@ -149,7 +149,7 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
 
     # Ackermann Steer-to-G ratio & excess steering angle (MoTeC analysis)
     ref_st, comp_st = _channel(aligned, "ref_steer_angle", mask), _channel(aligned, "comp_steer_angle", mask)
-    ref_lat, comp_lat = _channel(aligned, "ref_lat_accel", mask), _channel(aligned, "comp_lat_accel", mask)
+    comp_lat = _channel(aligned, "comp_lat_accel", mask)
 
     excess_steer_deg: float | None = None
     steer_to_g: float | None = None

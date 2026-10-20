@@ -182,8 +182,6 @@ def test_stint_analysis_endpoint(client):
     assert "pit_wall_strategy" in data
 
 
-
-
 def test_coach_report_on_lap_times_only_session_has_low_confidence(client):
     res = client.post("/api/import/upload", files={"file": ("lmu_coach.xml", LMU_RESULTS.encode(), "text/xml")})
     session_id = res.json()["session_id"]

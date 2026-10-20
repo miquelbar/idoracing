@@ -486,8 +486,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   <span className="text-red-400">Freno P2</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
-                  <span className="text-cyan-400">Freno P1 (Puntos)</span>
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FB923C" strokeWidth="1.8" strokeDasharray="2,2" /></svg>
+                  <span className="text-orange-400">Freno P1 (Puntos)</span>
                 </span>
                 <span className="text-gray-600">|</span>
                 <span className="flex items-center gap-1">
@@ -495,8 +495,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   <span className="text-emerald-400">Gas P2</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#10B981" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
-                  <span className="text-emerald-500">Gas P1 (Puntos)</span>
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FACC15" strokeWidth="1.8" strokeDasharray="2,2" /></svg>
+                  <span className="text-yellow-400">Gas P1 (Puntos)</span>
                 </span>
               </span>
             )}
@@ -633,12 +633,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {/* Brake translucent fill under comp braking curve */}
             <path d={brkCompFillPath} fill="rgba(255, 24, 1, 0.18)" />
 
-            {/* Throttle traces: Ref (dashed emerald) & Comp (solid neon green) */}
-            <path d={thrRefPath} fill="none" stroke="#10B981" strokeWidth="1.2" strokeDasharray="3,3" strokeOpacity="0.75" />
+            {/* Throttle traces: Ref (dashed gold/yellow) & Comp (solid neon green) */}
+            <path d={thrRefPath} fill="none" stroke="#FACC15" strokeWidth="1.8" strokeDasharray="4,3" strokeOpacity="0.9" />
             <path d={thrCompPath} fill="none" stroke={COLORS.gain} strokeWidth="2.2" />
 
-            {/* Brake traces: Ref (dashed cyan) & Comp (solid red) */}
-            <path d={brkRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.8" />
+            {/* Brake traces: Ref (dashed coral/orange) & Comp (solid red) */}
+            <path d={brkRefPath} fill="none" stroke="#FB923C" strokeWidth="1.8" strokeDasharray="4,3" strokeOpacity="0.95" />
             <path d={brkCompPath} fill="none" stroke={COLORS.loss} strokeWidth="2.4" />
           </g>
 

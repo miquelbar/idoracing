@@ -5,7 +5,9 @@ fuel burn-off effects on mass distribution, and pit-wall tactical advice.
 """
 
 from typing import Any
+
 import numpy as np
+
 from domain.session import Session
 
 
@@ -16,7 +18,7 @@ def analyze_session_stint(session: Session) -> dict[str, Any]:
     """
     # 1. First attempt: valid flying laps > 40s
     candidate_laps = [l for l in session.laps if l.lap_time > 40.0 and l.is_valid]
-    
+
     # 2. If fewer than 2 valid laps, check if laps lack is_valid flag (or only invalid)
     if len(candidate_laps) < 2:
         candidate_laps = [l for l in session.laps if l.lap_time > 40.0]
@@ -67,7 +69,6 @@ def analyze_session_stint(session: Session) -> dict[str, Any]:
 
     # Sector breakdown if available
     s1_times = [l.sector_times[0] for l in valid_laps if l.sector_times and len(l.sector_times) >= 1]
-    s2_times = [l.sector_times[1] for l in valid_laps if l.sector_times and len(l.sector_times) >= 2]
     s3_times = [l.sector_times[2] for l in valid_laps if l.sector_times and len(l.sector_times) >= 3]
 
     s1_slope = round(float(np.polyfit(np.arange(len(s1_times)), s1_times, 1)[0]), 3) if len(s1_times) >= 2 else 0.0
@@ -109,7 +110,9 @@ def analyze_session_stint(session: Session) -> dict[str, Any]:
         )
         strategy = "Continúa con las referencias actuales de frenada y tracción."
 
-    consistency_rating = "Excelente (±0.2s)" if std_dev < 0.3 else ("Buena (±0.5s)" if std_dev < 0.6 else "Inconsistente (>0.8s)")
+    consistency_rating = (
+        "Excelente (±0.2s)" if std_dev < 0.3 else ("Buena (±0.5s)" if std_dev < 0.6 else "Inconsistente (>0.8s)")
+    )
 
     return {
         "session_id": session.session_id,
