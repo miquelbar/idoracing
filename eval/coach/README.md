@@ -24,3 +24,15 @@ python -m eval.coach.score eval/coach/cases.jsonl responses.jsonl
 ```
 
 The keyword rules are a heuristic. Before trusting a run, read about ten replies by hand and note how often the rules agreed with you. The latest run and that check are in `docs/eval/coach-chat-relay.md`.
+
+## Running it against the app's own model
+
+`run_llm.py` sends every case in `prompts.jsonl` through the chat's own `llm_client`, with the provider, model, timeout (`RADIO_CHAT_TIMEOUT`, 12 s by default) and Ollama options the server uses, so it measures what a driver would get. A case the model does not answer in time is written with an empty reply and `"source": "rules"`: in the app that driver gets the rule-based template, and `score.py` counts it as a miss.
+
+```bash
+ollama pull qwen3.8:27b          # or whatever OLLAMA_MODEL in .env names
+python -m eval.coach.run_llm --out eval/coach/runs/$(date +%F)-ollama.jsonl
+python -m eval.coach.score eval/coach/cases.jsonl eval/coach/runs/$(date +%F)-ollama.jsonl
+```
+
+The runner prints how many cases the model answered and the seconds per case, which is the first thing to read.
