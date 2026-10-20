@@ -430,6 +430,28 @@ def _auto_orient(
     return x, y
 
 
+def _canonical_frame(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Draw the lap the same way whichever frame it was recorded in: recentre on the
+    centroid, lay the loop's principal axis horizontally and, between the two possible
+    180-degree choices, keep the lap start on the left half of the map.
+    """
+    n = len(x)
+    if n < 4:
+        return x, y
+    pts = np.vstack([x - float(np.mean(x)), y - float(np.mean(y))]).T
+    cov = (pts.T @ pts) / n
+    evals, evecs = np.linalg.eigh(cov)
+    major = evecs[:, int(np.argmax(evals))]
+    angle = float(np.arctan2(major[1], major[0]))
+    cos_a, sin_a = np.cos(-angle), np.sin(-angle)
+    rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+    can = pts @ rot.T
+    if float(np.mean(can[: max(3, n // 20), 0])) > 0.0:
+        can = -can
+    return can[:, 0], can[:, 1]
+
+
 def generate_track_coordinates(
     track_name: str,
     distance: np.ndarray,
@@ -442,6 +464,7 @@ def generate_track_coordinates(
        mirrored coordinate frame can never paint corners the wrong way round;
     2. the outline dead-reckoned from speed and lateral acceleration;
     3. a plain circle scaled to the lap length.
+    Every path is returned in a canonical frame: centred, upright and start-on-the-left.
     """
     distance = np.asarray(distance, dtype=np.float64)
 
@@ -456,17 +479,17 @@ def generate_track_coordinates(
                     lat = np.asarray(channel, dtype=np.float64)
                     break
             raw_x, raw_y = _auto_orient(raw_x, raw_y, lat)
-            x_out = raw_x.tolist()
-            y_out = raw_y.tolist()
-            x_out[-1] = x_out[0]
-            y_out[-1] = y_out[0]
-            return x_out, y_out
+            raw_x[-1], raw_y[-1] = raw_x[0], raw_y[0]
+            raw_x, raw_y = _canonical_frame(raw_x, raw_y)
+            return raw_x.tolist(), raw_y.tolist()
 
     if telemetry:
         pair = _lateral_accel_channel(telemetry, len(distance))
         if pair is not None:
             speed, lat = pair
-            return reconstruct_track_from_dynamics(distance, speed, lat)
+            recon_x, recon_y = reconstruct_track_from_dynamics(distance, speed, lat)
+            recon_x, recon_y = _canonical_frame(np.asarray(recon_x), np.asarray(recon_y))
+            return recon_x.tolist(), recon_y.tolist()
 
     total_dist = float(distance[-1]) if len(distance) > 0 else 0.0
     angle = 2.0 * np.pi * distance / max(total_dist, 1.0)

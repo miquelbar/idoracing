@@ -250,3 +250,42 @@ def test_alignment_only_covers_the_stretch_both_laps_drove():
 
     assert aligned["distance"][0] == 500.0
     assert aligned["distance"][-1] == 1900.0
+
+
+def test_track_coordinates_ignore_the_recording_frame():
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.demo_session import generate_lap_telemetry
+    from analysis.tracks import generate_track_coordinates
+
+    ref = generate_lap_telemetry(is_reference=True)
+    comp = generate_lap_telemetry(is_reference=False)
+    ref_dict = {k: v.tolist() for k, v in ref.items()}
+    comp_dict = {k: v.tolist() for k, v in comp.items()}
+    aligned = align_laps_by_distance(ref_dict, comp_dict)
+
+    tx, ty = generate_track_coordinates("Ricardo Tormo de Valencia", aligned["distance"], aligned)
+
+    # Treat that outline as recorded positions: the map must be drawn the same way
+    # whichever frame the lap was recorded in (rotated, translated world frames).
+    angle = 0.7
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    recorded = dict(aligned)
+    recorded["x"], recorded["y"] = tx, ty
+
+    rx = np.asarray(tx) * cos_a - np.asarray(ty) * sin_a + 1234.0
+    ry = np.asarray(tx) * sin_a + np.asarray(ty) * cos_a - 777.0
+    recorded_rotated = dict(recorded)
+    recorded_rotated["x"], recorded_rotated["y"] = rx.tolist(), ry.tolist()
+
+    sx, sy = generate_track_coordinates("Ricardo Tormo de Valencia", aligned["distance"], recorded_rotated)
+
+    assert np.allclose(np.asarray(tx), np.asarray(sx), atol=1e-6)
+    assert np.allclose(np.asarray(ty), np.asarray(sy), atol=1e-6)
+    # Canonical frame: centred on the origin and wider than tall.
+    assert abs(float(np.mean(np.asarray(tx)))) < 1.0
+    assert abs(float(np.mean(np.asarray(ty)))) < 1.0
+    span_x = float(np.ptp(np.asarray(tx)))
+    span_y = float(np.ptp(np.asarray(ty)))
+    assert span_x >= span_y
