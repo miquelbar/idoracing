@@ -173,7 +173,9 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-2">
+    <div className="relative w-full h-full flex items-center justify-center px-2 pt-8 pb-9">
+      {/* The top and bottom padding reserves the strips used by the floating legend and
+          the click hint, so tall track outlines never draw underneath them. */}
       {/* Leyenda Heatmap Flotante Superior Derecha */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-[10px] font-telemetry shadow-md">
         <div className="flex items-center gap-1.5">
