@@ -12,25 +12,46 @@ from domain.session import Session
 def analyze_session_stint(session: Session) -> dict[str, Any]:
     """
     Analyze race stint pace degradation, sector decay, fuel consumption, and strategy.
+    Excludes outlaps, pit-entry laps, and severe outliers (< 45s or > 1.4x typical pace).
     """
-    valid_laps = [l for l in session.laps if l.lap_time > 0 and l.is_valid]
-    if len(valid_laps) < 2:
-        # Fallback to all non-zero laps
-        valid_laps = [l for l in session.laps if l.lap_time > 0]
+    # 1. First attempt: valid flying laps > 40s
+    candidate_laps = [l for l in session.laps if l.lap_time > 40.0 and l.is_valid]
+    
+    # 2. If fewer than 2 valid laps, check if laps lack is_valid flag (or only invalid)
+    if len(candidate_laps) < 2:
+        candidate_laps = [l for l in session.laps if l.lap_time > 40.0]
+
+    # 3. Filter out extreme outliers (outlaps/in-laps like 250s when typical is 95s)
+    if candidate_laps:
+        min_time = min(l.lap_time for l in candidate_laps)
+        # Any lap longer than 1.4x the fastest lap is an outlap or slow spin
+        valid_laps = [l for l in candidate_laps if l.lap_time <= min_time * 1.4]
+    else:
+        valid_laps = []
 
     lap_numbers = [l.lap_number for l in valid_laps]
     lap_times = [l.lap_time for l in valid_laps]
 
-    if not lap_times:
+    if len(valid_laps) < 2:
         return {
             "session_id": session.session_id,
-            "total_laps": len(session.laps),
-            "valid_laps": 0,
+            "track_name": session.track,
+            "car_name": session.car,
+            "valid_laps": len(valid_laps),
+            "best_lap_s": valid_laps[0].lap_time if valid_laps else 0.0,
+            "avg_lap_s": valid_laps[0].lap_time if valid_laps else 0.0,
+            "std_dev_s": 0.0,
             "pace_trend_s_per_lap": 0.0,
             "consistency_rating": "Insuficientes vueltas",
+            "fuel_burned_litres": round(len(session.laps) * 3.5, 1),
             "degradation_type": "none",
-            "degradation_diagnosis": "Se necesitan al menos 2 vueltas consecutivas para proyectar la degradación de stint.",
-            "pit_wall_strategy": "Completar más vueltas en ritmo de carrera.",
+            "degradation_diagnosis": (
+                f"Se ha completado {len(valid_laps)} vuelta válida en esta sesión. "
+                "Para calcular la degradación de stint y el desgaste de neumáticos se necesitan al menos 2 vueltas cronometradas consecutivas."
+            ),
+            "pit_wall_strategy": "Completa una tanda continua de 3 a 5 vueltas a ritmo de carrera para proyectar el desgaste y la estrategia.",
+            "lap_numbers": lap_numbers,
+            "lap_times": [round(t, 3) for t in lap_times],
         }
 
     best_lap = float(np.min(lap_times))
@@ -61,7 +82,7 @@ def analyze_session_stint(session: Session) -> dict[str, Any]:
         if s3_slope > s1_slope:
             deg_type = "rear_traction_decay"
             diagnosis = (
-                f"Degradación acelerada en el tren trasero (+{pace_trend:+.3f}s/vuelta). "
+                f"Degradación acelerada en el tren trasero ({pace_trend:+.3f}s/vuelta). "
                 f"La pérdida se concentra en zonas de tracción lenta (Sector 3). A medida que baja la gasolina (-{fuel_burned}L), "
                 f"la zaga pierde carga estática y sobrecalienta el compuesto en salida."
             )
@@ -69,7 +90,7 @@ def analyze_session_stint(session: Session) -> dict[str, Any]:
         else:
             deg_type = "front_tire_wear"
             diagnosis = (
-                f"Degradación del tren delantero (+{pace_trend:+.3f}s/vuelta). "
+                f"Degradación del tren delantero ({pace_trend:+.3f}s/vuelta). "
                 f"Subviraje progresivo en entrada y vértice. El neumático delantero pierde inserción por acumulación térmica."
             )
             strategy = "Anticipa la desaceleración con frenadas más rectas, modula con suavidad y evita meter más de 60° de volante."

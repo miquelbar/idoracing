@@ -10,6 +10,7 @@ import {
   HelpCircle,
   RefreshCw,
   Sparkles,
+  TrendingDown,
   Trophy,
   Upload,
   Zap,
@@ -18,6 +19,7 @@ import { uploadTelemetryFile } from '../services/api';
 import type { AutoDiscoverData, ComparisonResponse, SessionDetail, SessionSummary } from '../types/telemetry';
 import { detectSimGame, errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage } from '../i18n';
+import { StintDegradationView } from '../components/StintDegradationView';
 
 interface SessionsViewProps {
   sessions: SessionSummary[];
@@ -55,7 +57,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   comparison,
 }) => {
   const { lang, t } = useLanguage();
-  const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'import'>('sessions');
+  const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'stint' | 'import'>('sessions');
   const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing'>('all');
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -145,6 +147,18 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             >
               <Trophy className="w-4 h-4" />
               <span>{t('sessions_and_laps')} ({sessions.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('stint')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeSubTab === 'stint'
+                  ? 'bg-brand text-black shadow-lg shadow-brand/20'
+                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+              }`}
+            >
+              <TrendingDown className="w-4 h-4" />
+              <span>{t('stint_evolution_tab')}</span>
             </button>
 
             <button
@@ -382,13 +396,23 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       </p>
                     </div>
 
-                    <button
-                      onClick={onGoToTelemetry}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg self-start sm:self-auto"
-                    >
-                      <span>{t('analyze_telemetry')}</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <button
+                        onClick={() => setActiveSubTab('stint')}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-bold transition cursor-pointer border border-white/5 font-telemetry"
+                        title="Ver análisis de degradación y stint"
+                      >
+                        <TrendingDown className="w-3.5 h-3.5 text-brand" />
+                        <span>Ver Stint</span>
+                      </button>
+                      <button
+                        onClick={onGoToTelemetry}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand hover:bg-brand-light text-black text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-lg"
+                      >
+                        <span>{t('analyze_telemetry')}</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Lap Pair Indicator & Delta Overview */}
@@ -564,6 +588,18 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {/* Stint & Degradation */}
+      {activeSubTab === 'stint' && (
+        <StintDegradationView
+          sessionId={selectedSessionId}
+          refLapNumber={refLapNumber}
+          compLapNumber={compLapNumber}
+          onSelectRefLap={onSelectRefLap}
+          onSelectCompLap={onSelectCompLap}
+          onGoToTelemetry={onGoToTelemetry}
+        />
       )}
 
       {/* Import */}
