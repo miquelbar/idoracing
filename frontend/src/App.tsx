@@ -198,7 +198,10 @@ export const App: React.FC = () => {
       setSessions(sList);
 
       const storedSessionId = readStoredSessionId();
-      const activeSession = sList.find((s) => s.session_id === storedSessionId) || sList[0];
+      const activeSession =
+        sList.find((s) => s.session_id === storedSessionId) ||
+        sList.find((s) => !s.session_id.startsWith('synth_')) || // default to real data over the demo
+        sList[0];
       const activeSessionId = activeSession?.session_id || null;
       setSelectedSessionId(activeSessionId);
 
