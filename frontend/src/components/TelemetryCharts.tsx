@@ -395,21 +395,40 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           )}
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-1 bg-brand rounded" />
-              <span className="text-brand font-bold">P1</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-1 bg-comp rounded" />
+            {/* P2: Solid Line */}
+            <div
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10"
+              title="Vuelta de Comparación (Tu vuelta) - Línea Continua"
+            >
+              <svg width="16" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="16" y2="2" stroke="#D8B4FE" strokeWidth="2.5" />
+              </svg>
               <span className="text-comp font-bold">P2</span>
+              <span className="text-gray-400 text-[9px] hidden md:inline">Sólida</span>
             </div>
-            <div className="flex items-center gap-1 pl-1.5 border-l border-white/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-loss" />
-              <span className="text-loss">{t('brake')}</span>
+
+            {/* P1: Dashed Line */}
+            <div
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10"
+              title="Vuelta de Referencia (PB) - Línea Discontinua / Puntos"
+            >
+              <svg width="16" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="16" y2="2" stroke="#00E5FF" strokeWidth="2" strokeDasharray="3,2" />
+              </svg>
+              <span className="text-brand font-bold">P1</span>
+              <span className="text-gray-400 text-[9px] hidden md:inline">Puntos</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-gain" />
-              <span className="text-gain">{t('throttle')}</span>
+
+            {/* Channel Colors: Brake & Throttle */}
+            <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+              <div className="flex items-center gap-1" title="Curva de Freno (Rojo)">
+                <span className="w-2 h-2 rounded-full bg-loss" />
+                <span className="text-loss font-bold">{t('brake')}</span>
+              </div>
+              <div className="flex items-center gap-1" title="Curva de Gas / Acelerador (Verde)">
+                <span className="w-2 h-2 rounded-full bg-gain" />
+                <span className="text-gain font-bold">{t('throttle')}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -456,9 +475,32 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
           style={{ top: hSpeed + hDelta + 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
-            {t('pedals_ch')}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+              {t('pedals_ch')}
+            </span>
+            {!hoverData && (
+              <span className="hidden lg:flex items-center gap-2 text-[9px] text-gray-400 font-telemetry bg-black/40 px-2 py-0.5 rounded border border-white/5">
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FF1801" strokeWidth="2" /></svg>
+                  <span className="text-red-400">Freno P2</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
+                  <span className="text-cyan-400">Freno P1 (Puntos)</span>
+                </span>
+                <span className="text-gray-600">|</span>
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00FF66" strokeWidth="2" /></svg>
+                  <span className="text-emerald-400">Gas P2</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#10B981" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
+                  <span className="text-emerald-500">Gas P1 (Puntos)</span>
+                </span>
+              </span>
+            )}
+          </div>
           {hoverData && (
             <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
               Gas: <strong className="text-gain">{Math.round(hoverData.compThr)}%</strong>{' '}
@@ -473,9 +515,23 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
           style={{ top: hSpeed + hDelta + hPedals + 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
-            {t('gear_ch')}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+              {t('gear_ch')}
+            </span>
+            {!hoverData && (
+              <span className="hidden lg:flex items-center gap-2 text-[9px] text-gray-400 font-telemetry bg-black/40 px-2 py-0.5 rounded border border-white/5">
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#E2E8F0" strokeWidth="2" /></svg>
+                  <span className="text-gray-300">P2 (Sólida)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
+                  <span className="text-cyan-400">P1 (Puntos)</span>
+                </span>
+              </span>
+            )}
+          </div>
           {hoverData && (
             <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
               Marcha: <strong className="text-white">{hoverData.compGear}ª</strong>{' '}
