@@ -109,6 +109,13 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
               trail_braking_eval: selectedCorner.trail_braking_eval,
               racing_line_eval: selectedCorner.racing_line_eval,
               racing_line_advice: selectedCorner.racing_line_advice,
+              braking_point_delta: selectedCorner.braking_point_delta,
+              throttle_pickup_delta: selectedCorner.throttle_pickup_delta,
+              diagnosis: selectedCorner.diagnosis,
+              excess_steer_deg: selectedCorner.excess_steer_deg,
+              steer_to_g: selectedCorner.steer_to_g,
+              kerb_strike_detected: selectedCorner.kerb_strike_detected,
+              damping_advice: selectedCorner.damping_advice,
             }
           : undefined,
         lang

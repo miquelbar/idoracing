@@ -663,6 +663,9 @@ CHAT_LABELS = {
         "balance": "- Balance: {eval}.",
         "trail": "- Trail braking: {eval}.",
         "line": "- Racing line: {eval}. {advice}",
+        "brake_point": "- Braking point: {metres:+.0f} m against the reference (negative is earlier).",
+        "throttle_point": "- Throttle pickup: {metres:+.0f} m against the reference (positive is later).",
+        "diagnosis": "- Measured diagnosis: {text}",
         "format": (
             "Format your answers with structured Markdown: use bold for key terms, short bulleted lists for "
             "actionable driving points, and clear line breaks. Do not write unformatted dense blocks."
@@ -682,6 +685,9 @@ CHAT_LABELS = {
         "balance": "- Balance: {eval}.",
         "trail": "- Trail braking: {eval}.",
         "line": "- Trazada: {eval}. {advice}",
+        "brake_point": "- Punto de frenada: {metres:+.0f} m respecto a la referencia (negativo es antes).",
+        "throttle_point": "- Apertura de gas: {metres:+.0f} m respecto a la referencia (positivo es más tarde).",
+        "diagnosis": "- Diagnóstico medido: {text}",
         "format": (
             "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, listas cortas "
             "con viñetas para pasos accionables y saltos de línea claros. No escribas bloques apelmazados sin formato."
@@ -727,6 +733,12 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
                 lines.append(labels[key].format(eval=c[field]))
         if c.get("racing_line_eval"):
             lines.append(labels["line"].format(eval=c["racing_line_eval"], advice=c.get("racing_line_advice", "")))
+        if c.get("braking_point_delta"):
+            lines.append(labels["brake_point"].format(metres=float(c["braking_point_delta"])))
+        if c.get("throttle_pickup_delta"):
+            lines.append(labels["throttle_point"].format(metres=float(c["throttle_pickup_delta"])))
+        if c.get("diagnosis"):
+            lines.append(labels["diagnosis"].format(text=c["diagnosis"]))
         if c.get("excess_steer_deg"):
             lines.append(
                 f"- Exceso de volante medido (Ackermann): {c['excess_steer_deg']:.1f}° por encima del agarre pico (Ratio: {c.get('steer_to_g')} deg/G)."
