@@ -26,6 +26,7 @@ CAUSE_PATTERNS = {
         r"aceler\w* (m[aá]s )?(antes|pronto)",
         r"apertura (del? )?(gas|acelerador)",
         r"abr\w* (el )?(gas|acelerador)",
+        r"gas abiert\w*",
     ],
     "early_release": [
         r"suelt\w* (el )?freno",
@@ -38,6 +39,7 @@ CAUSE_PATTERNS = {
         r"paso por curva",
         r"m[aá]s velocidad",
         r"pierdes [\d.,]+ ?km/h en el (v[eé]rtice|[aá]pice)",
+        r"v[eé]rtice\**:? \**[\d.,]+ ?km/h",
     ],
     "over_braking": [
         r"(exceso|demasiado) (de )?freno",
@@ -51,7 +53,7 @@ CAUSE_PATTERNS = {
     "gear_low": [r"marcha"],
     "gear_high": [r"marcha"],
 }
-SETUP_TERMS = r"brake bias|reparto de frenada|\bARB\b|barra estabilizadora|presi[oó]n|psi\b|control de tracci[oó]n|\bTC\d?\b|aler[oó]n|\brake\b|altura|diferencial|precarga|amortigu|\bABS\b|camber|ca[ií]da"
+SETUP_TERMS = r"brake bias|reparto de frenada|\bARB\b|barra estabilizadora|presi[oó]n(es)? de (los )?neum[aá]ticos|presiones (en caliente|en fr[ií]o)|psi\b|control de tracci[oó]n|\bTC\d?\b|aler[oó]n|\brake\b|altura|diferencial|precarga|amortigu|\bABS\b|camber|ca[ií]da"
 FAKE_SETUP = r"54[.,]0 ?%|26[.,][6-9] psi|\bTC1 ?= ?3|barra (estabilizadora )?delantera (en |a )?4\b|54 ?mm"
 SECONDS = r"(\d+[.,]\d+) ?(?:s\b|seg|segundos)"
 TENTHS = r"(\d+(?:[.,]\d+)?) d[eé]cimas?"

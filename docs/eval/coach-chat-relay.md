@@ -8,7 +8,7 @@
 - **Cases:** 44, built by `eval/coach/build_cases.py` from the planted faults of `eval/fault_injection/` (after the rule changes in `fault-injection-corner-analysis.md`): 8 single faults, 2 two-fault combinations and 1 clean corner, in 2 corners of each of the 2 laps. Each case carries the exact production system prompt: the corner fields the frontend sends, passed through `_chat_context`, knowledge base included.
 - **Question:** "¿Qué estoy haciendo mal en esta curva, cómo lo mejoro y cuánto tiempo puedo ganar?"
 - **Model:** Claude Haiku, run as four subagents of 11 cases each, each case answered with its system prompt in role. Not the production call path (no API system role), and one subagent reported it saw the expected answers while reading its file; it said it did not use them. Later runs get `prompts.jsonl`, which leaves them out.
-- **Scoring:** `eval/coach/score.py`, fixed Spanish keyword and number rules. Checked by hand on 10 replies: cause verdict agreed in 9 of 10 (one miss, a phrasing since added to the rules); the first version flagged 4 inflated times that were the 0.08 s threshold quoted from the prompt, so numbers already in the prompt are no longer counted.
+- **Scoring:** `eval/coach/score.py`, fixed Spanish keyword and number rules. Checked by hand on 10 replies: cause verdict agreed in 9 of 10 (one miss, a phrasing since added to the rules); the first version flagged 4 inflated times that were the 0.08 s threshold quoted from the prompt, so numbers already in the prompt are no longer counted. The setup rule first matched "presión de freno" (a driving input); it now counts only tyre pressures, and both runs below are scored with the final rules.
 
 ## Result
 
@@ -33,3 +33,20 @@ Replies of this run are in `eval/coach/runs/2026-10-20-haiku.jsonl`.
 ## Decision
 
 The chat relays measurements faithfully; what it adds on its own is setup advice resting on a setup it was never given. The next change is to the prompt, not the model: give it the real setup when one is loaded and none otherwise, and suggest setup only when the loss repeats with consistent driving. Measure it on this same case set, and on a smaller model with `prompts.jsonl`.
+
+## Second run, without the placeholder setup
+
+**Date:** 2026-10-20. The repository holds no real setup anywhere: `/api/car-setup` returns the same fixed values the chat prompt used. So the chat now gets no setup at all. `_chat_context` states that both laps are the same car with the same setup and that the current values are unknown, and rule 8 of the persona (`coach/prompt.py`) allows a setup direction only when the driver asks about setup, or says the symptom persists after the driving fix, and never a current value. Cases rebuilt, Haiku given `prompts.jsonl` (no expected answers).
+
+| Check | First run | Second run |
+|---|---|---|
+| Every planted cause named | 98 % (39/40) | 100 % (40/40) |
+| Reported time relayed | 100 % (40/40) | 100 % (40/40) |
+| A larger gain than reported stated | 0 % | 0 % |
+| Clean corner given an invented loss | 0 % (0/4) | 0 % (0/4) |
+| Setup change suggested | 82 % (36/44) | 0 % (0/44) |
+| Placeholder setup quoted | 52 % (23/44) | 0 % (0/44) |
+
+Replies are in `eval/coach/runs/2026-10-20-haiku-no-setup.jsonl`. Checked by hand: the three cause misses the rules first reported were phrasings ("gas abierto +20 m", "vértice: 33.0 km/h frente a 39.0"), now in the rules; every one of the 15 setup hits before the rule fix was "presión de freno".
+
+Still open: Haiku sometimes explains a loss with brake pressure it was not given ("exceso de presión al principio"), though now marked as a hypothesis. And the car setup view still shows the same fixed values as if they were the car's; that screen is not part of this change.
