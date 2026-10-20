@@ -88,7 +88,7 @@ def test_sebring_multitrack_corners_and_telemetry():
 
     corners = get_track_corners("Sebring International Raceway")
     assert len(corners) == 17
-    assert corners[0]["name"] == "Turn 1 Sweeper"
+    assert corners[0]["name"] == "Turn 1"
     assert corners[16]["name"] == "Sunset Bend (T17)"
 
     track_len = get_track_length("Sebring International Raceway")

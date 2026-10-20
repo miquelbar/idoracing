@@ -52,14 +52,19 @@ class LMUImporter:
             lap_elements = player_driver.findall("Lap")
             for elem in lap_elements:
                 lap_num = int(elem.attrib.get("num", 1))
-                lap_text = elem.text.strip() if elem.text else ""
+                lap_text = (elem.text or "").strip()
                 et_str = elem.attrib.get("et", "")
 
                 lap_time = 0.0
-                try:
-                    lap_time = float(lap_text)
-                except ValueError:
-                    # In some sessions, lap duration is delta between et timestamps
+                if lap_text:
+                    try:
+                        lap_time = float(lap_text)
+                    except ValueError:
+                        # rFactor writes "--.----" for laps it voided itself: they are not laps.
+                        lap_time = 0.0
+                else:
+                    # Files without lap text still give the crossing time; a lap is the
+                    # delta between two consecutive numeric crossings.
                     try:
                         curr_et = float(et_str)
                         if prev_et > 0 and curr_et > prev_et:

@@ -175,6 +175,9 @@ def generate_lap_telemetry_for_track(
 
     # If target lap time is specified, scale velocities so total time matches target exactly
     if target_lap_time and target_lap_time > 10.0 and time[-1] > 0:
+        # Broken imports can carry impossible lap times (sector fragments, timing glitches);
+        # never shape the placeholder around an average speed no race car can hold.
+        target_lap_time = max(float(target_lap_time), total_dist / 90.0)
         time_factor = float(target_lap_time / time[-1])
         # Speed scales inversely with time factor: v_new = v_old / time_factor
         speed = np.clip(speed / time_factor, 45.0, 310.0).astype(np.float32)
