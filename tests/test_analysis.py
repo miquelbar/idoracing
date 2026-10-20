@@ -140,9 +140,7 @@ def test_track_coordinates_infer_turn_directions_from_lateral_accel():
 
     ref = generate_lap_telemetry(is_reference=True)
     comp = generate_lap_telemetry(is_reference=False)
-    aligned = align_laps_by_distance(
-        {k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()}
-    )
+    aligned = align_laps_by_distance({k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()})
 
     tx, ty = generate_track_coordinates("Ricardo Tormo de Valencia", aligned["distance"], aligned)
 

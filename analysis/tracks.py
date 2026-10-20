@@ -169,23 +169,193 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
 # data/circuits/sebring.json, turn directions per the real circuit (clockwise), and turn
 # angles that sum to exactly -360 degrees so an inferred outline closes like the real lap.
 SEBRING_CORNERS: list[dict[str, Any]] = [
-    {"number": 1, "name": "Turn 1", "start": 340.0, "apex": 480.0, "end": 620.0, "gear": 3, "target_speed": 110.0, "turn_dir": "left", "turn_deg": 60},
-    {"number": 2, "name": "Turn 2", "start": 620.0, "apex": 710.0, "end": 800.0, "gear": 5, "target_speed": 215.0, "turn_dir": "right", "turn_deg": -15},
-    {"number": 3, "name": "Turn 3", "start": 800.0, "apex": 930.0, "end": 1060.0, "gear": 2, "target_speed": 95.0, "turn_dir": "left", "turn_deg": 85},
-    {"number": 4, "name": "Turn 4", "start": 1060.0, "apex": 1110.0, "end": 1160.0, "gear": 3, "target_speed": 130.0, "turn_dir": "right", "turn_deg": -25},
-    {"number": 5, "name": "Turn 5", "start": 1160.0, "apex": 1250.0, "end": 1400.0, "gear": 2, "target_speed": 105.0, "turn_dir": "left", "turn_deg": 40},
-    {"number": 6, "name": "Big Bend (T6)", "start": 1400.0, "apex": 1650.0, "end": 1950.0, "gear": 4, "target_speed": 175.0, "turn_dir": "right", "turn_deg": -70},
-    {"number": 7, "name": "Hairpin (T7)", "start": 1950.0, "apex": 2090.0, "end": 2220.0, "gear": 1, "target_speed": 65.0, "turn_dir": "right", "turn_deg": -160},
-    {"number": 8, "name": "Fangio Chicane Entry (T8)", "start": 2220.0, "apex": 2320.0, "end": 2420.0, "gear": 3, "target_speed": 135.0, "turn_dir": "right", "turn_deg": -20},
-    {"number": 9, "name": "Fangio Chicane Exit (T9)", "start": 2420.0, "apex": 2560.0, "end": 2700.0, "gear": 3, "target_speed": 140.0, "turn_dir": "left", "turn_deg": 15},
-    {"number": 10, "name": "Cunningham (T10)", "start": 2700.0, "apex": 2830.0, "end": 2950.0, "gear": 2, "target_speed": 90.0, "turn_dir": "right", "turn_deg": -90},
-    {"number": 11, "name": "Collier (T11)", "start": 2950.0, "apex": 3120.0, "end": 3300.0, "gear": 4, "target_speed": 165.0, "turn_dir": "left", "turn_deg": 45},
-    {"number": 12, "name": "Turn 12", "start": 3300.0, "apex": 3370.0, "end": 3450.0, "gear": 4, "target_speed": 180.0, "turn_dir": "right", "turn_deg": -15},
-    {"number": 13, "name": "Tower Turn (T13)", "start": 3450.0, "apex": 3580.0, "end": 3720.0, "gear": 2, "target_speed": 85.0, "turn_dir": "right", "turn_deg": -85},
-    {"number": 14, "name": "Bishop (T14)", "start": 3720.0, "apex": 3850.0, "end": 3980.0, "gear": 5, "target_speed": 215.0, "turn_dir": "left", "turn_deg": 15},
-    {"number": 15, "name": "Turn 15 Bend", "start": 3980.0, "apex": 4150.0, "end": 4320.0, "gear": 3, "target_speed": 125.0, "turn_dir": "left", "turn_deg": 25},
-    {"number": 16, "name": "Le Mans Curve (T16)", "start": 4320.0, "apex": 4500.0, "end": 4700.0, "gear": 3, "target_speed": 120.0, "turn_dir": "right", "turn_deg": -45},
-    {"number": 17, "name": "Sunset Bend (T17)", "start": 5450.0, "apex": 5700.0, "end": 5900.0, "gear": 2, "target_speed": 80.0, "turn_dir": "right", "turn_deg": -120},
+    {
+        "number": 1,
+        "name": "Turn 1",
+        "start": 340.0,
+        "apex": 480.0,
+        "end": 620.0,
+        "gear": 3,
+        "target_speed": 110.0,
+        "turn_dir": "left",
+        "turn_deg": 60,
+    },
+    {
+        "number": 2,
+        "name": "Turn 2",
+        "start": 620.0,
+        "apex": 710.0,
+        "end": 800.0,
+        "gear": 5,
+        "target_speed": 215.0,
+        "turn_dir": "right",
+        "turn_deg": -15,
+    },
+    {
+        "number": 3,
+        "name": "Turn 3",
+        "start": 800.0,
+        "apex": 930.0,
+        "end": 1060.0,
+        "gear": 2,
+        "target_speed": 95.0,
+        "turn_dir": "left",
+        "turn_deg": 85,
+    },
+    {
+        "number": 4,
+        "name": "Turn 4",
+        "start": 1060.0,
+        "apex": 1110.0,
+        "end": 1160.0,
+        "gear": 3,
+        "target_speed": 130.0,
+        "turn_dir": "right",
+        "turn_deg": -25,
+    },
+    {
+        "number": 5,
+        "name": "Turn 5",
+        "start": 1160.0,
+        "apex": 1250.0,
+        "end": 1400.0,
+        "gear": 2,
+        "target_speed": 105.0,
+        "turn_dir": "left",
+        "turn_deg": 40,
+    },
+    {
+        "number": 6,
+        "name": "Big Bend (T6)",
+        "start": 1400.0,
+        "apex": 1650.0,
+        "end": 1950.0,
+        "gear": 4,
+        "target_speed": 175.0,
+        "turn_dir": "right",
+        "turn_deg": -70,
+    },
+    {
+        "number": 7,
+        "name": "Hairpin (T7)",
+        "start": 1950.0,
+        "apex": 2090.0,
+        "end": 2220.0,
+        "gear": 1,
+        "target_speed": 65.0,
+        "turn_dir": "right",
+        "turn_deg": -160,
+    },
+    {
+        "number": 8,
+        "name": "Fangio Chicane Entry (T8)",
+        "start": 2220.0,
+        "apex": 2320.0,
+        "end": 2420.0,
+        "gear": 3,
+        "target_speed": 135.0,
+        "turn_dir": "right",
+        "turn_deg": -20,
+    },
+    {
+        "number": 9,
+        "name": "Fangio Chicane Exit (T9)",
+        "start": 2420.0,
+        "apex": 2560.0,
+        "end": 2700.0,
+        "gear": 3,
+        "target_speed": 140.0,
+        "turn_dir": "left",
+        "turn_deg": 15,
+    },
+    {
+        "number": 10,
+        "name": "Cunningham (T10)",
+        "start": 2700.0,
+        "apex": 2830.0,
+        "end": 2950.0,
+        "gear": 2,
+        "target_speed": 90.0,
+        "turn_dir": "right",
+        "turn_deg": -90,
+    },
+    {
+        "number": 11,
+        "name": "Collier (T11)",
+        "start": 2950.0,
+        "apex": 3120.0,
+        "end": 3300.0,
+        "gear": 4,
+        "target_speed": 165.0,
+        "turn_dir": "left",
+        "turn_deg": 45,
+    },
+    {
+        "number": 12,
+        "name": "Turn 12",
+        "start": 3300.0,
+        "apex": 3370.0,
+        "end": 3450.0,
+        "gear": 4,
+        "target_speed": 180.0,
+        "turn_dir": "right",
+        "turn_deg": -15,
+    },
+    {
+        "number": 13,
+        "name": "Tower Turn (T13)",
+        "start": 3450.0,
+        "apex": 3580.0,
+        "end": 3720.0,
+        "gear": 2,
+        "target_speed": 85.0,
+        "turn_dir": "right",
+        "turn_deg": -85,
+    },
+    {
+        "number": 14,
+        "name": "Bishop (T14)",
+        "start": 3720.0,
+        "apex": 3850.0,
+        "end": 3980.0,
+        "gear": 5,
+        "target_speed": 215.0,
+        "turn_dir": "left",
+        "turn_deg": 15,
+    },
+    {
+        "number": 15,
+        "name": "Turn 15 Bend",
+        "start": 3980.0,
+        "apex": 4150.0,
+        "end": 4320.0,
+        "gear": 3,
+        "target_speed": 125.0,
+        "turn_dir": "left",
+        "turn_deg": 25,
+    },
+    {
+        "number": 16,
+        "name": "Le Mans Curve (T16)",
+        "start": 4320.0,
+        "apex": 4500.0,
+        "end": 4700.0,
+        "gear": 3,
+        "target_speed": 120.0,
+        "turn_dir": "right",
+        "turn_deg": -45,
+    },
+    {
+        "number": 17,
+        "name": "Sunset Bend (T17)",
+        "start": 5450.0,
+        "apex": 5700.0,
+        "end": 5900.0,
+        "gear": 2,
+        "target_speed": 80.0,
+        "turn_dir": "right",
+        "turn_deg": -120,
+    },
 ]
 
 
@@ -243,9 +413,7 @@ def reconstruct_track_from_dynamics(
     return x.tolist(), y.tolist()
 
 
-def _lateral_accel_channel(
-    telemetry: dict[str, np.ndarray], length: int
-) -> tuple[np.ndarray, np.ndarray] | None:
+def _lateral_accel_channel(telemetry: dict[str, np.ndarray], length: int) -> tuple[np.ndarray, np.ndarray] | None:
     """Speed and lateral-acceleration pair that matches the distance grid, if telemetry has one."""
     for prefix in ("ref_", "comp_", ""):
         speed = telemetry.get(f"{prefix}speed")
@@ -258,9 +426,7 @@ def _lateral_accel_channel(
     return None
 
 
-def _auto_orient(
-    x: np.ndarray, y: np.ndarray, lat_accel: np.ndarray | None
-) -> tuple[np.ndarray, np.ndarray]:
+def _auto_orient(x: np.ndarray, y: np.ndarray, lat_accel: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
     """
     Recorded positions can live in a mirrored frame (left-handed game coordinates). The
     lateral acceleration channel says which way the car really turned, so flip the frame

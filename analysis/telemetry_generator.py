@@ -49,9 +49,7 @@ def _apply_corner_turn_angles(
             shape = np.minimum(shape, LAT_ACCEL_CLIP_G / abs(amplitude))
             amplitude = target_rad / (9.81 * np.sum(shape * weight))
         lat_accel[idx] = np.clip(amplitude * shape, -LAT_ACCEL_CLIP_G, LAT_ACCEL_CLIP_G)
-        steer_angle[idx] = np.clip(
-            lat_accel[idx] * 9.81 * 40.0 / (0.012 * v**2), -120.0, 120.0
-        )
+        steer_angle[idx] = np.clip(lat_accel[idx] * 9.81 * 40.0 / (0.012 * v**2), -120.0, 120.0)
 
 
 def generate_lap_telemetry_for_track(
