@@ -15,6 +15,7 @@ export interface SettingsDTO {
   openai_api_key?: string;
   openai_base_url?: string;
   openai_model?: string;
+  chat_timeout?: number;
 }
 
 export interface ChatMessage {

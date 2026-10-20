@@ -110,6 +110,7 @@ class SettingsDTO(BaseModel):
     openai_api_key: str | None = ""
     openai_base_url: str | None = "https://api.openai.com/v1"
     openai_model: str | None = "gpt-4o-mini"
+    chat_timeout: float = 120.0
 
 
 class CornerDTO(BaseModel):
@@ -276,6 +277,7 @@ def get_settings():
         openai_api_key="***" if llm_client.openai_api_key else "",
         openai_base_url=llm_client.openai_base_url,
         openai_model=llm_client.openai_model,
+        chat_timeout=getattr(llm_client, "chat_timeout", 120.0),
     )
 
 
@@ -286,6 +288,8 @@ def update_settings(cfg: SettingsDTO):
     llm_client.ollama.model = cfg.ollama_model
     llm_client.ollama_base_url = cfg.ollama_base_url
     llm_client.ollama.base_url = cfg.ollama_base_url.rstrip("/")
+    if cfg.chat_timeout is not None:
+        llm_client.chat_timeout = float(cfg.chat_timeout)
 
     new_key = cfg.openai_api_key.strip() if cfg.openai_api_key and cfg.openai_api_key != "***" else None
     new_base_url = cfg.openai_base_url.strip().rstrip("/") if cfg.openai_base_url else None
@@ -668,7 +672,7 @@ CHAT_LABELS = {
         "diagnosis": "- Measured diagnosis: {text}",
         "same_setup": (
             "\nSETUP: both laps are the same car with the same setup, and the current setup values are not known. "
-            "Do not quote setup values."
+            "Do not quote setup values or suggest mechanical setup changes; focus 100% on driving technique."
         ),
         "format": (
             "Format your answers with structured Markdown: use bold for key terms, short bulleted lists for "
@@ -694,7 +698,7 @@ CHAT_LABELS = {
         "diagnosis": "- Diagnóstico medido: {text}",
         "same_setup": (
             "\nSETUP: las dos vueltas son del mismo coche con el mismo setup, y no se conocen los valores actuales "
-            "de reglaje. No cites valores de setup."
+            "de reglaje. No cites valores de setup ni sugieras cambios de reglaje mecánico; céntrate 100% en el pilotaje."
         ),
         "format": (
             "Formatea tus respuestas con Markdown estructurado: usa negritas para términos clave, listas cortas "
@@ -712,7 +716,7 @@ def _speed_line(label: str, comp: Any, ref: Any) -> str | None:
 
 
 def _chat_context(req: ChatRequest, lang: str) -> str:
-    """System prompt for the radio chat: the engineer persona plus the selected corner's numbers."""
+    """System prompt for the radio chat: the engineer persona, knowledge base, then the selected corner's numbers."""
     labels = CHAT_LABELS["en" if lang == "en" else "es"]
     lines = [
         labels["prompt"],
@@ -721,8 +725,25 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
             track=req.track_name or labels["unknown_track"], car=req.car_name or labels["unknown_car"]
         ),
     ]
+
     c = req.selected_corner
+    symptoms = []
     if c:
+        for f in ("balance_eval", "balance_code", "trail_braking_eval", "racing_line_code", "diagnosis"):
+            val = c.get(f)
+            if val:
+                symptoms.append(str(val))
+
+    user_query = req.messages[-1].content if req.messages else ""
+    include_setup = any(k in user_query.lower() for k in ("setup", "reglaj", "barras", "bias", "reparto"))
+    expert_kb = knowledge_base.retrieve_context(
+        car_name=req.car_name, query=user_query, symptoms=symptoms, include_setup=include_setup
+    )
+    if expert_kb:
+        lines.append(f"\n--- MANUAL DE INGENIERÍA DE PISTA Y DINÁMICA VEHICULAR (LITERATURA CANÓNICA) ---\n{expert_kb}")
+
+    if c:
+        lines.append("")
         lines.append(labels["corner"].format(num=c.get("corner_number", ""), name=c.get("name", "")))
         lines.append(labels["time"].format(delta=float(c.get("delta_time") or 0.0)))
         lines += [
@@ -757,20 +778,6 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
             )
 
     lines.append(labels["same_setup"])
-
-    # Inject targeted engineering knowledge from literature
-    symptoms = []
-    if c:
-        for f in ("balance_eval", "balance_code", "trail_braking_eval", "racing_line_code", "diagnosis"):
-            val = c.get(f)
-            if val:
-                symptoms.append(str(val))
-
-    user_query = req.messages[-1].content if req.messages else ""
-    expert_kb = knowledge_base.retrieve_context(car_name=req.car_name, query=user_query, symptoms=symptoms)
-    if expert_kb:
-        lines.append(f"\n--- MANUAL DE INGENIERÍA DE PISTA Y DINÁMICA VEHICULAR (LITERATURA CANÓNICA) ---\n{expert_kb}")
-
     lines.append(labels["format"])
     return "\n".join(lines) + "\n"
 
@@ -787,7 +794,7 @@ def chat_with_engineer(req: ChatRequest):
     for m in req.messages:
         messages.append({"role": m.role, "content": m.content})
 
-    chat_timeout = float(os.environ.get("RADIO_CHAT_TIMEOUT", "12.0"))
+    chat_timeout = getattr(llm_client, "chat_timeout", float(os.environ.get("RADIO_CHAT_TIMEOUT", "120.0")))
     reply = llm_client.chat(messages, timeout=chat_timeout)
     if reply and reply.strip():
         return {"role": "assistant", "content": reply, "source": "llm", "model": llm_client.active_model}

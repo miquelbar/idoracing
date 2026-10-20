@@ -218,6 +218,20 @@ def test_changing_the_provider_url_drops_the_stored_key(client, restore_llm_sett
     assert llm_client.openai_api_key == ""
 
 
+def test_settings_chat_timeout(client, restore_llm_settings):
+    llm_client = restore_llm_settings
+    res = client.get("/api/settings")
+    assert res.status_code == 200
+    assert "chat_timeout" in res.json()
+
+    res = client.post(
+        "/api/settings",
+        json={"provider": "ollama", "chat_timeout": 60.0},
+    )
+    assert res.status_code == 200
+    assert llm_client.chat_timeout == 60.0
+
+
 def test_cross_origin_requests_get_no_cors_grant(client):
     res = client.options(
         "/api/settings",

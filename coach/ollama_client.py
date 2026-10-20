@@ -68,10 +68,11 @@ class OllamaClient:
             "model": self.model,
             "prompt": prompt,
             "stream": False,
+            "think": False,
             "options": {
                 "temperature": 0.2,  # Low temperature for analytical consistency
                 "num_ctx": 4096,  # Fast GPU KV cache fitting, avoids 262k memory swap
-                "num_predict": 1024,  # Concise racing engineer answers
+                "num_predict": 800,  # Concise racing engineer answers
             },
         }
         if system_prompt:

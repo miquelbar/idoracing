@@ -76,6 +76,7 @@ class SimracingKnowledgeBase:
         car_name: str | None = None,
         query: str | None = None,
         symptoms: list[str] | None = None,
+        include_setup: bool = False,
     ) -> str:
         """
         Extract relevant expert knowledge based on user query, active car, and telemetry symptoms.
@@ -87,6 +88,12 @@ class SimracingKnowledgeBase:
         # 1. Car architecture insights
         car_guide = self.get_car_guidelines(car_name)
         if car_guide:
+            if not include_setup:
+                car_guide = re.sub(
+                    r"- .*?(?:Ajustes de setup|Ajuste de setup|Rake aerodinámico y aflojar|Brake Bias).*?\n",
+                    "",
+                    car_guide,
+                ).strip()
             snippets.append(f"### Dinámica de Arquitectura del Coche ({detect_architecture(car_name)})\n{car_guide}")
 
         # 2. Tyre dynamics (if mentioned or relevant)
@@ -104,6 +111,11 @@ class SimracingKnowledgeBase:
 
         # 3. Troubleshooting Matrix (Targeted phases)
         trouble_text = self.get_section("troubleshooting_matrix")
+        if not include_setup:
+            trouble_text = re.sub(
+                r"- \*\*Ajuste de Setup[^\n]*\*\*.*?(?=(?:\n###|\n##|\Z))", "", trouble_text, flags=re.DOTALL
+            )
+
         if any(w in combined for w in ("subviraj", "understeer", "morro", "no entra", "trail")):
             match = re.search(r"## 2\. Fase de Entrada y Giro en Apoyo.*?(?=## 3\.|\Z)", trouble_text, re.DOTALL)
             if match:
@@ -125,19 +137,31 @@ class SimracingKnowledgeBase:
 
         # 4. Chassis & ARB / Rake essentials
         chassis_text = self.get_section("chassis_dynamics")
-        if any(w in combined for w in ("arb", "barra", "rake", "altura", "diferencial", "preload", "caida", "camber")):
+        if include_setup and any(
+            w in combined for w in ("arb", "barra", "rake", "altura", "diferencial", "preload", "caida", "camber")
+        ):
             snippets.append(f"### Dinámica de Chasis y Setup (Carroll Smith)\n{chassis_text}")
 
-        # If nothing specific matched, provide the core troubleshooting guide
+        # If nothing specific matched, provide the core driving principles
         if len(snippets) <= 1:
-            snippets.append(
-                "### Guía Rápida de Setup\n"
-                "- En ACC, presiones óptimas en caliente: 26.5 - 27.0 psi.\n"
-                "- Subviraje en curva lenta: Ablandar ARB delantera (-1) o retrasar Brake Bias (-0.5%).\n"
-                "- Subviraje en curva media/rápida: Aumentar Rake (bajar morro o subir trasera) para dar carga delantera.\n"
-                "- Inestabilidad de zaga en frenada: Adelantar Brake Bias (+0.5%) o subir precarga del diferencial (+10 Nm).\n"
-                "- Sobreconducir metiendo más volante cuando el neumático ya desliza destruye el tiempo de vuelta."
-            )
+            if include_setup:
+                snippets.append(
+                    "### Guía Rápida de Setup\n"
+                    "- En ACC, presiones óptimas en caliente: 26.5 - 27.0 psi.\n"
+                    "- Subviraje en curva lenta: Ablandar ARB delantera (-1) o retrasar Brake Bias (-0.5%).\n"
+                    "- Subviraje en curva media/rápida: Aumentar Rake (bajar morro o subir trasera) para dar carga delantera.\n"
+                    "- Inestabilidad de zaga en frenada: Adelantar Brake Bias (+0.5%) o subir precarga del diferencial (+10 Nm).\n"
+                    "- Sobreconducir metiendo más volante cuando el neumático ya desliza destruye el tiempo de vuelta."
+                )
+            else:
+                snippets.append(
+                    "### Principios Clave de Pilotaje\n"
+                    "- Círculo de adherencia: desvanecer progresivamente la frenada en curva (trail braking) para transferir agarre al giro.\n"
+                    "- Evitar sobreconducir: girar más el volante cuando el neumático delantero desliza solo satura el slip angle y destruye el tiempo.\n"
+                    "- Estabilizar el morro: una soltada brusca de freno descarga el eje delantero provocando subviraje inmediato."
+                )
+
+        return "\n\n".join(snippets)
 
         return "\n\n".join(snippets)
 

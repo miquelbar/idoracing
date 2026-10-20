@@ -26,6 +26,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState('https://api.openai.com/v1');
   const [openaiModel, setOpenaiModel] = useState('gpt-4o-mini');
+  const [chatTimeout, setChatTimeout] = useState<number>(120);
 
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,6 +41,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
       setOpenaiApiKey(cfg.openai_api_key || '');
       setOpenaiBaseUrl(cfg.openai_base_url || 'https://api.openai.com/v1');
       setOpenaiModel(cfg.openai_model || 'gpt-4o-mini');
+      if (cfg.chat_timeout !== undefined) setChatTimeout(cfg.chat_timeout);
     } catch (e) {
       console.error(e);
     }
@@ -61,6 +63,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
         openai_api_key: openaiApiKey,
         openai_base_url: openaiBaseUrl,
         openai_model: openaiModel,
+        chat_timeout: chatTimeout,
       });
       setSavedSuccess(true);
       onSettingsSaved();
@@ -241,6 +244,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
             </div>
           </div>
         )}
+
+        <div className="glass-panel rounded-xl p-5 space-y-2">
+          <label className="text-xs text-gray-300 font-bold block">{t('chat_timeout_label')}</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min={5}
+              max={180}
+              step={5}
+              value={chatTimeout}
+              onChange={(e) => setChatTimeout(Number(e.target.value))}
+              className="w-32 bg-night-8 border border-white/10 rounded-lg p-2.5 text-xs text-white font-telemetry focus:outline-none focus:border-comp"
+            />
+            <span className="text-xs text-gray-400">s</span>
+          </div>
+          <p className="text-[11px] text-gray-400">{t('chat_timeout_help')}</p>
+        </div>
 
         <button
           type="submit"

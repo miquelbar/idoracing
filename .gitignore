@@ -67,6 +67,12 @@ frontend/dist/
 # Scratch & temporary artifacts
 scratch/
 
+# Evaluation runs & private benchmark results
+eval/**/runs/*-ollama*.jsonl
+eval/**/runs/*-local*.jsonl
+results.json
+
+
 # Recorder build output
 recorder/*.exe
 recorder/**/*.exe

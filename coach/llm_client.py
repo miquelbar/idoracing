@@ -25,10 +25,14 @@ class LLMClient:
         openai_base_url: str | None = None,
         openai_model: str | None = None,
         timeout: float = 120.0,
+        chat_timeout: float | None = None,
         enabled: bool = True,
     ):
         self.provider = (provider or os.environ.get("LLM_PROVIDER", "ollama")).lower()
         self.enabled = enabled
+        self.chat_timeout = (
+            chat_timeout if chat_timeout is not None else float(os.environ.get("RADIO_CHAT_TIMEOUT", "120.0"))
+        )
 
         # Ollama config
         self.ollama_model = ollama_model or os.environ.get("OLLAMA_MODEL", "qwen3.8:27b")

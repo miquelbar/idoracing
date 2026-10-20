@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { fetchCoachReport, sendChatMessage } from '../services/api';
 import { useLanguage } from '../i18n';
+import { useWaitingChatter } from '../i18n/waitingChatter';
 import type { ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
 import { formatMetricKey, formatMetricValue, errorMessage } from '../utils/formatters';
 
@@ -43,6 +44,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const waitingChatter = useWaitingChatter(chatLoading, lang);
 
   const handleGenerateReport = async (forceRefresh = false) => {
     if (!comparison) return;
@@ -289,7 +291,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
           {chatLoading && (
             <div className="flex gap-2 items-center text-gray-400 text-xs italic">
               <Bot className="w-4 h-4 text-brand animate-spin" />
-              <span>El ingeniero está analizando la telemetría...</span>
+              <span>{waitingChatter ?? 'El ingeniero está analizando la telemetría...'}</span>
             </div>
           )}
         </div>

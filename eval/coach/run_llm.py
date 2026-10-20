@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument("--prompts", type=Path, default=PROMPTS)
     args = parser.parse_args()
 
-    timeout = float(os.environ.get("RADIO_CHAT_TIMEOUT", "12.0"))
+    timeout = getattr(llm_client, "chat_timeout", float(os.environ.get("RADIO_CHAT_TIMEOUT", "120.0")))
     cases = [json.loads(line) for line in args.prompts.read_text().splitlines() if line.strip()]
     print(f"{len(cases)} cases, provider {llm_client.provider}, model {llm_client.active_model}, timeout {timeout:g} s")
 

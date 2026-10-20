@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useLanguage } from '../i18n';
+import { useWaitingChatter } from '../i18n/waitingChatter';
 import type { ChatMessage, CoachReport, CornerDTO } from '../types/telemetry';
 import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 
@@ -209,6 +210,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   initialTab,
 }) => {
   const { lang, t } = useLanguage();
+  const waitingChatter = useWaitingChatter(chatLoading, lang);
   const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>(initialTab || 'debrief');
   const [debriefViewMode, setDebriefViewMode] = useState<'structured' | 'full'>('structured');
   const [inputMessage, setInputMessage] = useState('');
@@ -690,7 +692,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-night-7/60 border border-white/5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                     <span>
-                      {t('pep_thinking', { track: trackName })}
+                      {waitingChatter ?? t('pep_thinking', { track: trackName })}
                     </span>
                   </div>
                 )}
