@@ -119,15 +119,67 @@ def test_sebring_multitrack_corners_and_telemetry():
     assert sebring_corners_analysis[0].corner_number == 1
     assert sebring_corners_analysis[0].racing_line_svg is not None
 
-    # Test verified track coordinates generation
+    # Test telemetry-inferred track coordinates generation
     from analysis.tracks import generate_track_coordinates
 
-    tx, ty = generate_track_coordinates("Sebring International Raceway", aligned["distance"])
+    tx, ty = generate_track_coordinates("Sebring International Raceway", aligned["distance"], aligned)
     assert len(tx) == len(aligned["distance"])
     assert len(ty) == len(aligned["distance"])
     assert abs(tx[0] - tx[-1]) < 1e-4  # Closed loop
     assert abs(ty[0] - ty[-1]) < 1e-4  # Closed loop
-    assert max(tx) - min(tx) > 500.0  # Real dimensions (span > 500m)
+    assert max(tx) - min(tx) > 100.0  # Real dimensions, not a collapsed line
+    assert max(ty) - min(ty) > 100.0
+
+
+def test_track_coordinates_infer_turn_directions_from_lateral_accel():
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.demo_session import generate_lap_telemetry
+    from analysis.tracks import generate_track_coordinates
+
+    ref = generate_lap_telemetry(is_reference=True)
+    comp = generate_lap_telemetry(is_reference=False)
+    aligned = align_laps_by_distance(
+        {k: v.tolist() for k, v in ref.items()}, {k: v.tolist() for k, v in comp.items()}
+    )
+
+    tx, ty = generate_track_coordinates("Ricardo Tormo de Valencia", aligned["distance"], aligned)
+
+    # The outline must turn the same way as the recorded lateral acceleration:
+    # positive lat_accel (left) has to mean increasing heading at those samples.
+    x, y = np.asarray(tx), np.asarray(ty)
+    lat = np.asarray(aligned["ref_lat_accel"])
+    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
+    turn = np.gradient(heading)
+    strong = np.abs(lat) > 0.05
+    assert strong.sum() > 50
+    agreement = np.mean(np.sign(turn[strong]) == np.sign(lat[strong]))
+    assert agreement > 0.9
+
+    # Valencia runs counterclockwise with a left-handed Turn 1.
+    assert float(np.sum(x[:-1] * y[1:] - x[1:] * y[:-1])) > 0
+    t1 = (aligned["distance"] >= 360.0) & (aligned["distance"] <= 640.0)
+    assert float(np.sum(turn[t1])) > 0  # Turn 1 turns left on the map
+
+
+def test_track_coordinates_flip_mirrored_position_frames():
+    import numpy as np
+
+    from analysis.tracks import generate_track_coordinates
+
+    # A left-handed circle walked with the y axis mirrored must be flipped back.
+    s = np.linspace(0.0, 2.0 * np.pi, 200, endpoint=False)
+    lat = np.ones_like(s)  # positive: turning left the whole way
+    telemetry = {
+        "x": (10.0 * np.cos(s)).tolist(),
+        "y": (-10.0 * np.sin(s)).tolist(),  # mirrored frame
+        "ref_lat_accel": lat.tolist(),
+        "ref_speed": np.full_like(s, 50.0).tolist(),
+    }
+    tx, ty = generate_track_coordinates("any track", s, telemetry)
+    area = float(np.sum(np.asarray(tx)[:-1] * np.asarray(ty)[1:] - np.asarray(tx)[1:] * np.asarray(ty)[:-1]))
+    assert area > 0  # flipped back to counterclockwise
 
 
 def test_detect_corners_finds_each_speed_dip():

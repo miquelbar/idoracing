@@ -10,6 +10,11 @@ from analysis.tracks import get_track_corners, get_track_length
 from domain.session import Session
 
 
+def _steer_sign(corner: dict) -> float:
+    """Positive lateral acceleration means turning left, matching the analyzer's convention."""
+    return 1.0 if corner.get("turn_dir") == "left" else -1.0
+
+
 def generate_lap_telemetry_for_track(
     track_name: str,
     target_lap_time: float | None = None,
@@ -91,7 +96,7 @@ def generate_lap_telemetry_for_track(
                     th = 0.0
                     br = 0.90 * (1.0 - brk_ratio * 0.4)
                     gr = c_gear
-                    st = 15.0 * brk_ratio if (c_num % 2 == 0) else -15.0 * brk_ratio
+                    st = _steer_sign(c) * 15.0 * brk_ratio
             else:
                 # Apex & Exit phase
                 span = max(1.0, c["end"] - c_apex)
@@ -103,7 +108,7 @@ def generate_lap_telemetry_for_track(
 
                 br = 0.0
                 gr = max(1, c_gear - 1) if (wrong_gear and ratio < 0.6) else c_gear
-                st = (25.0 * (1.0 - ratio)) if (c_num % 2 == 0) else (-25.0 * (1.0 - ratio))
+                st = _steer_sign(c) * (25.0 * (1.0 - ratio))
 
         else:
             # Straightaway section

@@ -524,7 +524,12 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
     line = _evaluate_line(s)
     ref_gear, comp_gear, gear = _evaluate_gear(corner_def, aligned_data, mask, s)
     ref_lat = _channel(aligned_data, "ref_lat_accel", mask)
-    turn_dir = corner_def.get("turn_dir") or ("left" if len(ref_lat) and float(np.mean(ref_lat)) > 0 else "right")
+    # The lateral acceleration is the ground truth for which way the corner goes; the
+    # corner table is only a fallback for traces without a lateral channel.
+    if len(ref_lat) and float(np.max(np.abs(ref_lat))) > 0.05:
+        turn_dir = "left" if float(np.mean(ref_lat)) > 0 else "right"
+    else:
+        turn_dir = corner_def.get("turn_dir") or "right"
 
     measured_apex = (
         float(s.sub_dist[s.ref_apex_idx])
