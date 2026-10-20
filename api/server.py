@@ -24,6 +24,7 @@ from analysis.lap_comparison import compare_laps
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor
+from coach.knowledge_base import knowledge_base
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
@@ -726,6 +727,19 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
             f"- ENGINEER DIRECTIVE: Whenever diagnosing a corner loss, correlate the driving technique with a mechanical setup adjustment "
             f"(e.g. brake bias shift, ARB stiffness, tyre pressure tweak, or TC level) to provide a complete pit-wall engineering solution."
         )
+
+    # Inject targeted engineering knowledge from literature
+    symptoms = []
+    if c:
+        for f in ("balance_eval", "balance_code", "trail_braking_eval", "racing_line_code", "diagnosis"):
+            val = c.get(f)
+            if val:
+                symptoms.append(str(val))
+
+    user_query = req.messages[-1].content if req.messages else ""
+    expert_kb = knowledge_base.retrieve_context(car_name=req.car_name, query=user_query, symptoms=symptoms)
+    if expert_kb:
+        lines.append(f"\n--- MANUAL DE INGENIERÍA DE PISTA Y DINÁMICA VEHICULAR (LITERATURA CANÓNICA) ---\n{expert_kb}")
 
     lines.append(labels["format"])
     return "\n".join(lines) + "\n"

@@ -125,3 +125,29 @@ def test_pep_corner_context_and_strict_diagnostics():
     assert "Alerta de Rendimiento" in resp_corner
     assert "+0.605s" in resp_corner
     assert "-16.0 km/h" in resp_corner or "16.0 km/h" in resp_corner
+
+
+def test_knowledge_base_retrieval():
+    from coach.knowledge_base import detect_architecture, knowledge_base
+
+    assert detect_architecture("Porsche 992 GT3 R") == "RR"
+    assert detect_architecture("BMW M4 GT3") == "FR"
+    assert detect_architecture("Ferrari 296 GT3") == "MR"
+
+    # Query with understeer
+    kb_understeer = knowledge_base.retrieve_context(
+        car_name="Porsche 992 GT3 R",
+        query="tengo mucho subviraje en la curva lenta",
+        symptoms=["subviraje en entrada"],
+    )
+    assert "Motor Trasero (RR" in kb_understeer
+    assert "Subviraje" in kb_understeer
+
+    # Query with tire pressures
+    kb_tyres = knowledge_base.retrieve_context(
+        car_name="BMW M4 GT3",
+        query="¿cuál es la presión ideal?",
+    )
+    assert "Dinámica de Neumáticos" in kb_tyres
+    assert "26.5" in kb_tyres and "27.0" in kb_tyres
+
