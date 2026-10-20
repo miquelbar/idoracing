@@ -18,6 +18,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 4,
         "target_speed": 153.0,
         "turn_dir": "left",
+        "turn_deg": 78,
     },
     {
         "number": 2,
@@ -28,6 +29,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 2,
         "target_speed": 76.0,
         "turn_dir": "left",
+        "turn_deg": 158,
     },
     {
         "number": 3,
@@ -38,6 +40,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 4,
         "target_speed": 150.0,
         "turn_dir": "left",
+        "turn_deg": 46,
     },
     {
         "number": 4,
@@ -48,6 +51,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 2,
         "target_speed": 101.0,
         "turn_dir": "right",
+        "turn_deg": -102,
     },
     {
         "number": 5,
@@ -58,6 +62,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 3,
         "target_speed": 110.0,
         "turn_dir": "right",
+        "turn_deg": -129,
     },
     {
         "number": 6,
@@ -68,6 +73,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 3,
         "target_speed": 90.0,
         "turn_dir": "left",
+        "turn_deg": 130,
     },
     {
         "number": 7,
@@ -78,6 +84,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 4,
         "target_speed": 165.0,
         "turn_dir": "left",
+        "turn_deg": 20,
     },
     {
         "number": 8,
@@ -88,6 +95,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 3,
         "target_speed": 93.0,
         "turn_dir": "left",
+        "turn_deg": 144,
     },
     {
         "number": 9,
@@ -98,6 +106,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 4,
         "target_speed": 150.0,
         "turn_dir": "left",
+        "turn_deg": 47,
     },
     {
         "number": 10,
@@ -108,6 +117,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 2,
         "target_speed": 74.0,
         "turn_dir": "right",
+        "turn_deg": -184,
     },
     {
         "number": 11,
@@ -118,6 +128,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 3,
         "target_speed": 127.0,
         "turn_dir": "right",
+        "turn_deg": -56,
     },
     {
         "number": 12,
@@ -128,6 +139,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 4,
         "target_speed": 155.0,
         "turn_dir": "left",
+        "turn_deg": 27,
     },
     {
         "number": 13,
@@ -138,6 +150,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 5,
         "target_speed": 172.0,
         "turn_dir": "left",
+        "turn_deg": 41,
     },
     {
         "number": 14,
@@ -148,6 +161,7 @@ VALENCIA_CORNERS: list[dict[str, Any]] = [
         "gear": 2,
         "target_speed": 78.0,
         "turn_dir": "left",
+        "turn_deg": 142,
     },
 ]
 

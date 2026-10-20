@@ -9,10 +9,49 @@ import numpy as np
 from analysis.tracks import get_track_corners, get_track_length
 from domain.session import Session
 
+LAT_ACCEL_CLIP_G = 2.5
+
 
 def _steer_sign(corner: dict) -> float:
     """Positive lateral acceleration means turning left, matching the analyzer's convention."""
     return 1.0 if corner.get("turn_dir") == "left" else -1.0
+
+
+def _apply_corner_turn_angles(
+    distances: np.ndarray,
+    speed: np.ndarray,
+    lat_accel: np.ndarray,
+    steer_angle: np.ndarray,
+    corners: list[dict],
+) -> None:
+    """
+    Reshape the lateral trace of corners that carry a turn_deg so that integrating
+    a_lat * ds / v^2 yields exactly that heading change. The track map is inferred from
+    this trace, so the painted outline keeps the circuit's real shape and turn sizes.
+    """
+    ds = np.diff(distances, prepend=distances[0])
+    for c in corners:
+        target_deg = c.get("turn_deg")
+        if not target_deg:
+            continue
+        idx = np.where((distances >= c["start"]) & (distances <= c["end"]))[0]
+        if len(idx) < 3:
+            continue
+        v = np.maximum(speed[idx] / 3.6, 5.0)
+        shape = np.sin(np.linspace(0.0, np.pi, len(idx)))
+        weight = ds[idx] / v**2
+        target_rad = np.radians(target_deg)
+        amplitude = target_rad / (9.81 * np.sum(shape * weight))
+        for _ in range(8):
+            if abs(amplitude) <= LAT_ACCEL_CLIP_G:
+                break
+            # flat-top the profile instead of clipping, so the integral stays exact
+            shape = np.minimum(shape, LAT_ACCEL_CLIP_G / abs(amplitude))
+            amplitude = target_rad / (9.81 * np.sum(shape * weight))
+        lat_accel[idx] = np.clip(amplitude * shape, -LAT_ACCEL_CLIP_G, LAT_ACCEL_CLIP_G)
+        steer_angle[idx] = np.clip(
+            lat_accel[idx] * 9.81 * 40.0 / (0.012 * v**2), -120.0, 120.0
+        )
 
 
 def generate_lap_telemetry_for_track(
@@ -123,7 +162,7 @@ def generate_lap_telemetry_for_track(
         brake[i] = float(np.clip(br, 0.0, 1.0))
         gear[i] = float(np.clip(gr, 1, 6))
         steer_angle[i] = float(st)
-        lat_accel[i] = float(np.clip((sp / 3.6) ** 2 * (st / 40.0) * 0.012 / 9.81, -2.5, 2.5))
+        lat_accel[i] = float(np.clip((sp / 3.6) ** 2 * (st / 40.0) * 0.012 / 9.81, -LAT_ACCEL_CLIP_G, LAT_ACCEL_CLIP_G))
         long_accel[i] = float(np.clip((th * 0.6 - br * 1.5), -1.8, 1.0))
         rpm[i] = float(4500.0 + (sp / 280.0) * 4400.0)
 
@@ -146,6 +185,8 @@ def generate_lap_telemetry_for_track(
             v_avg = max((speed[i] + speed[i - 1]) / 2.0, 10.0) / 3.6
             time[i] = time[i - 1] + ds / v_avg
         time[-1] = target_lap_time
+
+    _apply_corner_turn_angles(distances, speed, lat_accel, steer_angle, corners)
 
     return {
         "distance": distances,
