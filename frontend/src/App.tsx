@@ -30,6 +30,51 @@ import { TelemetryView } from './views/TelemetryView';
 import { CarSetupModal } from './components/CarSetupModal';
 import { StintModal } from './components/StintModal';
 
+const ACTIVE_SESSION_KEY = 'idoracing.activeSessionId';
+const ACTIVE_LAPS_KEY = 'idoracing.activeLaps';
+
+/** Remember what the user loaded so an F5 reloads the same session and laps. */
+function storeActiveSelection(sessionId: string | null, refLap: number, compLap: number) {
+  try {
+    if (sessionId) localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
+    localStorage.setItem(ACTIVE_LAPS_KEY, JSON.stringify({ sessionId, ref: refLap, comp: compLap }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function readStoredSessionId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Remember the session but let the default lap pair be picked fresh. */
+function storePreferredSession(sessionId: string) {
+  try {
+    localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
+    localStorage.removeItem(ACTIVE_LAPS_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function readStoredLaps(sessionId: string): { ref: number; comp: number } | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_LAPS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.sessionId === sessionId && Number.isFinite(parsed.ref) && Number.isFinite(parsed.comp)) {
+      return { ref: parsed.ref, comp: parsed.comp };
+    }
+  } catch {
+    /* ignore malformed storage */
+  }
+  return null;
+}
+
 /** Fastest valid lap as reference, paired with the next best lap or valid comparison lap. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (!session || session.laps.length === 0) return [1, 2];
@@ -152,17 +197,27 @@ export const App: React.FC = () => {
       }
       setSessions(sList);
 
-      const activeSession = sList[0];
+      const storedSessionId = readStoredSessionId();
+      const activeSession = sList.find((s) => s.session_id === storedSessionId) || sList[0];
       const activeSessionId = activeSession?.session_id || null;
       setSelectedSessionId(activeSessionId);
 
       const fullSess = activeSessionId ? await loadSessionDetail(activeSessionId) : null;
-      const [p1, p2] = pickDefaultLaps(fullSess);
-      setRefLapNumber(p1);
-      setCompLapNumber(p2);
+      const [defaultRef, defaultComp] = pickDefaultLaps(fullSess);
+      let refLap = defaultRef;
+      let compLap = defaultComp;
+      const storedLaps = activeSessionId ? readStoredLaps(activeSessionId) : null;
+      if (storedLaps && fullSess) {
+        const available = new Set(fullSess.laps.map((l) => l.lap_number));
+        if (available.has(storedLaps.ref)) refLap = storedLaps.ref;
+        if (available.has(storedLaps.comp)) compLap = storedLaps.comp;
+      }
+      setRefLapNumber(refLap);
+      setCompLapNumber(compLap);
+      storeActiveSelection(activeSessionId, refLap, compLap);
 
       // 4. Fetch telemetry comparison
-      await loadComparison(p1, p2, activeSessionId);
+      await loadComparison(refLap, compLap, activeSessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_init')));
     } finally {
@@ -183,6 +238,7 @@ export const App: React.FC = () => {
       const [p1, p2] = pickDefaultLaps(fullSess);
       setRefLapNumber(p1);
       setCompLapNumber(p2);
+      storeActiveSelection(sessionId, p1, p2);
       await loadComparison(p1, p2, sessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_switch_session')));
@@ -195,6 +251,7 @@ export const App: React.FC = () => {
     if (lapNumber === refLapNumber) return;
     try {
       setRefLapNumber(lapNumber);
+      storeActiveSelection(selectedSessionId, lapNumber, compLapNumber);
       await loadComparison(lapNumber, compLapNumber, selectedSessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_select_ref')));
@@ -205,6 +262,7 @@ export const App: React.FC = () => {
     if (lapNumber === compLapNumber) return;
     try {
       setCompLapNumber(lapNumber);
+      storeActiveSelection(selectedSessionId, refLapNumber, lapNumber);
       await loadComparison(refLapNumber, lapNumber, selectedSessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_select_comp')));
@@ -214,7 +272,8 @@ export const App: React.FC = () => {
   const handleLoadDemo = async () => {
     try {
       setLoadingDemo(true);
-      await generateDemoSession();
+      const demo = await generateDemoSession();
+      storePreferredSession(demo.session_id);
       await loadInitialData();
     } catch (err) {
       setError(errorMessage(err, translate('err_load_demo')));
