@@ -21,7 +21,9 @@ from pydantic import BaseModel
 from analysis.alignment import align_laps_by_distance
 from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
+from analysis.stint_analysis import analyze_session_stint
 from analysis.telemetry_generator import ensure_session_telemetry
+from analysis.tire_thermal import analyze_all_tyres
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor
 from coach.knowledge_base import knowledge_base
@@ -148,6 +150,10 @@ class CornerDTO(BaseModel):
     line_offset_entry_m: float | None = None
     line_offset_apex_m: float | None = None
     line_offset_exit_m: float | None = None
+    excess_steer_deg: float | None = None
+    steer_to_g: float | None = None
+    kerb_strike_detected: bool = False
+    damping_advice: str | None = None
 
 
 class ComparisonResponse(BaseModel):
@@ -381,6 +387,10 @@ def _corner_dto(c: CornerAnalysis) -> CornerDTO:
         line_offset_entry_m=c.line_offset_entry_m,
         line_offset_apex_m=c.line_offset_apex_m,
         line_offset_exit_m=c.line_offset_exit_m,
+        excess_steer_deg=c.excess_steer_deg,
+        steer_to_g=c.steer_to_g,
+        kerb_strike_detected=c.kerb_strike_detected,
+        damping_advice=c.damping_advice,
     )
 
 
@@ -548,18 +558,21 @@ def get_car_setup(session_id: str | None = Query(None)):
     car = matched_session.car or "Porsche 992 GT3 R"
     track = matched_session.track or "Valencia"
 
+    tyres_dict = {
+        "compound": "DHE Slick Dry",
+        "pressures_hot": {"FL": 26.8, "FR": 26.9, "RL": 26.7, "RR": 26.8},
+        "pressures_cold": {"FL": 24.5, "FR": 24.6, "RL": 24.2, "RR": 24.3},
+        "optimal_window": "26.5 - 27.0 psi",
+        "temps_c": {"FL": [78, 81, 85], "FR": [84, 82, 79], "RL": [79, 82, 84], "RR": [83, 81, 78]},
+    }
+    tyres_dict["thermal_diagnostics"] = analyze_all_tyres(tyres_dict)
+
     return CarSetupDTO(
         session_id=matched_session.session_id,
         car_name=car,
         track_name=track,
         game_name=detected_game,
-        tyres={
-            "compound": "DHE Slick Dry",
-            "pressures_hot": {"FL": 26.8, "FR": 26.9, "RL": 26.7, "RR": 26.8},
-            "pressures_cold": {"FL": 24.5, "FR": 24.6, "RL": 24.2, "RR": 24.3},
-            "optimal_window": "26.5 - 27.0 psi",
-            "temps_c": {"FL": [78, 81, 85], "FR": [84, 82, 79], "RL": [79, 82, 84], "RR": [83, 81, 78]},
-        },
+        tyres=tyres_dict,
         electronics={
             "tc1": 3,
             "tc2": 4,
@@ -601,6 +614,13 @@ def get_car_setup(session_id: str | None = Query(None)):
             },
         ],
     )
+
+
+@app.get("/api/stint-analysis")
+def get_stint_analysis(session_id: str | None = Query(None)):
+    matched_session = _load_session(session_id)
+    return analyze_session_stint(matched_session)
+
 
 
 @app.post("/api/coach/report", response_model=CoachReport)
@@ -706,6 +726,11 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
                 lines.append(labels[key].format(eval=c[field]))
         if c.get("racing_line_eval"):
             lines.append(labels["line"].format(eval=c["racing_line_eval"], advice=c.get("racing_line_advice", "")))
+        if c.get("excess_steer_deg"):
+            lines.append(f"- Exceso de volante medido (Ackermann): {c['excess_steer_deg']:.1f}° por encima del agarre pico (Ratio: {c.get('steer_to_g')} deg/G).")
+        if c.get("kerb_strike_detected"):
+            lines.append(f"- Dinámica de amortiguación sobre piano: {c.get('damping_advice') or 'Rebote brusco sobre piano.'}")
+
 
     if lang == "es":
         lines.append(

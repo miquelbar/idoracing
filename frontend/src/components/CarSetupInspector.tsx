@@ -80,6 +80,29 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
             {temps[0]}° / {temps[1]}° / {temps[2]}°C
           </span>
         </div>
+
+        {/* Dynamic Camber (I-O) and Crown (Pressure) Diagnostic */}
+        {setup.tyres.thermal_diagnostics?.[cornerKey] && (
+          <div className="mt-2 pt-2 border-t border-white/5 space-y-1 text-[10px] font-telemetry">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400">Δ Caída (I-O):</span>
+              <span
+                className={`font-mono font-bold ${
+                  setup.tyres.thermal_diagnostics[cornerKey].camber_status === 'optimal'
+                    ? 'text-emerald-400'
+                    : 'text-amber-400'
+                }`}
+              >
+                {setup.tyres.thermal_diagnostics[cornerKey].delta_camber > 0
+                  ? `+${setup.tyres.thermal_diagnostics[cornerKey].delta_camber}`
+                  : setup.tyres.thermal_diagnostics[cornerKey].delta_camber}°C
+              </span>
+            </div>
+            <p className="text-[9px] text-gray-400 leading-tight">
+              {setup.tyres.thermal_diagnostics[cornerKey].camber_advice}
+            </p>
+          </div>
+        )}
       </div>
     );
   };

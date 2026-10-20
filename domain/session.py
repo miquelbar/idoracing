@@ -117,6 +117,18 @@ class CornerAnalysis(BaseModel):
     line_offset_exit_m: float | None = Field(
         default=None, description="Metres wider (+) or tighter (-) than the reference at exit"
     )
+    excess_steer_deg: float | None = Field(
+        default=None, description="Excess steering angle in degrees beyond peak lateral grip"
+    )
+    steer_to_g: float | None = Field(
+        default=None, description="Ackermann steer angle vs lateral acceleration ratio (deg/G)"
+    )
+    kerb_strike_detected: bool = Field(
+        default=False, description="Whether a high-frequency kerb strike impact was detected"
+    )
+    damping_advice: str | None = Field(
+        default=None, description="Fast vs slow damping recommendations"
+    )
 
 
 class LapComparison(BaseModel):

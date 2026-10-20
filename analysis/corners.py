@@ -51,6 +51,10 @@ class CornerSignals:
     comp_pre_apex_brake: float
     understeer: bool
     line_offsets: tuple[float, float, float] | None
+    excess_steer_deg: float | None = None
+    steer_to_g: float | None = None
+    kerb_strike_detected: bool = False
+    damping_advice: str | None = None
 
     @property
     def delta_entry(self) -> float:
@@ -143,6 +147,30 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
     delta_vmin = float(np.min(comp_sp)) - float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0
     pre_apex = comp_br[max(0, comp_apex_idx - 10) : comp_apex_idx]
 
+    # Ackermann Steer-to-G ratio & excess steering angle (MoTeC analysis)
+    ref_st, comp_st = _channel(aligned, "ref_steer_angle", mask), _channel(aligned, "comp_steer_angle", mask)
+    ref_lat, comp_lat = _channel(aligned, "ref_lat_accel", mask), _channel(aligned, "comp_lat_accel", mask)
+
+    excess_steer_deg: float | None = None
+    steer_to_g: float | None = None
+    if len(comp_st) > 0 and len(ref_st) > 0:
+        max_c_st = float(np.max(np.abs(comp_st)))
+        max_r_st = float(np.max(np.abs(ref_st)))
+        max_c_lat = float(np.max(np.abs(comp_lat))) if len(comp_lat) > 0 else 1.0
+        if max_c_lat > 0.1:
+            steer_to_g = round(max_c_st / max_c_lat, 1)
+        if max_c_st > max_r_st * 1.06:
+            excess_steer_deg = round(max_c_st - max_r_st, 1)
+
+    # Detect kerb strike & high-frequency shock impact
+    kerb_strike = False
+    damping_advice = None
+    if len(comp_lat) > 4:
+        jerk = np.diff(comp_lat, n=2)
+        if np.any(np.abs(jerk) > 0.85):
+            kerb_strike = True
+            damping_advice = "Impacto brusco sobre piano: si la zaga rebota, ablanda 1 clic Fast Bump para absorber el bordillo sin perder tracción."
+
     return CornerSignals(
         sub_dist=sub_dist,
         ref_entry_speed=float(ref_sp[0]) if len(ref_sp) > 0 else 0.0,
@@ -172,6 +200,10 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
             if has_recorded_position(aligned)
             else None
         ),
+        excess_steer_deg=excess_steer_deg,
+        steer_to_g=steer_to_g,
+        kerb_strike_detected=kerb_strike,
+        damping_advice=damping_advice,
     )
 
 
@@ -324,6 +356,10 @@ def _diagnosis(s: CornerSignals) -> str:
     if s.line_offsets is not None and abs(s.line_offsets[1]) >= LINE_OFFSET_NOTE_M:
         side = "más abierto" if s.line_offsets[1] > 0 else "más cerrado"
         parts.append(f"Ápice {abs(s.line_offsets[1]):.1f}m {side} que la referencia.")
+    if s.excess_steer_deg is not None and s.excess_steer_deg > 3.0:
+        parts.append(f"Subviraje por sobreconducción: {s.excess_steer_deg:.0f}° de volante en exceso.")
+    if s.kerb_strike_detected:
+        parts.append("Rebote pronunciado sobre piano.")
 
     if abs(s.time_delta) < 0.04:
         timing = f"Paso consistente (delta {s.time_delta:+.3f}s)."
@@ -459,6 +495,10 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
         line_offset_entry_m=s.line_offsets[0] if s.line_offsets else None,
         line_offset_apex_m=s.line_offsets[1] if s.line_offsets else None,
         line_offset_exit_m=s.line_offsets[2] if s.line_offsets else None,
+        excess_steer_deg=s.excess_steer_deg,
+        steer_to_g=s.steer_to_g,
+        kerb_strike_detected=s.kerb_strike_detected,
+        damping_advice=s.damping_advice,
     )
 
 

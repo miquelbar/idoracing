@@ -177,6 +177,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                       ✓ {t('optimal_line_badge')}
                     </span>
                   )}
+                  {selectedCorner.excess_steer_deg && selectedCorner.excess_steer_deg > 3 && (
+                    <span className="block text-[9px] text-rose-400 font-mono mt-0.5 font-normal">
+                      +{selectedCorner.excess_steer_deg.toFixed(0)}° exceso ({selectedCorner.steer_to_g} deg/G)
+                    </span>
+                  )}
                 </td>
               </tr>
 
@@ -291,6 +296,13 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
               <span>{actionPlan.exit}</span>
             </div>
           </div>
+
+          {selectedCorner.damping_advice && (
+            <div className="p-1.5 rounded bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-200 font-telemetry flex items-start gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1" />
+              <span>{selectedCorner.damping_advice}</span>
+            </div>
+          )}
 
           {/* Botones de Acción Contextuales */}
           <div className="pt-1 flex items-center justify-between gap-2">

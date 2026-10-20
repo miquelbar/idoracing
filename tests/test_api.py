@@ -164,12 +164,23 @@ def test_car_setup_endpoint_returns_valid_data(client):
     assert "track_name" in data
     assert "tyres" in data
     assert "pressures_hot" in data["tyres"]
+    assert "thermal_diagnostics" in data["tyres"]
     assert "electronics" in data
     assert "brake_bias" in data["electronics"]
     assert "aero" in data
     assert "chassis" in data
     assert "setup_advice" in data
     assert len(data["setup_advice"]) > 0
+
+
+def test_stint_analysis_endpoint(client):
+    res = client.get("/api/stint-analysis")
+    assert res.status_code == 200
+    data = res.json()
+    assert "pace_trend_s_per_lap" in data
+    assert "degradation_type" in data
+    assert "pit_wall_strategy" in data
+
 
 
 

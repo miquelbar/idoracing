@@ -71,6 +71,10 @@ export interface CornerDTO {
   line_offset_entry_m?: number | null;
   line_offset_apex_m?: number | null;
   line_offset_exit_m?: number | null;
+  excess_steer_deg?: number | null;
+  steer_to_g?: number | null;
+  kerb_strike_detected?: boolean;
+  damping_advice?: string | null;
   racing_line_advice?: string;
   racing_line_svg?: {
     corner_number: number;
@@ -232,6 +236,38 @@ export interface SetupAdviceItem {
   impact: string;
 }
 
+export interface TyreThermalCorner {
+  corner: string;
+  hot_psi: number;
+  cold_psi: number;
+  temps_imo: number[];
+  delta_camber: number;
+  delta_crown: number;
+  camber_status: string;
+  camber_advice: string;
+  pressure_status: string;
+  pressure_advice: string;
+  health: 'ok' | 'warning';
+}
+
+export interface StintAnalysisData {
+  session_id: string;
+  track_name: string;
+  car_name: string;
+  valid_laps: number;
+  best_lap_s: number;
+  avg_lap_s: number;
+  std_dev_s: number;
+  pace_trend_s_per_lap: number;
+  consistency_rating: string;
+  fuel_burned_litres: number;
+  degradation_type: string;
+  degradation_diagnosis: string;
+  pit_wall_strategy: string;
+  lap_numbers: number[];
+  lap_times: number[];
+}
+
 export interface CarSetupData {
   session_id: string;
   car_name: string;
@@ -243,6 +279,7 @@ export interface CarSetupData {
     pressures_cold: { FL: number; FR: number; RL: number; RR: number };
     optimal_window: string;
     temps_c: { FL: number[]; FR: number[]; RL: number[]; RR: number[] };
+    thermal_diagnostics?: Record<string, TyreThermalCorner>;
   };
   electronics: {
     tc1: number;
