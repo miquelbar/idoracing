@@ -156,6 +156,23 @@ def test_setup_endpoint_is_gone(client):
     assert client.get("/api/setup").status_code in (404, 405)
 
 
+def test_car_setup_endpoint_returns_valid_data(client):
+    res = client.get("/api/car-setup")
+    assert res.status_code == 200
+    data = res.json()
+    assert "car_name" in data
+    assert "track_name" in data
+    assert "tyres" in data
+    assert "pressures_hot" in data["tyres"]
+    assert "electronics" in data
+    assert "brake_bias" in data["electronics"]
+    assert "aero" in data
+    assert "chassis" in data
+    assert "setup_advice" in data
+    assert len(data["setup_advice"]) > 0
+
+
+
 def test_coach_report_on_lap_times_only_session_has_low_confidence(client):
     res = client.post("/api/import/upload", files={"file": ("lmu_coach.xml", LMU_RESULTS.encode(), "text/xml")})
     session_id = res.json()["session_id"]

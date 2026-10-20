@@ -25,8 +25,9 @@ import { translate } from './i18n';
 import { EngineerView } from './views/EngineerView';
 import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
-import { SetupHistoryView } from './views/SetupHistoryView';
+import { CarSetupView } from './views/CarSetupView';
 import { TelemetryView } from './views/TelemetryView';
+import { CarSetupModal } from './components/CarSetupModal';
 
 /** Fastest valid lap as reference, paired with the next best lap or valid comparison lap. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
@@ -76,6 +77,7 @@ export const App: React.FC = () => {
   const [coachReport, setCoachReport] = useState<CoachReport | null>(null);
   const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
+  const [isCarSetupModalOpen, setIsCarSetupModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -285,6 +287,7 @@ export const App: React.FC = () => {
         refLapNumber={refLapNumber}
         compLapNumber={compLapNumber}
         onNavigateToSessions={() => handleNavigateTab('sessions')}
+        onOpenCarSetup={() => setIsCarSetupModalOpen(true)}
         onOpenDebrief={() => {
           setIsDebriefOpen(true);
           if (currentTab !== 'telemetry') {
@@ -373,7 +376,7 @@ export const App: React.FC = () => {
             )}
 
             {currentTab === 'setup' && (
-              <SetupHistoryView
+              <CarSetupView
                 selectedSessionId={selectedSessionId}
                 trackName={activeTrack}
                 carName={activeCar}
@@ -423,6 +426,13 @@ export const App: React.FC = () => {
           </div>
         </footer>
       )}
+
+      {/* Global Car Setup Inspector Modal (Opened by clicking car badge or telemetry car pill) */}
+      <CarSetupModal
+        isOpen={isCarSetupModalOpen}
+        onClose={() => setIsCarSetupModalOpen(false)}
+        sessionId={selectedSessionId}
+      />
     </div>
   );
 };

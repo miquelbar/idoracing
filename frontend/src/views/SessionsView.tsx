@@ -391,20 +391,83 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     </button>
                   </div>
 
-                  {/* Lap Pair Indicator */}
-                  <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center gap-4 text-xs font-telemetry">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-brand" />
-                      <span className="text-gray-300">
-                        {t('ref_lap_header')}: <strong>{t('lap_word')} {refLapNumber}</strong>
-                      </span>
+                  {/* Lap Pair Indicator & Delta Overview */}
+                  <div className="mt-4 pt-3 border-t border-white/5 space-y-2 text-xs font-telemetry">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-brand" />
+                          <span className="text-gray-300">
+                            {t('ref_lap_header')}: <strong>{t('lap_word')} {refLapNumber}</strong> ({formatLapTime(comparison?.ref_lap_time)})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-comp" />
+                          <span className="text-gray-300">
+                            {t('comp_lap_header')}: <strong>{t('lap_word')} {compLapNumber}</strong> ({formatLapTime(comparison?.comp_lap_time)})
+                          </span>
+                        </div>
+                      </div>
+
+                      {comparison && comparison.delta_time_total !== undefined && (
+                        <span
+                          className={`font-black px-2 py-0.5 rounded text-xs ${
+                            comparison.delta_time_total > 0
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}
+                        >
+                          Δ {comparison.delta_time_total > 0 ? '+' : ''}{comparison.delta_time_total.toFixed(3)}s
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-comp" />
-                      <span className="text-gray-300">
-                        {t('comp_lap_header')}: <strong>{t('lap_word')} {compLapNumber}</strong>
-                      </span>
-                    </div>
+
+                    {/* Sector Deltas if available */}
+                    {comparison?.comp_sectors?.['S1'] && comparison?.ref_sectors?.['S1'] && (
+                      <div className="flex items-center gap-3 text-[11px] text-gray-400 pt-1">
+                        <span>
+                          Δ S1:{' '}
+                          <strong
+                            className={
+                              (comparison.comp_sectors['S1'] - comparison.ref_sectors['S1']) > 0
+                                ? 'text-rose-400'
+                                : 'text-emerald-400'
+                            }
+                          >
+                            {(comparison.comp_sectors['S1'] - comparison.ref_sectors['S1']) > 0 ? '+' : ''}
+                            {(comparison.comp_sectors['S1'] - comparison.ref_sectors['S1']).toFixed(3)}s
+                          </strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Δ S2:{' '}
+                          <strong
+                            className={
+                              (comparison.comp_sectors['S2'] - comparison.ref_sectors['S2']) > 0
+                                ? 'text-rose-400'
+                                : 'text-emerald-400'
+                            }
+                          >
+                            {(comparison.comp_sectors['S2'] - comparison.ref_sectors['S2']) > 0 ? '+' : ''}
+                            {(comparison.comp_sectors['S2'] - comparison.ref_sectors['S2']).toFixed(3)}s
+                          </strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Δ S3:{' '}
+                          <strong
+                            className={
+                              (comparison.comp_sectors['S3'] - comparison.ref_sectors['S3']) > 0
+                                ? 'text-rose-400'
+                                : 'text-emerald-400'
+                            }
+                          >
+                            {(comparison.comp_sectors['S3'] - comparison.ref_sectors['S3']) > 0 ? '+' : ''}
+                            {(comparison.comp_sectors['S3'] - comparison.ref_sectors['S3']).toFixed(3)}s
+                          </strong>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

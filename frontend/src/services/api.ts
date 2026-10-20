@@ -1,5 +1,6 @@
 import type {
   AutoDiscoverData,
+  CarSetupData,
   ChatMessage,
   ChatReply,
   CoachReport,
@@ -158,3 +159,13 @@ export async function fetchLapHistory(sessionId?: string, compLapNumber?: number
   if (!res.ok) await failure(res, 'Failed to fetch lap history');
   return res.json();
 }
+
+export async function fetchCarSetup(sessionId?: string): Promise<CarSetupData> {
+  const params = new URLSearchParams();
+  if (sessionId) params.append('session_id', sessionId);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API_BASE}/car-setup${query}`);
+  if (!res.ok) await failure(res, 'Failed to fetch car setup');
+  return res.json();
+}
+

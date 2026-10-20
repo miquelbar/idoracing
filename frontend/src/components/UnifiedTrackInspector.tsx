@@ -79,8 +79,13 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
             setCornerViewMode={setCornerViewMode}
             onAskEngineerAboutCorner={onAskEngineerAboutCorner}
           />
-        ) : selectedCorner && selectedCorner.racing_line_svg ? (
-          <CornerDiagram selectedCorner={selectedCorner} staticTrack={staticTrack} onSelectCorner={onSelectCorner} />
+        ) : selectedCorner ? (
+          <CornerDiagram
+            selectedCorner={selectedCorner}
+            staticTrack={staticTrack}
+            comparison={comparison}
+            onSelectCorner={onSelectCorner}
+          />
         ) : staticTrack ? (
           <TrackOverview
             comparison={comparison}

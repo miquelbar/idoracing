@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, ChevronRight } from 'lucide-react';
+import { Bot, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import type { ComparisonResponse } from '../types/telemetry';
 import { formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage } from '../i18n';
@@ -16,6 +16,7 @@ interface TelemetryHeaderBarProps {
   onNavigateToSessions: () => void;
   onOpenDebrief?: () => void;
   reportAvailable?: boolean;
+  onOpenCarSetup?: () => void;
 }
 
 function formatDelta(seconds: number): string {
@@ -36,6 +37,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   onNavigateToSessions,
   onOpenDebrief,
   reportAvailable = false,
+  onOpenCarSetup,
 }) => {
   const { t } = useLanguage();
   const badge = simBadge(gameName);
@@ -70,9 +72,20 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
             {trackName}
           </span>
           <span className="text-gray-500 hidden md:inline">·</span>
-          <span className="text-brand font-bold text-xs truncate hidden md:inline">
-            {carName}
-          </span>
+          {onOpenCarSetup ? (
+            <button
+              onClick={onOpenCarSetup}
+              title={t('open_setup_modal')}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand font-bold text-xs truncate transition cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3 h-3 text-brand shrink-0" />
+              <span className="truncate">{carName}</span>
+            </button>
+          ) : (
+            <span className="text-brand font-bold text-xs truncate hidden md:inline">
+              {carName}
+            </span>
+          )}
         </div>
 
         {/* Lap Count Pill */}

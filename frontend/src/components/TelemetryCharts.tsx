@@ -84,6 +84,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   const hGear = totalHeight - hSpeed - hDelta - hPedals;
   const padLeft = 48;
   const padRight = 20;
+  const laneHeaderH = 26;
+  const lanePadBottom = 8;
 
   const chartWidth = Math.max(10, width - padLeft - padRight);
 
@@ -168,7 +170,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
     const toYSpeed = (s: number) => {
       const clamped = Math.max(minSpeedVal, Math.min(maxSpeedVal, s));
-      return hSpeed - 14 - ((clamped - minSpeedVal) / speedSpan) * (hSpeed - 28);
+      const usableH = Math.max(10, hSpeed - laneHeaderH - lanePadBottom);
+      return hSpeed - lanePadBottom - ((clamped - minSpeedVal) / speedSpan) * usableH;
     };
 
     // 2. Dynamic Delta Range
@@ -177,20 +180,24 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     const maxDeltaVal = Math.ceil(maxDeltaObserved * 10) / 10;
     const toYDelta = (dt: number) => {
       const clamped = Math.max(-maxDeltaVal, Math.min(maxDeltaVal, dt));
-      return (hDelta / 2) - (clamped / maxDeltaVal) * ((hDelta - 16) / 2);
+      const usableHalfH = Math.max(5, (hDelta - laneHeaderH - lanePadBottom) / 2);
+      const centerY = laneHeaderH + usableHalfH;
+      return centerY - (clamped / maxDeltaVal) * usableHalfH;
     };
 
     // 3. Pedals (0 to 100%)
     const toPct = (val: number) => (val <= 1.05 ? val * 100 : val);
     const toYPedal = (val: number) => {
       const pct = Math.max(0, Math.min(100, toPct(val)));
-      return hPedals - 14 - (pct / 100) * (hPedals - 28);
+      const usableH = Math.max(10, hPedals - laneHeaderH - lanePadBottom);
+      return hPedals - lanePadBottom - (pct / 100) * usableH;
     };
 
     // 4. Gear (1 to 7)
     const toYGear = (g: number) => {
       const clamped = Math.max(1, Math.min(7, g));
-      return hGear - 14 - ((clamped - 1) / 6) * (hGear - 28);
+      const usableH = Math.max(10, hGear - laneHeaderH - lanePadBottom);
+      return hGear - lanePadBottom - ((clamped - 1) / 6) * usableH;
     };
 
     let spR = '';
@@ -410,30 +417,71 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
       {/* SVG Stack Chart Canvas */}
       <div className="relative flex-1 bg-night-2/60 rounded-lg border border-white/5 overflow-hidden" ref={chartWrapperRef}>
-        {/* Floating Channel Badges */}
+        {/* Floating Channel Header Bars */}
         <div
-          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
-          style={{ top: 8, left: padLeft + 12 }}
+          className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
+          style={{ top: 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          {t('speed_ch')}
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+            {t('speed_ch')}
+          </span>
+          {hoverData && (
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
+              P1: <strong className="text-brand">{Math.round(hoverData.refSpeed)}</strong> / P2: <strong className="text-comp">{Math.round(hoverData.compSpeed)}</strong>{' '}
+              <span className={hoverData.deltaSpeed >= 0 ? 'text-gain' : 'text-loss'}>
+                ({hoverData.deltaSpeed >= 0 ? '+' : ''}{Math.round(hoverData.deltaSpeed)} km/h)
+              </span>
+            </span>
+          )}
         </div>
+
         <div
-          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
-          style={{ top: hSpeed + 8, left: padLeft + 12 }}
+          className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
+          style={{ top: hSpeed + 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          {t('delta_ch')}
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+            {t('delta_ch')}
+          </span>
+          {hoverData && (
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
+              Δt:{' '}
+              <strong className={hoverData.deltaTime > 0 ? 'text-loss' : 'text-gain'}>
+                {hoverData.deltaTime > 0 ? '+' : ''}{hoverData.deltaTime.toFixed(3)}s
+              </strong>
+            </span>
+          )}
         </div>
+
         <div
-          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
-          style={{ top: hSpeed + hDelta + 8, left: padLeft + 12 }}
+          className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
+          style={{ top: hSpeed + hDelta + 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          {t('pedals_ch')}
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+            {t('pedals_ch')}
+          </span>
+          {hoverData && (
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
+              Gas: <strong className="text-gain">{Math.round(hoverData.compThr)}%</strong>{' '}
+              <span className="text-gray-500">(Ref: {Math.round(hoverData.refThr)}%)</span> • Freno:{' '}
+              <strong className="text-loss">{Math.round(hoverData.compBrk)}%</strong>{' '}
+              <span className="text-gray-500">(Ref: {Math.round(hoverData.refBrk)}%)</span>
+            </span>
+          )}
         </div>
+
         <div
-          className="absolute z-10 pointer-events-none px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase text-gray-300 bg-[#121824]/90 border border-white/10 backdrop-blur-sm shadow-sm select-none"
-          style={{ top: hSpeed + hDelta + hPedals + 8, left: padLeft + 12 }}
+          className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
+          style={{ top: hSpeed + hDelta + hPedals + 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          {t('gear_ch')}
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
+            {t('gear_ch')}
+          </span>
+          {hoverData && (
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
+              Marcha: <strong className="text-white">{hoverData.compGear}ª</strong>{' '}
+              <span className="text-gray-500">(Ref: {hoverData.refGear}ª)</span>
+            </span>
+          )}
         </div>
 
         <svg
@@ -480,13 +528,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
           {/* Speed */}
           <g transform="translate(0, 0)">
-            <rect x={padLeft} y={0} width={chartWidth} height={hSpeed} fill="rgba(0,0,0,0.2)" />
+            <rect x={padLeft} y={0} width={chartWidth} height={laneHeaderH} fill="rgba(14,19,30,0.85)" />
+            <line x1={padLeft} y1={laneHeaderH} x2={width - padRight} y2={laneHeaderH} stroke="rgba(255,255,255,0.08)" />
+            <rect x={padLeft} y={laneHeaderH} width={chartWidth} height={hSpeed - laneHeaderH} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hSpeed} x2={width - padRight} y2={hSpeed} stroke="rgba(255,255,255,0.1)" />
 
             {/* Y-Axis Labels for Speed */}
-            <text x={padLeft - 6} y={16} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{maxSpeed}</text>
-            <text x={padLeft - 6} y={hSpeed / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
-            <text x={padLeft - 6} y={hSpeed - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
+            <text x={padLeft - 6} y={laneHeaderH + 8} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{maxSpeed}</text>
+            <text x={padLeft - 6} y={(laneHeaderH + hSpeed - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
+            <text x={padLeft - 6} y={hSpeed - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
             <path d={speedRefPath} fill="none" stroke={COLORS.brand} strokeWidth="2" strokeOpacity="0.85" />
             <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.5" />
@@ -494,14 +544,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
           {/* Cumulative time delta */}
           <g transform={`translate(0, ${hSpeed})`}>
-            <rect x={padLeft} y={0} width={chartWidth} height={hDelta} fill="rgba(0,0,0,0.3)" />
-            <line x1={padLeft} y1={hDelta / 2} x2={width - padRight} y2={hDelta / 2} stroke="rgba(255,255,255,0.2)" strokeDasharray="2,2" />
+            <rect x={padLeft} y={0} width={chartWidth} height={laneHeaderH} fill="rgba(14,19,30,0.85)" />
+            <line x1={padLeft} y1={laneHeaderH} x2={width - padRight} y2={laneHeaderH} stroke="rgba(255,255,255,0.08)" />
+            <rect x={padLeft} y={laneHeaderH} width={chartWidth} height={hDelta - laneHeaderH} fill="rgba(0,0,0,0.3)" />
+            <line x1={padLeft} y1={(laneHeaderH + hDelta - lanePadBottom) / 2} x2={width - padRight} y2={(laneHeaderH + hDelta - lanePadBottom) / 2} stroke="rgba(255,255,255,0.2)" strokeDasharray="2,2" />
             <line x1={padLeft} y1={hDelta} x2={width - padRight} y2={hDelta} stroke="rgba(255,255,255,0.1)" />
 
             {/* Y-Axis Labels for Delta */}
-            <text x={padLeft - 6} y={14} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
-            <text x={padLeft - 6} y={hDelta / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
-            <text x={padLeft - 6} y={hDelta - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
+            <text x={padLeft - 6} y={laneHeaderH + 8} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">+{maxDelta.toFixed(1)}s</text>
+            <text x={padLeft - 6} y={(laneHeaderH + hDelta - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0.0s</text>
+            <text x={padLeft - 6} y={hDelta - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">-{maxDelta.toFixed(1)}s</text>
 
             {/* Delta Area Fill */}
             <path d={deltaFillPath} fill="url(#delta-gradient)" />
@@ -511,14 +563,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
           {/* Throttle and brake, with the trail-braking overlap */}
           <g transform={`translate(0, ${hSpeed + hDelta})`}>
-            <rect x={padLeft} y={0} width={chartWidth} height={hPedals} fill="rgba(0,0,0,0.2)" />
+            <rect x={padLeft} y={0} width={chartWidth} height={laneHeaderH} fill="rgba(14,19,30,0.85)" />
+            <line x1={padLeft} y1={laneHeaderH} x2={width - padRight} y2={laneHeaderH} stroke="rgba(255,255,255,0.08)" />
+            <rect x={padLeft} y={laneHeaderH} width={chartWidth} height={hPedals - laneHeaderH} fill="rgba(0,0,0,0.2)" />
             <line x1={padLeft} y1={hPedals} x2={width - padRight} y2={hPedals} stroke="rgba(255,255,255,0.1)" />
-            <line x1={padLeft} y1={hPedals / 2} x2={width - padRight} y2={hPedals / 2} stroke="rgba(255,255,255,0.06)" strokeDasharray="2,2" />
+            <line x1={padLeft} y1={(laneHeaderH + hPedals - lanePadBottom) / 2} x2={width - padRight} y2={(laneHeaderH + hPedals - lanePadBottom) / 2} stroke="rgba(255,255,255,0.06)" strokeDasharray="2,2" />
 
             {/* Y-Axis Labels */}
-            <text x={padLeft - 6} y={15} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">100%</text>
-            <text x={padLeft - 6} y={hPedals / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
-            <text x={padLeft - 6} y={hPedals - 5} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
+            <text x={padLeft - 6} y={laneHeaderH + 8} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">100%</text>
+            <text x={padLeft - 6} y={(laneHeaderH + hPedals - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
+            <text x={padLeft - 6} y={hPedals - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
 
             {/* Brake translucent fill under comp braking curve */}
             <path d={brkCompFillPath} fill="rgba(255, 24, 1, 0.18)" />
@@ -534,12 +588,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
           {/* Gear */}
           <g transform={`translate(0, ${hSpeed + hDelta + hPedals})`}>
-            <rect x={padLeft} y={0} width={chartWidth} height={hGear} fill="rgba(0,0,0,0.3)" />
+            <rect x={padLeft} y={0} width={chartWidth} height={laneHeaderH} fill="rgba(14,19,30,0.85)" />
+            <line x1={padLeft} y1={laneHeaderH} x2={width - padRight} y2={laneHeaderH} stroke="rgba(255,255,255,0.08)" />
+            <rect x={padLeft} y={laneHeaderH} width={chartWidth} height={hGear - laneHeaderH} fill="rgba(0,0,0,0.3)" />
 
             {/* Y-Axis Labels for Gear */}
-            <text x={padLeft - 6} y={16} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
-            <text x={padLeft - 6} y={hGear / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
-            <text x={padLeft - 6} y={hGear - 6} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
+            <text x={padLeft - 6} y={laneHeaderH + 8} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">7</text>
+            <text x={padLeft - 6} y={(laneHeaderH + hGear - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
+            <text x={padLeft - 6} y={hGear - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
 
             <path d={gearRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
             <path d={gearCompPath} fill="none" stroke="#E2E8F0" strokeWidth="2" />

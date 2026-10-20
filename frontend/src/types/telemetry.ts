@@ -111,6 +111,10 @@ export interface ComparisonResponse {
   comp_gear: number[];
   track_x: number[];
   track_y: number[];
+  ref_x?: number[];
+  ref_y?: number[];
+  comp_x?: number[];
+  comp_y?: number[];
   ref_sectors: Record<string, number>;
   comp_sectors: Record<string, number>;
   corners: CornerDTO[];
@@ -221,4 +225,49 @@ export interface LapHistoryData {
   delta_s3: number;
   delta_total: number;
 }
+
+export interface SetupAdviceItem {
+  title: string;
+  suggestion: string;
+  impact: string;
+}
+
+export interface CarSetupData {
+  session_id: string;
+  car_name: string;
+  track_name: string;
+  game_name?: string | null;
+  tyres: {
+    compound: string;
+    pressures_hot: { FL: number; FR: number; RL: number; RR: number };
+    pressures_cold: { FL: number; FR: number; RL: number; RR: number };
+    optimal_window: string;
+    temps_c: { FL: number[]; FR: number[]; RL: number[]; RR: number[] };
+  };
+  electronics: {
+    tc1: number;
+    tc2?: number;
+    abs: number;
+    brake_bias: number;
+    ecu_map: number;
+  };
+  aero: {
+    front_splitter: number;
+    rear_wing: number;
+    ride_height_front_mm: number;
+    ride_height_rear_mm: number;
+    rake_mm: number;
+  };
+  chassis: {
+    arb_front: number;
+    arb_rear: number;
+    camber_front_deg: number;
+    camber_rear_deg: number;
+    toe_front_deg: number;
+    toe_rear_deg: number;
+    preload_diff_nm: number;
+  };
+  setup_advice: SetupAdviceItem[];
+}
+
 

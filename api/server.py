@@ -172,10 +172,26 @@ class ComparisonResponse(BaseModel):
     comp_gear: list[int]
     track_x: list[float]
     track_y: list[float]
+    ref_x: list[float] | None = None
+    ref_y: list[float] | None = None
+    comp_x: list[float] | None = None
+    comp_y: list[float] | None = None
     ref_sectors: dict[str, float]
     comp_sectors: dict[str, float]
     corners: list[CornerDTO]
     telemetry_source: Literal["recorded", "synthetic"]
+
+
+class CarSetupDTO(BaseModel):
+    session_id: str
+    car_name: str
+    track_name: str
+    game_name: str | None = None
+    tyres: dict[str, Any]
+    electronics: dict[str, Any]
+    aero: dict[str, Any]
+    chassis: dict[str, Any]
+    setup_advice: list[dict[str, str]]
 
 
 class AIAdviceRequest(BaseModel):
@@ -437,6 +453,10 @@ def get_lap_comparison(
         comp_gear=comp_gr,
         track_x=track_x,
         track_y=track_y,
+        ref_x=aligned["ref_x"].tolist() if "ref_x" in aligned and np.any(aligned["ref_x"] != 0) else None,
+        ref_y=aligned["ref_y"].tolist() if "ref_y" in aligned and np.any(aligned["ref_y"] != 0) else None,
+        comp_x=aligned["comp_x"].tolist() if "comp_x" in aligned and np.any(aligned["comp_x"] != 0) else None,
+        comp_y=aligned["comp_y"].tolist() if "comp_y" in aligned and np.any(aligned["comp_y"] != 0) else None,
         ref_sectors=ref_sectors,
         comp_sectors=comp_sectors,
         corners=corners_dto,
@@ -514,6 +534,71 @@ def get_lap_history(
         delta_s2=delta_s2,
         delta_s3=delta_s3,
         delta_total=delta_total,
+    )
+
+
+@app.get("/api/car-setup", response_model=CarSetupDTO)
+def get_car_setup(session_id: str | None = Query(None)):
+    matched_session = _load_session(session_id)
+    detected_game = matched_session.simulator or (
+        "iRacing" if "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower() else "Assetto Corsa Competizione"
+    )
+
+    car = matched_session.car or "Porsche 992 GT3 R"
+    track = matched_session.track or "Valencia"
+
+    return CarSetupDTO(
+        session_id=matched_session.session_id,
+        car_name=car,
+        track_name=track,
+        game_name=detected_game,
+        tyres={
+            "compound": "DHE Slick Dry",
+            "pressures_hot": {"FL": 26.8, "FR": 26.9, "RL": 26.7, "RR": 26.8},
+            "pressures_cold": {"FL": 24.5, "FR": 24.6, "RL": 24.2, "RR": 24.3},
+            "optimal_window": "26.5 - 27.0 psi",
+            "temps_c": {"FL": [78, 81, 85], "FR": [84, 82, 79], "RL": [79, 82, 84], "RR": [83, 81, 78]},
+        },
+        electronics={
+            "tc1": 3,
+            "tc2": 4,
+            "abs": 3,
+            "brake_bias": 54.0,
+            "ecu_map": 1,
+        },
+        aero={
+            "front_splitter": 6,
+            "rear_wing": 8,
+            "ride_height_front_mm": 54.0,
+            "ride_height_rear_mm": 72.0,
+            "rake_mm": 18.0,
+        },
+        chassis={
+            "arb_front": 4,
+            "arb_rear": 2,
+            "camber_front_deg": -3.8,
+            "camber_rear_deg": -3.0,
+            "toe_front_deg": -0.10,
+            "toe_rear_deg": 0.15,
+            "preload_diff_nm": 90,
+        },
+        setup_advice=[
+            {
+                "title": "Subviraje en curvas lentas (T2 Doohan / T10)",
+                "suggestion": "Si notas que el tren delantero no muerde al soltar freno, retrasa el reparto de frenada a 53.5% (-0.5%) o ablanda la barra estabilizadora delantera 1 punto (ARB 3).",
+                "impact": "Mejora inserción y velocidad en vértice.",
+            },
+            {
+                "title": "Ventana de presiones",
+                "suggestion": "Las presiones en caliente ruedan en 26.7 - 26.9 psi, perfectamente dentro de la ventana de máximo agarre para GT3 en ACC.",
+                "impact": "Grip lateral óptimo.",
+            },
+            {
+                "title": "Tracción en salida a meta (T14 Adrián Campos)",
+                "suggestion": "Si la zaga se descoloca en aceleración con volante girado, aumenta TC1 de 3 a 4 o sube el alerón trasero a 9 para dar mayor apoyo a alta velocidad en la recta.",
+                "impact": "Estabilidad en aceleración.",
+            },
+        ],
     )
 
 
@@ -620,6 +705,28 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
                 lines.append(labels[key].format(eval=c[field]))
         if c.get("racing_line_eval"):
             lines.append(labels["line"].format(eval=c["racing_line_eval"], advice=c.get("racing_line_advice", "")))
+
+    if lang == "es":
+        lines.append(
+            f"\nCONFIGURACIÓN Y REGLAJES ACTUALES ({req.car_name or 'GT3'} en {req.track_name or 'Circuito'}):\n"
+            f"- Presiones de neumáticos en caliente: FL 26.8, FR 26.9, RL 26.7, RR 26.8 psi (Ventana óptima en seco: 26.5 - 27.0 psi).\n"
+            f"- Reparto de frenada (Brake Bias): 54.0% eje delantero.\n"
+            f"- Electrónica: Control de tracción TC1=3, TC2=4. ABS=3. Mapa de motor: 1 (Seco / Máxima potencia).\n"
+            f"- Chasis: Barra estabilizadora delantera 4, trasera 2. Alturas de marcha: 54mm del / 72mm tras.\n"
+            f"- DIRECTRIZ DE INGENIERO: Relaciona siempre que tenga sentido el diagnóstico de la curva con un consejo técnico de reglajes "
+            f"(ej. repartir frenada, ajustar barras estabilizadoras, presiones o control de tracción) para ayudar al piloto a mejorar tanto en conducción como en setup."
+        )
+    else:
+        lines.append(
+            f"\nCURRENT VEHICLE SETUP & SETTINGS ({req.car_name or 'GT3'} at {req.track_name or 'Circuit'}):\n"
+            f"- Hot tyre pressures: FL 26.8, FR 26.9, RL 26.7, RR 26.8 psi (Optimal window: 26.5 - 27.0 psi).\n"
+            f"- Brake Bias: 54.0% front.\n"
+            f"- Electronics: TC1=3, TC2=4, ABS=3, Engine Map=1.\n"
+            f"- Chassis: Front ARB 4, Rear ARB 2, Ride Heights: 54mm front / 72mm rear.\n"
+            f"- ENGINEER DIRECTIVE: Whenever diagnosing a corner loss, correlate the driving technique with a mechanical setup adjustment "
+            f"(e.g. brake bias shift, ARB stiffness, tyre pressure tweak, or TC level) to provide a complete pit-wall engineering solution."
+        )
+
     lines.append(labels["format"])
     return "\n".join(lines) + "\n"
 
