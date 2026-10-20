@@ -28,6 +28,7 @@ import { SettingsView } from './views/SettingsView';
 import { CarSetupView } from './views/CarSetupView';
 import { TelemetryView } from './views/TelemetryView';
 import { CarSetupModal } from './components/CarSetupModal';
+import { StintModal } from './components/StintModal';
 
 /** Fastest valid lap as reference, paired with the next best lap or valid comparison lap. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
@@ -78,6 +79,7 @@ export const App: React.FC = () => {
   const [autoData, setAutoData] = useState<AutoDiscoverData | null>(null);
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [isCarSetupModalOpen, setIsCarSetupModalOpen] = useState(false);
+  const [isStintModalOpen, setIsStintModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -288,6 +290,7 @@ export const App: React.FC = () => {
         compLapNumber={compLapNumber}
         onNavigateToSessions={() => handleNavigateTab('sessions')}
         onOpenCarSetup={() => setIsCarSetupModalOpen(true)}
+        onOpenStint={() => setIsStintModalOpen(true)}
         onOpenDebrief={() => {
           setIsDebriefOpen(true);
           if (currentTab !== 'telemetry') {
@@ -432,6 +435,23 @@ export const App: React.FC = () => {
         isOpen={isCarSetupModalOpen}
         onClose={() => setIsCarSetupModalOpen(false)}
         sessionId={selectedSessionId}
+      />
+
+      {/* Global Stint & Tyre Degradation Modal (Opened from Telemetry header pill) */}
+      <StintModal
+        isOpen={isStintModalOpen}
+        onClose={() => setIsStintModalOpen(false)}
+        sessionId={selectedSessionId}
+        refLapNumber={refLapNumber}
+        compLapNumber={compLapNumber}
+        onSelectRefLap={(lap) => {
+          setRefLapNumber(lap);
+          loadComparison(lap, compLapNumber, selectedSessionId);
+        }}
+        onSelectCompLap={(lap) => {
+          setCompLapNumber(lap);
+          loadComparison(refLapNumber, lap, selectedSessionId);
+        }}
       />
     </div>
   );

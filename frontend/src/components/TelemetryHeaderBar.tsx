@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Bot, ChevronRight, SlidersHorizontal, TrendingDown } from 'lucide-react';
 import type { ComparisonResponse } from '../types/telemetry';
 import { formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage } from '../i18n';
@@ -17,6 +17,7 @@ interface TelemetryHeaderBarProps {
   onOpenDebrief?: () => void;
   reportAvailable?: boolean;
   onOpenCarSetup?: () => void;
+  onOpenStint?: () => void;
 }
 
 function formatDelta(seconds: number): string {
@@ -38,6 +39,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   onOpenDebrief,
   reportAvailable = false,
   onOpenCarSetup,
+  onOpenStint,
 }) => {
   const { t } = useLanguage();
   const badge = simBadge(gameName);
@@ -104,6 +106,18 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
           <span>{t('sessions_btn')}</span>
           <ChevronRight className="w-3 h-3 opacity-60" />
         </button>
+
+        {/* Stint Degradation Modal Button */}
+        {onOpenStint && (
+          <button
+            onClick={onOpenStint}
+            className="px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand text-[11px] font-semibold transition cursor-pointer shrink-0 flex items-center gap-1"
+            title="Evolución de stint y degradación de neumáticos"
+          >
+            <TrendingDown className="w-3 h-3 text-brand shrink-0" />
+            <span>Stint</span>
+          </button>
+        )}
       </div>
 
       {/* Right: Timing & AI Action Strip */}
