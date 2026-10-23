@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
-  Calendar,
   CheckCircle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Flag,
   FolderOpen,
-  GitCompare,
   HelpCircle,
   RefreshCw,
   Sparkles,
@@ -19,7 +16,7 @@ import {
 } from 'lucide-react';
 import { fetchSessionGroups, uploadTelemetryFile } from '../services/api';
 import type { AutoDiscoverData, AutoDiscoverFile, ComparisonResponse, SessionDetail, SessionGroup, SessionSummary } from '../types/telemetry';
-import { detectSimGame, errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
+import { errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
 import { useLanguage, type TranslationKey } from '../i18n';
 import { StintDegradationView } from '../components/StintDegradationView';
 
@@ -124,6 +121,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   // Load session groups for cross-session comparison
   useEffect(() => {
@@ -141,11 +139,19 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     });
   };
 
-  const filteredSessions = sessions.filter((s) => {
-    const game = detectSimGame(s);
-    if (filterGame === 'acc') return game === 'Assetto Corsa Competizione';
-    if (filterGame === 'lmu') return game === 'Le Mans Ultimate';
-    if (filterGame === 'iracing') return game === 'iRacing';
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
+
+  const filteredGroups = sessionGroups.filter((g) => {
+    if (filterGame === 'acc') return g.simulator === 'Assetto Corsa Competizione';
+    if (filterGame === 'lmu') return g.simulator === 'Le Mans Ultimate';
+    if (filterGame === 'iracing') return g.simulator === 'iRacing';
     return true;
   });
 
@@ -328,12 +334,12 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       {/* Sessions and laps */}
       {activeSubTab === 'sessions' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left: Sessions List (6 cols) */}
-          <div className="lg:col-span-6 space-y-3">
+          {/* Left: Groups by track with sessions & laps (7 cols) */}
+          <div className="lg:col-span-7 space-y-3">
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider font-telemetry flex items-center gap-2">
                 <Flag className="w-4 h-4 text-brand" />
-                {t('available_sessions')} ({filteredSessions.length})
+                {t('groups_by_track')} ({filteredGroups.length})
               </h3>
               <span className="text-[11px] text-gray-500 font-telemetry">
                 {t('click_to_load_workspace')}
@@ -341,108 +347,222 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             </div>
 
             <div className="space-y-3">
-              {filteredSessions.map((sess) => {
-                const isActive = sess.session_id === selectedSessionId;
-                const simName = detectSimGame(sess);
-                const badge = simBadge(simName);
+              {filteredGroups.map((group) => {
+                const groupKey = `${group.simulator}|${group.track}`;
+                const isExpanded = expandedGroups.has(groupKey);
+                const badge = simBadge(group.simulator);
+                const isCrossRef = refSessionId
+                  ? group.sessions.some((s) => s.session_id === refSessionId)
+                  : false;
+                const isCrossComp = compSessionId
+                  ? group.sessions.some((s) => s.session_id === compSessionId)
+                  : false;
 
                 return (
                   <div
-                    key={sess.session_id}
-                    className={`p-5 rounded-2xl border transition-all duration-200 ${
-                      isActive
-                        ? 'bg-[#101726] border-brand shadow-[0_0_25px_rgba(0,210,190,0.18)] ring-2 ring-brand/40'
-                        : 'bg-night-6 hover:bg-[#131924] border-white/5 hover:border-white/10'
-                    }`}
+                    key={groupKey}
+                    className="rounded-2xl bg-night-6 border border-white/5 overflow-hidden"
                   >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div>
-                        {/* Sim Badge */}
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-telemetry mb-1.5 border ${badge.className}`}
-                        >
-                          {simName ?? badge.label}
+                    {/* Group header */}
+                    <button
+                      onClick={() => toggleGroup(groupKey)}
+                      className="w-full flex items-center justify-between gap-3 p-4 hover:bg-white/5 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ChevronDown
+                          className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isExpanded ? '' : '-rotate-90'}`}
+                        />
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-telemetry border shrink-0 ${badge.className}`}>
+                          {badge.label}
                         </span>
-
-                        {/* Track & Car */}
-                        <h4 className="text-base font-bold text-white tracking-wide font-brand">
-                          {sess.track}
-                        </h4>
-                        <p className="text-xs text-brand font-semibold mt-0.5">
-                          {sess.car}
-                        </p>
+                        <span className="text-sm font-bold text-white font-brand truncate">
+                          {group.track}
+                        </span>
                       </div>
+                      <div className="flex items-center gap-3 text-xs font-telemetry text-gray-400 shrink-0">
+                        <span>{group.sessions.length} {t('sessions_count')}</span>
+                        <span>{group.total_laps} {t('laps_count')}</span>
+                        <span className="text-brand font-bold">{formatLapTime(group.best_lap_time)}</span>
+                      </div>
+                    </button>
 
-                      {/* Active Status Badge */}
-                      <div>
-                        {isActive ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/20 border border-brand/60 text-brand text-[11px] font-bold tracking-wider uppercase font-telemetry animate-pulse">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{t('active_in_workspace')}</span>
+                    {/* Cross-session indicator when collapsed */}
+                    {(isCrossRef || isCrossComp) && !isExpanded && (
+                      <div className="px-4 pb-3 flex items-center gap-2 text-[11px] font-telemetry">
+                        {isCrossRef && (
+                          <span className="px-2 py-0.5 rounded bg-brand/20 text-brand border border-brand/40">
+                            {t('cross_ref_label')}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-[10px] font-medium tracking-wider uppercase font-telemetry">
-                            <span>{t('available_status')}</span>
+                        )}
+                        {isCrossComp && (
+                          <span className="px-2 py-0.5 rounded bg-comp/20 text-comp border border-comp/40">
+                            {t('cross_comp_label')}
                           </span>
                         )}
                       </div>
-                    </div>
+                    )}
 
-                    {/* Metrics Row */}
-                    <div className="grid grid-cols-3 gap-3 my-3 pt-3 border-t border-white/5 font-telemetry text-xs">
-                      <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">{t('best_lap')}</span>
-                        <span className="text-white font-bold text-sm">
-                          {formatLapTime(sess.best_lap_time)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">{t('total_laps')}</span>
-                        <span className="text-gray-200 font-bold text-sm">
-                          {sess.lap_count}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 block uppercase">{t('date_col')}</span>
-                        <span className="text-gray-300 font-semibold text-xs flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3 text-gray-500" />
-                          {sess.date ? formatDate(sess.date, lang) : t('recent_date')}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Sessions within the group */}
+                    {isExpanded && (
+                      <div className="border-t border-white/5 divide-y divide-white/5">
+                        {group.sessions.map((sess) => {
+                          const isSessionExpanded = expandedSessions.has(sess.session_id);
+                          const isActive = sess.session_id === selectedSessionId;
+                          const isRefSession = refSessionId === sess.session_id;
+                          const isCompSession = compSessionId === sess.session_id;
 
-                    {/* Actions Row */}
-                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                      <span className="text-[11px] text-gray-400 font-telemetry">
-                        ID: <span className="text-gray-300">{sess.session_id}</span>
-                      </span>
+                          return (
+                            <div key={sess.session_id}>
+                              {/* Session row */}
+                              <div
+                                className={`p-4 flex items-center justify-between gap-4 cursor-pointer ${
+                                  isActive ? 'bg-brand/5' : 'hover:bg-white/5'
+                                }`}
+                                onClick={() => toggleSession(sess.session_id)}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 text-gray-500 transition-transform shrink-0 ${isSessionExpanded ? '' : '-rotate-90'}`}
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                      <span className="text-xs font-bold text-white truncate">
+                                        {sess.car}
+                                      </span>
+                                      <span className="text-[10px] text-gray-500 font-telemetry shrink-0">
+                                        {formatDate(sess.date, lang)}
+                                      </span>
+                                      {isRefSession && (
+                                        <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand border border-brand/40 text-[9px] font-bold font-telemetry">
+                                          {t('cross_ref_label')}
+                                        </span>
+                                      )}
+                                      {isCompSession && (
+                                        <span className="px-1.5 py-0.5 rounded bg-comp/20 text-comp border border-comp/40 text-[9px] font-bold font-telemetry">
+                                          {t('cross_comp_label')}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[11px] font-telemetry text-gray-400">
+                                      <span>{sess.lap_count} {t('laps_count')}</span>
+                                      <span className="text-gray-300">PB: {formatLapTime(sess.best_lap_time)}</span>
+                                    </div>
+                                  </div>
+                                </div>
 
-                      {isActive ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={onGoToTelemetry}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
-                          >
-                            <Zap className="w-3.5 h-3.5" />
-                            <span>{t('view_telemetry_arrow')}</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => onSelectSession(sess.session_id)}
-                          disabled={loading}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold tracking-wide transition cursor-pointer"
-                        >
-                          <Zap className="w-3.5 h-3.5 text-brand group-hover:text-black" />
-                          <span>{t('load_in_workspace')}</span>
-                        </button>
-                      )}
-                    </div>
+                                <div
+                                  className="flex items-center gap-2 shrink-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {isActive ? (
+                                    <button
+                                      onClick={onGoToTelemetry}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
+                                    >
+                                      <Zap className="w-3.5 h-3.5" />
+                                      <span>{t('view_telemetry_arrow')}</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => onSelectSession(sess.session_id)}
+                                      disabled={loading}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold tracking-wide transition cursor-pointer"
+                                    >
+                                      <Zap className="w-3.5 h-3.5 text-brand" />
+                                      <span>{t('load_in_workspace')}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Laps within the session */}
+                              {isSessionExpanded && (
+                                <div className="bg-black/20 divide-y divide-white/5">
+                                  {sess.laps.map((lap) => {
+                                    const isRef = isRefSession && refLapNumber === lap.lap_number;
+                                    const isComp = isCompSession && compLapNumber === lap.lap_number;
+
+                                    return (
+                                      <div
+                                        key={`lap-${lap.lap_number}`}
+                                        className={`px-4 py-2.5 flex items-center justify-between gap-3 ${
+                                          isRef
+                                            ? 'bg-brand/10'
+                                            : isComp
+                                            ? 'bg-comp/10'
+                                            : 'hover:bg-white/5'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                          <span
+                                            className={`w-8 h-8 rounded-lg border flex items-center justify-center font-telemetry font-bold text-[11px] shrink-0 ${
+                                              isRef
+                                                ? 'bg-brand text-black border-brand'
+                                                : isComp
+                                                ? 'bg-comp text-white border-comp'
+                                                : 'bg-black/40 border-white/5 text-white'
+                                            }`}
+                                          >
+                                            #{lap.lap_number}
+                                          </span>
+                                          <span className="font-telemetry text-xs font-bold text-white">
+                                            {formatLapTime(lap.lap_time)}
+                                          </span>
+                                          {!lap.is_valid && (
+                                            <span className="text-[10px] text-rose-400 font-telemetry">
+                                              ({t('invalid_lap')})
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          {onSelectRefLapCross && (
+                                            <button
+                                              onClick={() => onSelectRefLapCross(sess.session_id, lap.lap_number)}
+                                              className={`px-2.5 py-1 rounded-lg text-[11px] font-telemetry font-bold transition cursor-pointer ${
+                                                isRef
+                                                  ? 'bg-brand text-black shadow-sm'
+                                                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                                              }`}
+                                              title={t('select_as_reference')}
+                                            >
+                                              {isRef ? t('ref_btn_active') : t('cross_ref_label')}
+                                            </button>
+                                          )}
+                                          {onSelectCompLapCross && (
+                                            <button
+                                              onClick={() => onSelectCompLapCross(sess.session_id, lap.lap_number)}
+                                              className={`px-2.5 py-1 rounded-lg text-[11px] font-telemetry font-bold transition cursor-pointer ${
+                                                isComp
+                                                  ? 'bg-comp text-white shadow-sm'
+                                                  : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                                              }`}
+                                              title={t('select_as_comparison')}
+                                            >
+                                              {isComp ? t('comp_btn_active') : t('cross_comp_label')}
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                  {sess.laps.length === 0 && (
+                                    <div className="px-4 py-3 text-[11px] text-gray-500 font-telemetry">
+                                      {t('loading_active_laps')}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
 
-              {filteredSessions.length === 0 && (
+              {filteredGroups.length === 0 && (
                 <div className="text-center py-12 p-6 rounded-2xl bg-night-6 border border-white/5">
                   <p className="text-xs text-gray-400 mb-3">{t('no_sessions_for_filter')}</p>
                   <button
@@ -456,8 +576,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             </div>
           </div>
 
-          {/* Right: Active Session Workspace Details & Laps (6 cols) */}
-          <div className="lg:col-span-6 space-y-4">
+          {/* Right: Active Session Workspace Details & Laps (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
             {activeSessionSummary && (
               <>
                 {/* Active Workspace Banner */}
@@ -665,149 +785,6 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </div>
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Cross-Session Comparison: Groups by track */}
-      {activeSubTab === 'sessions' && sessionGroups.length > 0 && (
-        <div className="glass-panel rounded-2xl p-6 border border-white/10 bg-night-5 space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-white/5">
-            <div className="w-10 h-10 rounded-xl bg-brand/20 border border-brand/40 flex items-center justify-center text-brand">
-              <GitCompare className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider font-brand">
-                {t('compare_across_sessions')}
-              </h4>
-              <p className="text-xs text-gray-400">
-                {t('compare_across_sessions_desc')}
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {sessionGroups.map((group) => {
-              const groupKey = `${group.simulator}|${group.track}`;
-              const isExpanded = expandedGroups.has(groupKey);
-              const badge = simBadge(group.simulator);
-              const isCrossRef = refSessionId && group.sessions.some((s) => s.session_id === refSessionId);
-              const isCrossComp = compSessionId && group.sessions.some((s) => s.session_id === compSessionId);
-
-              return (
-                <div key={groupKey} className="rounded-xl bg-night-3 border border-white/5 overflow-hidden">
-                  {/* Group header */}
-                  <button
-                    onClick={() => toggleGroup(groupKey)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ChevronDown
-                        className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`}
-                      />
-                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-telemetry border ${badge.className}`}>
-                        {group.simulator}
-                      </span>
-                      <span className="text-sm font-bold text-white font-brand">{group.track}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs font-telemetry text-gray-400">
-                      <span>{group.sessions.length} {t('sessions_count')}</span>
-                      <span>{group.total_laps} {t('laps_count')}</span>
-                      <span className="text-brand font-bold">{formatLapTime(group.best_lap_time)}</span>
-                    </div>
-                  </button>
-
-                  {/* Group sessions */}
-                  {isExpanded && (
-                    <div className="border-t border-white/5 divide-y divide-white/5">
-                      {group.sessions.map((sess) => {
-                        const isRefSession = refSessionId === sess.session_id;
-                        const isCompSession = compSessionId === sess.session_id;
-                        const isActive = selectedSessionId === sess.session_id;
-
-                        return (
-                          <div
-                            key={sess.session_id}
-                            className={`p-4 flex items-center justify-between gap-4 ${
-                              isActive ? 'bg-brand/5' : 'hover:bg-white/5'
-                            }`}
-                          >
-                            <div className="flex items-center gap-4 min-w-0">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs font-bold text-white">{sess.car}</span>
-                                  <span className="text-[10px] text-gray-500 font-telemetry">
-                                    {formatDate(sess.date, lang)}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-3 text-[11px] font-telemetry text-gray-400">
-                                  <span>{sess.lap_count} {t('laps_count')}</span>
-                                  <span className="text-gray-300">PB: {formatLapTime(sess.best_lap_time)}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {/* Cross-session ref/comp buttons */}
-                              {onSelectRefLapCross && (
-                                <button
-                                  onClick={() => onSelectRefLapCross(sess.session_id, 1)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-telemetry font-bold transition cursor-pointer ${
-                                    isRefSession
-                                      ? 'bg-brand text-black shadow-sm'
-                                      : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                                  }`}
-                                  title={t('select_as_reference')}
-                                >
-                                  {isRefSession ? t('ref_btn_active') : 'Ref'}
-                                </button>
-                              )}
-                              {onSelectCompLapCross && (
-                                <button
-                                  onClick={() => onSelectCompLapCross(sess.session_id, 1)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-telemetry font-bold transition cursor-pointer ${
-                                    isCompSession
-                                      ? 'bg-comp text-white shadow-sm'
-                                      : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                                  }`}
-                                  title={t('select_as_comparison')}
-                                >
-                                  {isCompSession ? t('comp_btn_active') : 'Comp'}
-                                </button>
-                              )}
-                              {/* Load session button */}
-                              <button
-                                onClick={() => onSelectSession(sess.session_id)}
-                                disabled={loading}
-                                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold transition cursor-pointer"
-                              >
-                                {t('load_in_workspace')}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Cross-session indicator */}
-                  {(isCrossRef || isCrossComp) && !isExpanded && (
-                    <div className="px-4 py-2 flex items-center gap-2 text-[11px] font-telemetry">
-                      {isCrossRef && (
-                        <span className="px-2 py-0.5 rounded bg-brand/20 text-brand border border-brand/40">
-                          Ref session
-                        </span>
-                      )}
-                      {isCrossComp && (
-                        <span className="px-2 py-0.5 rounded bg-comp/20 text-comp border border-comp/40">
-                          Comp session
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       )}

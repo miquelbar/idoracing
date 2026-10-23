@@ -199,6 +199,12 @@ export interface SessionSummary {
   simulator?: string | null;
 }
 
+export interface SessionGroupLap {
+  lap_number: number;
+  lap_time: number;
+  is_valid: boolean;
+}
+
 export interface SessionGroupSession {
   session_id: string;
   car: string;
@@ -208,6 +214,7 @@ export interface SessionGroupSession {
   lap_count: number;
   simulator?: string | null;
   source_file?: string | null;
+  laps: SessionGroupLap[];
 }
 
 export interface SessionGroup {

@@ -261,6 +261,23 @@ class Storage:
             cursor.execute("DELETE FROM sessions WHERE id = ? OR session_id = ?", (session_id, session_id))
             conn.commit()
 
+    def get_lap_summaries(self, session_id: str) -> list[dict[str, Any]]:
+        """Lap metadata (number, time, validity) without loading full telemetry."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM sessions WHERE id = ? OR session_id = ?", (session_id, session_id))
+            s_row = cursor.fetchone()
+            if not s_row:
+                return []
+            cursor.execute(
+                "SELECT lap_number, lap_time, is_valid FROM laps WHERE session_id = ? ORDER BY lap_number ASC",
+                (s_row["id"],),
+            )
+            return [
+                {"lap_number": r["lap_number"], "lap_time": r["lap_time"], "is_valid": bool(r["is_valid"])}
+                for r in cursor.fetchall()
+            ]
+
     def save_coach_report(self, session_id: str, ref_lap: int, comp_lap: int, report: CoachReport):
         """Persist generated coaching report."""
         with self._get_connection() as conn:

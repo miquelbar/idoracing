@@ -123,7 +123,13 @@ def _auto_import_from_dir(
             count += 1
             logger.info("Auto-imported %s: %s | %s | %d laps", sim_label, sess.track, sess.car, len(sess.laps))
         else:
-            logger.info("Skipping %s file %s: no timed laps (%s, %s)", sim_label, os.path.basename(filepath), sess.track, sess.car)
+            logger.info(
+                "Skipping %s file %s: no timed laps (%s, %s)",
+                sim_label,
+                os.path.basename(filepath),
+                sess.track,
+                sess.car,
+            )
             skipped += 1
     if skipped:
         logger.info("%s: %d imported, %d skipped (no laps or unreadable)", sim_label, count, skipped)
@@ -138,25 +144,17 @@ def _auto_import_all(imported_sources: set[str]) -> dict[str, int]:
     results: dict[str, int] = {}
 
     # ACC — MoTeC .ld files
-    results["ACC (MoTeC)"] = _auto_import_from_dir(
-        ACC_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "ACC"
-    )
+    results["ACC (MoTeC)"] = _auto_import_from_dir(ACC_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "ACC")
     # ACC — idoracing-recorder .csv files
     results["ACC (Recorder)"] = _auto_import_from_dir(
         ACC_RECORDINGS_DIR, ["*.csv"], CSVImporter, imported_sources, "ACC"
     )
     # LMU — result .xml files
-    results["LMU"] = _auto_import_from_dir(
-        LMU_RESULTS_DIR, ["*.xml"], LMUImporter, imported_sources, "LMU"
-    )
+    results["LMU"] = _auto_import_from_dir(LMU_RESULTS_DIR, ["*.xml"], LMUImporter, imported_sources, "LMU")
     # Assetto Corsa EVO — MoTeC .ld files
-    results["AC EVO"] = _auto_import_from_dir(
-        ACEVO_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC EVO"
-    )
+    results["AC EVO"] = _auto_import_from_dir(ACEVO_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC EVO")
     # Assetto Corsa 1 — MoTeC .ld files
-    results["AC1"] = _auto_import_from_dir(
-        AC1_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC1"
-    )
+    results["AC1"] = _auto_import_from_dir(AC1_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC1")
 
     return results
 
@@ -438,29 +436,34 @@ def list_session_groups():
     for s in sessions:
         sim = s.simulator or "Unknown"
         key = (sim, s.track)
-        groups.setdefault(key, []).append({
-            "session_id": s.session_id,
-            "car": s.car,
-            "track": s.track,
-            "date": s.date.isoformat() if hasattr(s.date, "isoformat") else str(s.date),
-            "best_lap_time": s.best_lap_time,
-            "lap_count": s.lap_count,
-            "simulator": s.simulator,
-            "source_file": getattr(s, "source_file", None),
-        })
+        groups.setdefault(key, []).append(
+            {
+                "session_id": s.session_id,
+                "car": s.car,
+                "track": s.track,
+                "date": s.date.isoformat() if hasattr(s.date, "isoformat") else str(s.date),
+                "best_lap_time": s.best_lap_time,
+                "lap_count": s.lap_count,
+                "simulator": s.simulator,
+                "source_file": getattr(s, "source_file", None),
+                "laps": storage.get_lap_summaries(s.session_id),
+            }
+        )
 
     result: list[SessionGroupDTO] = []
     for (sim, track), sess_list in sorted(groups.items()):
         sess_list.sort(key=lambda x: x["date"], reverse=True)
         total_laps = sum(s["lap_count"] for s in sess_list)
         best = min((s["best_lap_time"] for s in sess_list if s["best_lap_time"] > 0), default=0.0)
-        result.append(SessionGroupDTO(
-            simulator=sim,
-            track=track,
-            sessions=sess_list,
-            total_laps=total_laps,
-            best_lap_time=best,
-        ))
+        result.append(
+            SessionGroupDTO(
+                simulator=sim,
+                track=track,
+                sessions=sess_list,
+                total_laps=total_laps,
+                best_lap_time=best,
+            )
+        )
     return result
 
 
@@ -576,6 +579,7 @@ def get_lap_comparison(
         comp_lap = _find_lap(comp_session, comp_lap_id) if comp_lap_id else None
 
         if not ref_lap or not comp_lap:
+
             def _has_enough_data(lap: Lap) -> bool:
                 t = lap.telemetry or {}
                 return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
@@ -676,8 +680,8 @@ def get_lap_comparison(
         comp_session_id=comp_session.session_id if ref_session_id or comp_session_id else None,
         ref_car_name=ref_car,
         comp_car_name=comp_car,
-        ref_date=ref_date.strftime("%d/%m/%Y %H:%M") if hasattr(ref_date, 'strftime') else str(ref_date),
-        comp_date=comp_date.strftime("%d/%m/%Y %H:%M") if hasattr(comp_date, 'strftime') else str(comp_date),
+        ref_date=ref_date.strftime("%d/%m/%Y %H:%M") if hasattr(ref_date, "strftime") else str(ref_date),
+        comp_date=comp_date.strftime("%d/%m/%Y %H:%M") if hasattr(comp_date, "strftime") else str(comp_date),
         distance=distance_grid,
         ref_speed=ref_speed,
         comp_speed=comp_speed,
