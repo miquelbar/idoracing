@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 from domain.session import Lap, Session, SessionSummary
-from importers.laps import LAP_RESET_DROP_M, mark_partial_laps_invalid, without_boundary_wrap
+from importers.laps import LAP_RESET_DROP_M, MIN_LAP_DURATION_S, mark_partial_laps_invalid, without_boundary_wrap
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class MoTeCImporter:
             raise ValueError(f"Unsupported format: {self.file_path}")
 
         ld_parser = MoTeCLDParser(self.file_path).parse()
-        telemetry = self._canonical_telemetry(ld_parser.channels)
+        telemetry, distance_synthesized = self._canonical_telemetry(ld_parser.channels)
 
         x_coords, y_coords = self._extract_spatial_coordinates(ld_parser.channels)
         if x_coords is not None and y_coords is not None:
@@ -85,7 +85,7 @@ class MoTeCImporter:
 
         ldx_path = os.path.splitext(self.file_path)[0] + ".ldx"
         ldx_laps = MoTeCLDXParser(ldx_path).parse().laps if os.path.exists(ldx_path) else []
-        laps = self._split_laps(telemetry, ldx_laps)
+        laps = self._split_laps(telemetry, ldx_laps, distance_synthesized)
 
         filename = os.path.basename(self.file_path)
         return Session(
@@ -99,10 +99,11 @@ class MoTeCImporter:
             simulator=_simulator_from_channels(ld_parser.channels),
         )
 
-    def _canonical_telemetry(self, channels: dict[str, Any]) -> dict[str, list[float]]:
+    def _canonical_telemetry(self, channels: dict[str, Any]) -> tuple[dict[str, list[float]], bool]:
         """Map MoTeC channel names to canonical ones, resampled to the speed channel's rate.
 
         ACC logs pedals in percent, so they are rescaled to 0-1 when they exceed 1.5.
+        Returns the telemetry and whether distance was dead-reckoned instead of recorded.
         """
         base = next((channels[n] for n in CHANNEL_MAP["speed"] if n in channels), None)
         if base is None or len(base.data) == 0:
@@ -120,10 +121,26 @@ class MoTeCImporter:
             values = _resample(np.asarray(chan.data, dtype=np.float64), n)
             if canonical in ("throttle", "brake") and float(np.max(values)) > 1.5:
                 values = values / 100.0
+            if canonical == "speed" and float(np.max(values)) < 100.0:
+                # ACC can log speed in m/s; a GT3 car never tops 100 km/h, so a
+                # max below 100 means the channel is in m/s — rescale to km/h.
+                values = values * 3.6
             telemetry[canonical] = values.tolist()
-        return telemetry
 
-    def _split_laps(self, telemetry: dict[str, list[float]], ldx_laps: list[dict[str, Any]]) -> list[Lap]:
+        # Dead-reckon distance from speed and time when the file has no distance channel.
+        if "distance" not in telemetry:
+            times = np.asarray(telemetry["time"])
+            speeds_ms = np.asarray(telemetry["speed"]) / 3.6
+            dist = np.zeros(len(times))
+            for i in range(1, len(times)):
+                dist[i] = dist[i - 1] + speeds_ms[i] * max(times[i] - times[i - 1], 0.0)
+            telemetry["distance"] = dist.tolist()
+            return telemetry, True
+        return telemetry, False
+
+    def _split_laps(
+        self, telemetry: dict[str, list[float]], ldx_laps: list[dict[str, Any]], distance_synthesized: bool = False
+    ) -> list[Lap]:
         """
         Cut session channels into laps using .ldx markers, else the lap-number channel, else lap-distance
         resets. Out and in laps are marked invalid.
@@ -135,6 +152,11 @@ class MoTeCImporter:
             for info in ldx_laps:
                 start = int(np.searchsorted(time, info["start_time"]))
                 end = int(np.searchsorted(time, info["end_time"]))
+                if end - start < 2:
+                    continue
+                # The open trailing segment is only a lap if a full lap fits before the recording ends.
+                if info["end_time"] == float("inf") and time[end - 1] - time[start] < MIN_LAP_DURATION_S:
+                    continue
                 bounds.append((info["lap_number"], start, end))
         elif "lap" in telemetry:
             lap_no = np.round(np.asarray(telemetry["lap"])).astype(int)
@@ -158,6 +180,10 @@ class MoTeCImporter:
             lap_telemetry["time"] = [t - t0 for t in lap_telemetry["time"]]
             if "distance" in lap_telemetry:
                 lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
+                if distance_synthesized:
+                    # Dead-reckoned distance is cumulative over the session; each lap starts at 0.
+                    d0 = lap_telemetry["distance"][0]
+                    lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
             laps.append(
                 Lap(
                     lap_number=lap_number,

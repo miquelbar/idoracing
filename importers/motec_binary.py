@@ -15,6 +15,8 @@ from typing import Any
 
 import numpy as np
 
+from importers.laps import MIN_LAP_DURATION_S
+
 logger = logging.getLogger(__name__)
 
 
@@ -278,23 +280,36 @@ class MoTeCLDXParser:
                     }
                 )
 
-            # Derive lap segments from markers
-            # Lap markers generally have Lap > 0
-            lap_markers = [m for m in markers if m["lap"] > 0]
-            if lap_markers:
-                prev_time = markers[0]["time"] if markers else 0.0
-                for lm in lap_markers:
-                    lap_time = lm["time"] - prev_time
-                    if lap_time > 10.0:  # reasonable minimum lap duration
+            # Derive lap segments from markers.
+            # ACC writes beacon markers (ClassName="BCN") without a Lap attribute;
+            # each beacon crossing marks the end of one segment and the start of the next.
+            all_markers = sorted(markers, key=lambda m: m["time"])
+            if all_markers:
+                boundaries = [0.0] + [m["time"] for m in all_markers]
+                lap_number = 0
+                for i in range(len(boundaries) - 1):
+                    lap_time = boundaries[i + 1] - boundaries[i]
+                    if lap_time > MIN_LAP_DURATION_S:
+                        lap_number += 1
                         self.laps.append(
                             {
-                                "lap_number": lm["lap"],
+                                "lap_number": lap_number,
                                 "lap_time": lap_time,
-                                "start_time": prev_time,
-                                "end_time": lm["time"],
+                                "start_time": boundaries[i],
+                                "end_time": boundaries[i + 1],
                             }
                         )
-                    prev_time = lm["time"]
+                # Final segment from the last marker to the end of the session; the
+                # importer drops it when the recording ends before a full lap elapses.
+                lap_number += 1
+                self.laps.append(
+                    {
+                        "lap_number": lap_number,
+                        "lap_time": 0.0,
+                        "start_time": boundaries[-1],
+                        "end_time": float("inf"),
+                    }
+                )
         except (ET.ParseError, ValueError) as e:
             logger.warning("Ignoring unreadable lap markers in %s: %s", self.filepath, e)
             self.laps = []

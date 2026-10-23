@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from domain.session import Lap, Session
-from importers.laps import distance_covered, mark_partial_laps_invalid, without_boundary_wrap
+from importers.laps import distance_covered, without_boundary_wrap
 
 
 class CSVImporter:

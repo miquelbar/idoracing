@@ -87,11 +87,15 @@ def test_ldx_marker_parsing():
             f.write(content)
 
         parser = MoTeCLDXParser(ldx_path).parse()
-        assert len(parser.laps) == 2
+        assert len(parser.laps) == 3
         assert parser.laps[0]["lap_number"] == 1
         assert np.isclose(parser.laps[0]["lap_time"], 91.450)
         assert parser.laps[1]["lap_number"] == 2
         assert np.isclose(parser.laps[1]["lap_time"], 91.450)
+        # The last beacon opens the final lap, which ends with the recording.
+        assert parser.laps[2]["lap_number"] == 3
+        assert parser.laps[2]["start_time"] == 182.900
+        assert parser.laps[2]["end_time"] == float("inf")
 
 
 CHANNEL_META_OFFSETS = {"dtype_a": 18, "dtype_b": 20, "shift": 24, "mul": 26, "scale": 28, "dec": 30}

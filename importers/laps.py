@@ -7,6 +7,8 @@ from domain.session import Lap
 # A lap-distance channel drops back to ~0 at the line; anything smaller is GPS noise.
 LAP_RESET_DROP_M = 500.0
 COMPLETE_LAP_FRACTION = 0.95
+# Segments shorter than this are cooldown or a cut-short lap, not a lap.
+MIN_LAP_DURATION_S = 10.0
 
 
 def distance_covered(telemetry: dict[str, list[float]]) -> float:
