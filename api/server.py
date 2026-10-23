@@ -46,6 +46,18 @@ ACC_MOTEC_DIR = os.path.join(ACC_DOCUMENTS_DIR, "Assetto Corsa Competizione", "M
 # Where idoracing-recorder writes by default when it runs inside ACC's Proton prefix.
 ACC_RECORDINGS_DIR = os.path.join(ACC_DOCUMENTS_DIR, "IdoRacing", "recordings")
 LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
+# Assetto Corsa EVO (app 3058630) — telemetry lives in Documents under the game folder.
+ACEVO_DOCUMENTS_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/3058630/pfx/drive_c/users/steamuser/Documents"
+)
+ACEVO_MOTEC_DIR = os.path.join(ACEVO_DOCUMENTS_DIR, "Assetto Corsa EVO", "MoTeC")
+# Assetto Corsa 1 (app 244210) — telemetry lives in Documents under the game folder.
+AC1_DOCUMENTS_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/244210/pfx/drive_c/users/steamuser/Documents"
+)
+AC1_MOTEC_DIR = os.path.join(AC1_DOCUMENTS_DIR, "Assetto Corsa", "MoTeC")
+# iRacing — telemetry in ~/Documents/iRacing/Telemetry (Windows) or via Proton.
+IRACING_TELEMETRY_DIR = os.path.expanduser("~/Documents/iRacing/Telemetry")
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
@@ -66,6 +78,89 @@ llm_client = LLMClient(
 advisor = CoachAdvisor(llm_client)
 
 
+def _already_imported_source_files() -> set[str]:
+    """Return the set of source_file paths already stored in the database."""
+    with storage._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT source_file FROM sessions WHERE source_file IS NOT NULL")
+        return {row["source_file"] for row in cursor.fetchall()}
+
+
+def _auto_import_from_dir(
+    directory: str,
+    patterns: list[str],
+    importer_factory,
+    imported_sources: set[str],
+    sim_label: str,
+) -> int:
+    """Auto-import all telemetry files matching *patterns* in *directory* not yet in the DB.
+
+    Returns the number of newly imported sessions.
+    """
+    if not os.path.exists(directory):
+        return 0
+
+    files: list[str] = []
+    for pat in patterns:
+        files.extend(glob.glob(os.path.join(directory, pat)))
+    # Newest first so the log reads naturally
+    files = sorted(set(files), key=os.path.getmtime, reverse=True)
+
+    count = 0
+    skipped = 0
+    for filepath in files:
+        if filepath in imported_sources:
+            continue
+        try:
+            sess = importer_factory(filepath).parse()
+        except (ValueError, KeyError, IndexError, struct.error, ET.ParseError) as e:
+            logger.warning("Skipping unreadable %s file %s: %s", sim_label, os.path.basename(filepath), e)
+            skipped += 1
+            continue
+        if sess.laps:
+            storage.save_session(sess)
+            imported_sources.add(filepath)
+            count += 1
+            logger.info("Auto-imported %s: %s | %s | %d laps", sim_label, sess.track, sess.car, len(sess.laps))
+        else:
+            logger.info("Skipping %s file %s: no timed laps (%s, %s)", sim_label, os.path.basename(filepath), sess.track, sess.car)
+            skipped += 1
+    if skipped:
+        logger.info("%s: %d imported, %d skipped (no laps or unreadable)", sim_label, count, skipped)
+    return count
+
+
+def _auto_import_all(imported_sources: set[str]) -> dict[str, int]:
+    """Auto-import every supported simulator's telemetry files not yet in the DB.
+
+    Returns a per-simulator count of newly imported sessions.
+    """
+    results: dict[str, int] = {}
+
+    # ACC — MoTeC .ld files
+    results["ACC (MoTeC)"] = _auto_import_from_dir(
+        ACC_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "ACC"
+    )
+    # ACC — idoracing-recorder .csv files
+    results["ACC (Recorder)"] = _auto_import_from_dir(
+        ACC_RECORDINGS_DIR, ["*.csv"], CSVImporter, imported_sources, "ACC"
+    )
+    # LMU — result .xml files
+    results["LMU"] = _auto_import_from_dir(
+        LMU_RESULTS_DIR, ["*.xml"], LMUImporter, imported_sources, "LMU"
+    )
+    # Assetto Corsa EVO — MoTeC .ld files
+    results["AC EVO"] = _auto_import_from_dir(
+        ACEVO_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC EVO"
+    )
+    # Assetto Corsa 1 — MoTeC .ld files
+    results["AC1"] = _auto_import_from_dir(
+        AC1_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC1"
+    )
+
+    return results
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure database is initialized
@@ -74,17 +169,13 @@ async def lifespan(app: FastAPI):
         synth = create_synthetic_session()
         storage.save_session(synth)
 
-        # Auto-import newest detected LMU session if available
-        if os.path.exists(LMU_RESULTS_DIR):
-            xmls = sorted(glob.glob(os.path.join(LMU_RESULTS_DIR, "*.xml")), key=os.path.getmtime, reverse=True)
-            for xf in xmls[:2]:
-                try:
-                    sess = LMUImporter(xf).parse()
-                except (ValueError, ET.ParseError) as e:
-                    logger.warning("Skipping unreadable LMU results %s: %s", xf, e)
-                    continue
-                if sess.laps:
-                    storage.save_session(sess)
+    # Auto-import ALL telemetry files from every supported simulator
+    imported_sources = _already_imported_source_files()
+    results = _auto_import_all(imported_sources)
+    total = sum(results.values())
+    if total:
+        parts = ", ".join(f"{v} {k}" for k, v in results.items() if v)
+        logger.info("Auto-import complete: %d new sessions (%s)", total, parts)
     yield
 
 
@@ -1030,26 +1121,33 @@ def chat_with_engineer(req: ChatRequest):
 
 @app.get("/api/autodiscover")
 def autodiscover_files():
-    acc_path = ACC_MOTEC_DIR
-    lmu_res_path = LMU_RESULTS_DIR
+    def _scan(directory: str, patterns: list[str]) -> list[dict[str, str]]:
+        if not os.path.exists(directory):
+            return []
+        files: list[str] = []
+        for pat in patterns:
+            files.extend(glob.glob(os.path.join(directory, pat)))
+        files = sorted(set(files), key=os.path.getmtime, reverse=True)
+        return [{"filename": os.path.basename(f), "path": f} for f in files]
 
-    acc_files = sorted(
-        glob.glob(os.path.join(acc_path, "*.ld")) + glob.glob(os.path.join(ACC_RECORDINGS_DIR, "*.csv")),
-        key=os.path.getmtime,
-        reverse=True,
-    )
-
-    lmu_files = []
-    if os.path.exists(lmu_res_path):
-        lmu_files = sorted(glob.glob(os.path.join(lmu_res_path, "*.xml")), key=os.path.getmtime, reverse=True)
+    acc_files = _scan(ACC_MOTEC_DIR, ["*.ld"]) + _scan(ACC_RECORDINGS_DIR, ["*.csv"])
+    lmu_files = _scan(LMU_RESULTS_DIR, ["*.xml"])
+    acevo_files = _scan(ACEVO_MOTEC_DIR, ["*.ld"])
+    ac1_files = _scan(AC1_MOTEC_DIR, ["*.ld"])
 
     return {
-        "acc_path": acc_path,
+        "acc_path": ACC_MOTEC_DIR,
         "acc_found": len(acc_files),
-        "acc_files": [{"filename": os.path.basename(f), "path": f} for f in acc_files[:15]],
-        "lmu_path": lmu_res_path,
+        "acc_files": acc_files,
+        "lmu_path": LMU_RESULTS_DIR,
         "lmu_found": len(lmu_files),
-        "lmu_files": [{"filename": os.path.basename(f), "path": f} for f in lmu_files[:15]],
+        "lmu_files": lmu_files,
+        "acevo_path": ACEVO_MOTEC_DIR,
+        "acevo_found": len(acevo_files),
+        "acevo_files": acevo_files,
+        "ac1_path": AC1_MOTEC_DIR,
+        "ac1_found": len(ac1_files),
+        "ac1_files": ac1_files,
     }
 
 
@@ -1070,7 +1168,10 @@ def _parse_telemetry_file(filepath: str) -> Session:
 @app.post("/api/import/local-file")
 def import_local_file(req: LocalImportRequest):
     filepath = os.path.realpath(req.filepath)
-    allowed_dirs = [os.path.realpath(d) for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR)]
+    allowed_dirs = [
+        os.path.realpath(d)
+        for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR, ACEVO_MOTEC_DIR, AC1_MOTEC_DIR)
+    ]
     if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
         raise HTTPException(
             status_code=403, detail="Only files from the simulator telemetry folders can be imported by path"

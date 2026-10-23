@@ -198,6 +198,12 @@ export interface AutoDiscoverFile {
   path: string;
 }
 
+export interface SimDiscovery {
+  path: string;
+  found: number;
+  files: AutoDiscoverFile[];
+}
+
 export interface AutoDiscoverData {
   acc_path: string;
   acc_found: number;
@@ -205,6 +211,12 @@ export interface AutoDiscoverData {
   lmu_path: string;
   lmu_found: number;
   lmu_files: AutoDiscoverFile[];
+  acevo_path: string;
+  acevo_found: number;
+  acevo_files: AutoDiscoverFile[];
+  ac1_path: string;
+  ac1_found: number;
+  ac1_files: AutoDiscoverFile[];
 }
 
 export interface LapRecordItem {

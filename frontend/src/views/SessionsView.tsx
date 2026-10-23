@@ -16,10 +16,61 @@ import {
   Zap,
 } from 'lucide-react';
 import { uploadTelemetryFile } from '../services/api';
-import type { AutoDiscoverData, ComparisonResponse, SessionDetail, SessionSummary } from '../types/telemetry';
+import type { AutoDiscoverData, AutoDiscoverFile, ComparisonResponse, SessionDetail, SessionSummary } from '../types/telemetry';
 import { detectSimGame, errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
-import { useLanguage } from '../i18n';
+import { useLanguage, type TranslationKey } from '../i18n';
 import { StintDegradationView } from '../components/StintDegradationView';
+
+// --- Reusable sub-component for each simulator's discovered files ---
+interface SimDiscoverySectionProps {
+  label: string;
+  dotColor: string;
+  files: AutoDiscoverFile[];
+  onImport: (path: string) => void;
+  emptyText: string;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+}
+
+const SimDiscoverySection: React.FC<SimDiscoverySectionProps> = ({
+  label,
+  dotColor,
+  files,
+  onImport,
+  emptyText,
+  t,
+}) => (
+  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5">
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-xs font-bold text-white flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
+        {label}
+      </span>
+      <span className="text-[10px] text-gray-400 font-telemetry">
+        {files.length} {t('sessions_found')}
+      </span>
+    </div>
+
+    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+      {files.slice(0, 10).map((f) => (
+        <div
+          key={f.path}
+          className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-telemetry"
+        >
+          <span className="truncate max-w-[220px] text-gray-300">{f.filename}</span>
+          <button
+            onClick={() => onImport(f.path)}
+            className="px-2 py-0.5 rounded bg-brand text-black font-bold text-[10px] hover:bg-brand-light cursor-pointer"
+          >
+            {t('load_action')}
+          </button>
+        </div>
+      ))}
+      {files.length === 0 && (
+        <p className="text-[11px] text-gray-500 text-center py-2">{emptyText}</p>
+      )}
+    </div>
+  </div>
+);
 
 interface SessionsViewProps {
   sessions: SessionSummary[];
@@ -675,46 +726,38 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
               {autoData && (
                 <div className="space-y-3">
-                  {/* LMU Sessions list */}
-                  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-white flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500" />
-                        Le Mans Ultimate
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-telemetry">
-                        {autoData.lmu_files.length} {t('sessions_found')}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {autoData.lmu_files.slice(0, 5).map((f) => (
-                        <div
-                          key={f.path}
-                          className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-telemetry"
-                        >
-                          <span className="truncate max-w-[220px] text-gray-300">{f.filename}</span>
-                          <button
-                            onClick={() => onImportLocal(f.path)}
-                            className="px-2 py-0.5 rounded bg-brand text-black font-bold text-[10px] hover:bg-brand-light cursor-pointer"
-                          >
-                            {t('load_action')}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ACC Files info */}
-                  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5 flex items-center justify-between text-xs">
-                    <span className="font-bold text-white flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-accent" />
-                      Assetto Corsa Competizione
-                    </span>
-                    <span className="text-gray-400 font-telemetry">
-                      {autoData.acc_found} {t('ld_files_found')}
-                    </span>
-                  </div>
+                  <SimDiscoverySection
+                    label="Assetto Corsa Competizione"
+                    dotColor="bg-accent"
+                    files={autoData.acc_files}
+                    onImport={onImportLocal}
+                    emptyText={t('no_acc_files_found')}
+                    t={t}
+                  />
+                  <SimDiscoverySection
+                    label="Le Mans Ultimate"
+                    dotColor="bg-blue-500"
+                    files={autoData.lmu_files}
+                    onImport={onImportLocal}
+                    emptyText={t('no_lmu_files_found')}
+                    t={t}
+                  />
+                  <SimDiscoverySection
+                    label="Assetto Corsa EVO"
+                    dotColor="bg-purple-500"
+                    files={autoData.acevo_files}
+                    onImport={onImportLocal}
+                    emptyText={t('no_acevo_files_found')}
+                    t={t}
+                  />
+                  <SimDiscoverySection
+                    label="Assetto Corsa"
+                    dotColor="bg-orange-500"
+                    files={autoData.ac1_files}
+                    onImport={onImportLocal}
+                    emptyText={t('no_ac1_files_found')}
+                    t={t}
+                  />
                 </div>
               )}
             </div>
