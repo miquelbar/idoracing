@@ -54,6 +54,7 @@ const SIM_BADGES: { match: string; label: string; className: string }[] = [
   { match: 'Le Mans Ultimate', label: 'LMU', className: 'bg-blue-950/70 border-blue-500/40 text-blue-300' },
   { match: 'iRacing', label: 'iRacing', className: 'bg-red-950/70 border-red-500/40 text-red-300' },
   { match: 'Assetto Corsa Competizione', label: 'ACC', className: 'bg-red-950/60 border-accent/40 text-loss-light' },
+  { match: 'Assetto Corsa EVO', label: 'AC EVO', className: 'bg-purple-950/70 border-purple-500/40 text-purple-300' },
   { match: 'Assetto Corsa', label: 'AC', className: 'bg-amber-950/60 border-amber-500/40 text-amber-300' },
 ];
 

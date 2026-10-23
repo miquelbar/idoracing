@@ -62,6 +62,14 @@ AC1_MOTEC_DIR = os.path.join(AC1_DOCUMENTS_DIR, "Assetto Corsa", "MoTeC")
 # iRacing — telemetry in ~/Documents/iRacing/Telemetry (Windows) or via Proton.
 IRACING_TELEMETRY_DIR = os.path.expanduser("~/Documents/iRacing/Telemetry")
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
+# Canonical simulator name stamped on auto-imported sessions when the importer
+# cannot detect it from the file itself (e.g. MoTeC .ld without signature channels).
+AUTO_IMPORT_SIMULATORS = {
+    "ACC": "Assetto Corsa Competizione",
+    "LMU": "Le Mans Ultimate",
+    "AC EVO": "Assetto Corsa EVO",
+    "AC1": "Assetto Corsa",
+}
 
 
 load_dotenv()
@@ -120,6 +128,8 @@ def _auto_import_from_dir(
             logger.warning("Skipping unreadable %s file %s: %s", sim_label, os.path.basename(filepath), e)
             skipped += 1
             continue
+        if not sess.simulator:
+            sess.simulator = AUTO_IMPORT_SIMULATORS.get(sim_label)
         if sess.laps:
             storage.save_session(sess)
             imported_sources.add(filepath)

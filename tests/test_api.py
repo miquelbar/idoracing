@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from api.server import app
+from api.server import _auto_import_from_dir, app, storage
 from importers.motec_binary import create_synthetic_ld_bytes
+from importers.moteclib.importer import MoTeCImporter
 
 
 @pytest.fixture(scope="module")
@@ -113,6 +114,27 @@ def test_api_autodiscover(client):
     data = res.json()
     assert "acc_path" in data
     assert "lmu_path" in data
+
+
+@pytest.mark.parametrize(
+    ("sim_label", "expected_simulator"),
+    [("AC1", "Assetto Corsa"), ("AC EVO", "Assetto Corsa EVO")],
+)
+def test_auto_import_stamps_simulator_when_importer_cannot_detect_it(tmp_path, sim_label, expected_simulator):
+    # No signature channels (Path Lateral / ROTY / Car Coord X), so the importer leaves simulator unset.
+    channels = {
+        name: np.linspace(0.0, 1.0, 50, dtype=np.float32)
+        for name in ("SPEED", "THROTTLE", "BRAKE", "GEAR", "G Force Lat", "G Force Long")
+    }
+    data = create_synthetic_ld_bytes("Driver", "BMW M4 GT3", "Monza", datetime(2026, 10, 18, 14, 0), channels)
+    (tmp_path / "ac1_stint.ld").write_bytes(data)
+
+    count = _auto_import_from_dir(str(tmp_path), ["*.ld"], MoTeCImporter, set(), sim_label)
+
+    assert count == 1
+    sess = storage.get_session("ac1_stint")
+    assert sess is not None
+    assert sess.simulator == expected_simulator
 
 
 def test_api_coach_chat_falls_back_to_rules_when_llm_is_silent(client, monkeypatch):

@@ -116,7 +116,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 }) => {
   const { lang, t } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'stint' | 'import'>('sessions');
-  const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing'>('all');
+  const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing' | 'acevo' | 'ac1'>('all');
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
@@ -152,6 +152,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     if (filterGame === 'acc') return g.simulator === 'Assetto Corsa Competizione';
     if (filterGame === 'lmu') return g.simulator === 'Le Mans Ultimate';
     if (filterGame === 'iracing') return g.simulator === 'iRacing';
+    if (filterGame === 'acevo') return g.simulator === 'Assetto Corsa EVO';
+    if (filterGame === 'ac1') return g.simulator === 'Assetto Corsa';
     return true;
   });
 
@@ -300,6 +302,26 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 }`}
               >
                 iRacing
+              </button>
+              <button
+                onClick={() => setFilterGame('acevo')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterGame === 'acevo'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white/5 text-gray-400 hover:text-white'
+                }`}
+              >
+                AC EVO
+              </button>
+              <button
+                onClick={() => setFilterGame('ac1')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterGame === 'ac1'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-white/5 text-gray-400 hover:text-white'
+                }`}
+              >
+                AC1
               </button>
             </div>
           )}
