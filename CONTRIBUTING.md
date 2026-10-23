@@ -17,12 +17,19 @@ Thank you for your interest in contributing to IdoRacing Analytics!
    pip install -r requirements.txt
    ```
 
-3. Run the automated tests:
+3. Activate the git hooks (the pre-commit hook denies commits whose author
+   or committer identity does not match the repository history):
+
+   ```bash
+   git config core.hooksPath githooks
+   ```
+
+4. Run the automated tests:
    ```bash
    pytest
    ```
 
-4. Launch the API and the frontend dev server (Vite proxies `/api` to port 8501):
+5. Launch the API and the frontend dev server (Vite proxies `/api` to port 8501):
    ```bash
    uvicorn api.server:app --reload --port 8501
    cd frontend && npm install && npm run dev
