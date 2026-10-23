@@ -273,6 +273,12 @@ class ComparisonResponse(BaseModel):
     track_name: str
     car_name: str
     game_name: str | None = None
+    ref_session_id: str | None = None
+    comp_session_id: str | None = None
+    ref_car_name: str | None = None
+    comp_car_name: str | None = None
+    ref_date: str | None = None
+    comp_date: str | None = None
     distance: list[float]
     ref_speed: list[float]
     comp_speed: list[float]
@@ -416,6 +422,48 @@ def list_sessions():
     return storage.list_sessions()
 
 
+class SessionGroupDTO(BaseModel):
+    simulator: str
+    track: str
+    sessions: list[dict[str, Any]]
+    total_laps: int
+    best_lap_time: float
+
+
+@app.get("/api/session-groups", response_model=list[SessionGroupDTO])
+def list_session_groups():
+    """Group sessions by (simulator, track) so the UI can offer cross-session comparison."""
+    sessions = storage.list_sessions()
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for s in sessions:
+        sim = s.simulator or "Unknown"
+        key = (sim, s.track)
+        groups.setdefault(key, []).append({
+            "session_id": s.session_id,
+            "car": s.car,
+            "track": s.track,
+            "date": s.date.isoformat() if hasattr(s.date, "isoformat") else str(s.date),
+            "best_lap_time": s.best_lap_time,
+            "lap_count": s.lap_count,
+            "simulator": s.simulator,
+            "source_file": getattr(s, "source_file", None),
+        })
+
+    result: list[SessionGroupDTO] = []
+    for (sim, track), sess_list in sorted(groups.items()):
+        sess_list.sort(key=lambda x: x["date"], reverse=True)
+        total_laps = sum(s["lap_count"] for s in sess_list)
+        best = min((s["best_lap_time"] for s in sess_list if s["best_lap_time"] > 0), default=0.0)
+        result.append(SessionGroupDTO(
+            simulator=sim,
+            track=track,
+            sessions=sess_list,
+            total_laps=total_laps,
+            best_lap_time=best,
+        ))
+    return result
+
+
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str):
     sess = storage.get_session(session_id)
@@ -509,28 +557,83 @@ def get_lap_comparison(
     ref_lap_id: str | None = Query(None),
     comp_lap_id: str | None = Query(None),
     session_id: str | None = Query(None),
+    ref_session_id: str | None = Query(None),
+    comp_session_id: str | None = Query(None),
 ):
-    matched_session = ensure_session_telemetry(_load_session(session_id))
-    ref_lap = _find_lap(matched_session, ref_lap_id) if ref_lap_id else None
-    comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
+    # When cross-session comparison is requested, load each lap from its own session.
+    if ref_session_id or comp_session_id:
+        ref_session = ensure_session_telemetry(_load_session(ref_session_id or session_id))
+        comp_session = ensure_session_telemetry(_load_session(comp_session_id or session_id))
 
-    if not ref_lap or not comp_lap:
-        # Prefer valid laps with enough samples; fall back to any lap with a
-        # minimum amount of data so a 23-sample partial lap is never picked.
-        def _has_enough_data(lap: Lap) -> bool:
-            t = lap.telemetry or {}
-            return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+        # Both sessions must be on the same track for a meaningful comparison.
+        if ref_session.track != comp_session.track:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot compare laps from different tracks: {ref_session.track} vs {comp_session.track}",
+            )
 
-        candidates = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
-        if not candidates:
-            candidates = [l for l in matched_session.laps if l.lap_time > 0 and _has_enough_data(l)]
-        if not candidates:
-            candidates = [l for l in matched_session.laps if l.lap_time > 0]
-        ranked = sorted(candidates, key=lambda x: x.lap_time)
-        if not ranked:
-            raise HTTPException(status_code=404, detail="Session has no laps")
-        ref_lap = ranked[0]
-        comp_lap = ranked[1] if len(ranked) > 1 else ranked[0]
+        ref_lap = _find_lap(ref_session, ref_lap_id) if ref_lap_id else None
+        comp_lap = _find_lap(comp_session, comp_lap_id) if comp_lap_id else None
+
+        if not ref_lap or not comp_lap:
+            def _has_enough_data(lap: Lap) -> bool:
+                t = lap.telemetry or {}
+                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+
+            if not ref_lap:
+                candidates = [l for l in ref_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
+                if not candidates:
+                    candidates = [l for l in ref_session.laps if l.lap_time > 0 and _has_enough_data(l)]
+                if not candidates:
+                    candidates = [l for l in ref_session.laps if l.lap_time > 0]
+                if candidates:
+                    ref_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
+            if not comp_lap:
+                candidates = [l for l in comp_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
+                if not candidates:
+                    candidates = [l for l in comp_session.laps if l.lap_time > 0 and _has_enough_data(l)]
+                if not candidates:
+                    candidates = [l for l in comp_session.laps if l.lap_time > 0]
+                if candidates:
+                    comp_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
+
+        if not ref_lap or not comp_lap:
+            raise HTTPException(status_code=404, detail="Could not find laps in the selected sessions")
+
+        matched_session = ref_session  # for track name and map generation
+        ref_car = ref_session.car
+        comp_car = comp_session.car
+        ref_date = ref_session.date
+        comp_date = comp_session.date
+    else:
+        matched_session = ensure_session_telemetry(_load_session(session_id))
+        ref_lap = _find_lap(matched_session, ref_lap_id) if ref_lap_id else None
+        comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
+
+        if not ref_lap or not comp_lap:
+            # Prefer valid laps with enough samples; fall back to any lap with a
+            # minimum amount of data so a 23-sample partial lap is never picked.
+            def _has_enough_data(lap: Lap) -> bool:
+                t = lap.telemetry or {}
+                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+
+            candidates = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
+            if not candidates:
+                candidates = [l for l in matched_session.laps if l.lap_time > 0 and _has_enough_data(l)]
+            if not candidates:
+                candidates = [l for l in matched_session.laps if l.lap_time > 0]
+            ranked = sorted(candidates, key=lambda x: x.lap_time)
+            if not ranked:
+                raise HTTPException(status_code=404, detail="Session has no laps")
+            ref_lap = ranked[0]
+            comp_lap = ranked[1] if len(ranked) > 1 else ranked[0]
+
+        ref_car = matched_session.car
+        comp_car = matched_session.car
+        ref_date = matched_session.date
+        comp_date = matched_session.date
+        ref_session = matched_session
+        comp_session = matched_session
 
     comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     aligned = align_laps_by_distance(ref_lap.telemetry or {}, comp_lap.telemetry or {}, step_m=2.0)
@@ -567,8 +670,14 @@ def get_lap_comparison(
         comp_lap_time=comp_lap.lap_time,
         delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
         track_name=matched_session.track,
-        car_name=matched_session.car,
+        car_name=ref_car,
         game_name=detected_game,
+        ref_session_id=ref_session.session_id if ref_session_id or comp_session_id else None,
+        comp_session_id=comp_session.session_id if ref_session_id or comp_session_id else None,
+        ref_car_name=ref_car,
+        comp_car_name=comp_car,
+        ref_date=ref_date.strftime("%d/%m/%Y %H:%M") if hasattr(ref_date, 'strftime') else str(ref_date),
+        comp_date=comp_date.strftime("%d/%m/%Y %H:%M") if hasattr(comp_date, 'strftime') else str(comp_date),
         distance=distance_grid,
         ref_speed=ref_speed,
         comp_speed=comp_speed,

@@ -117,14 +117,22 @@ class CSVImporter:
                     lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
-                # The recorder's lap_valid flag is unreliable (it marks most samples
-                # invalid during practice/qualifying). Trust the distance-based
-                # partial-lap filter below instead.
+                # Hybrid lap_valid rule: the recorder's flag is unreliable when it
+                # marks most samples invalid (practice/qualifying), so only trust it
+                # when at least half the samples are valid — then a single invalid
+                # sample invalidates the whole lap. The distance filter below still
+                # runs as a final arbiter for partial laps.
+                is_valid = True
+                if lap_valid is not None:
+                    lap_valid_samples = [lap_valid[idx] for idx in indices]
+                    valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / len(lap_valid_samples)
+                    if valid_fraction >= 0.5:
+                        is_valid = all(v >= 1 for v in lap_valid_samples)
                 laps.append(
                     Lap(
                         lap_number=int(l_num),
                         lap_time=lap_time,
-                        is_valid=True,
+                        is_valid=is_valid,
                         telemetry=lap_telemetry,
                     )
                 )

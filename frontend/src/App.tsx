@@ -115,6 +115,8 @@ export const App: React.FC = () => {
   const [activeFullSession, setActiveFullSession] = useState<SessionDetail | null>(null);
   const [refLapNumber, setRefLapNumber] = useState<number>(1);
   const [compLapNumber, setCompLapNumber] = useState<number>(2);
+  const [refSessionId, setRefSessionId] = useState<string | null>(null);
+  const [compSessionId, setCompSessionId] = useState<string | null>(null);
 
   const [comparison, setComparison] = useState<ComparisonResponse | null>(null);
   const [hoverDistance, setHoverDistance] = useState<number | null>(null);
@@ -132,12 +134,25 @@ export const App: React.FC = () => {
   const comparisonRequest = useRef<AbortController | null>(null);
 
   /** Fetch a comparison, cancelling any earlier one still in flight so a slow reply cannot overwrite a newer one. */
-  const loadComparison = async (refLap: number, compLap: number, sessionId: string | null) => {
+  const loadComparison = async (
+    refLap: number,
+    compLap: number,
+    sessionId: string | null,
+    crossRefSessionId?: string | null,
+    crossCompSessionId?: string | null,
+  ) => {
     comparisonRequest.current?.abort();
     const controller = new AbortController();
     comparisonRequest.current = controller;
     try {
-      const comp = await fetchComparison(String(refLap), String(compLap), sessionId || undefined, controller.signal);
+      const comp = await fetchComparison(
+        String(refLap),
+        String(compLap),
+        sessionId || undefined,
+        controller.signal,
+        crossRefSessionId || undefined,
+        crossCompSessionId || undefined,
+      );
       setComparison(comp);
       setSelectedCorner(null);
       setCoachReport(null);
@@ -267,6 +282,28 @@ export const App: React.FC = () => {
       setCompLapNumber(lapNumber);
       storeActiveSelection(selectedSessionId, refLapNumber, lapNumber);
       await loadComparison(refLapNumber, lapNumber, selectedSessionId);
+    } catch (err) {
+      setError(errorMessage(err, translate('err_select_comp')));
+    }
+  };
+
+  /** Select a reference lap from any session (cross-session comparison). */
+  const handleSelectRefLapCross = async (sessionId: string, lapNumber: number) => {
+    try {
+      setRefSessionId(sessionId);
+      setRefLapNumber(lapNumber);
+      await loadComparison(lapNumber, compLapNumber, selectedSessionId, sessionId, compSessionId);
+    } catch (err) {
+      setError(errorMessage(err, translate('err_select_ref')));
+    }
+  };
+
+  /** Select a comparison lap from any session (cross-session comparison). */
+  const handleSelectCompLapCross = async (sessionId: string, lapNumber: number) => {
+    try {
+      setCompSessionId(sessionId);
+      setCompLapNumber(lapNumber);
+      await loadComparison(refLapNumber, lapNumber, selectedSessionId, refSessionId, sessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_select_comp')));
     }
@@ -431,6 +468,10 @@ export const App: React.FC = () => {
                 compLapNumber={compLapNumber}
                 onSelectRefLap={handleSelectRefLap}
                 onSelectCompLap={handleSelectCompLap}
+                refSessionId={refSessionId}
+                compSessionId={compSessionId}
+                onSelectRefLapCross={handleSelectRefLapCross}
+                onSelectCompLapCross={handleSelectCompLapCross}
                 onGoToTelemetry={() => handleNavigateTab('telemetry')}
                 onLoadDemo={handleLoadDemo}
                 autoData={autoData}

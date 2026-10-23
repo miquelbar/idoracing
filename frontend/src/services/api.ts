@@ -10,6 +10,7 @@ import type {
   LapHistoryData,
   SaveSettingsResult,
   SessionDetail,
+  SessionGroup,
   SessionSummary,
   SettingsDTO,
   SetupAdviceReport,
@@ -53,6 +54,12 @@ export async function fetchSessions(): Promise<SessionSummary[]> {
   return res.json();
 }
 
+export async function fetchSessionGroups(): Promise<SessionGroup[]> {
+  const res = await fetch(`${API_BASE}/session-groups`);
+  if (!res.ok) await failure(res, 'Failed to fetch session groups');
+  return res.json();
+}
+
 export async function fetchSession(sessionId: string): Promise<SessionDetail> {
   const res = await fetch(`${API_BASE}/sessions/${sessionId}`);
   if (!res.ok) await failure(res, 'Failed to fetch session details');
@@ -63,12 +70,16 @@ export async function fetchComparison(
   refLapId?: string,
   compLapId?: string,
   sessionId?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  refSessionId?: string,
+  compSessionId?: string
 ): Promise<ComparisonResponse> {
   const params = new URLSearchParams();
   if (refLapId) params.append('ref_lap_id', refLapId);
   if (compLapId) params.append('comp_lap_id', compLapId);
   if (sessionId) params.append('session_id', sessionId);
+  if (refSessionId) params.append('ref_session_id', refSessionId);
+  if (compSessionId) params.append('comp_session_id', compSessionId);
 
   const res = await fetch(`${API_BASE}/comparison?${params.toString()}`, { signal });
   if (!res.ok) await failure(res, 'Failed to fetch comparison');

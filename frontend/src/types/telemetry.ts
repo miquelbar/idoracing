@@ -103,6 +103,12 @@ export interface ComparisonResponse {
   track_name: string;
   car_name: string;
   game_name?: string | null;
+  ref_session_id?: string | null;
+  comp_session_id?: string | null;
+  ref_car_name?: string | null;
+  comp_car_name?: string | null;
+  ref_date?: string | null;
+  comp_date?: string | null;
   distance: number[];
   ref_speed: number[];
   comp_speed: number[];
@@ -191,6 +197,25 @@ export interface SessionSummary {
   lap_count: number;
   laps?: LapSummary[];
   simulator?: string | null;
+}
+
+export interface SessionGroupSession {
+  session_id: string;
+  car: string;
+  track: string;
+  date: string;
+  best_lap_time: number;
+  lap_count: number;
+  simulator?: string | null;
+  source_file?: string | null;
+}
+
+export interface SessionGroup {
+  simulator: string;
+  track: string;
+  sessions: SessionGroupSession[];
+  total_laps: number;
+  best_lap_time: number;
 }
 
 export interface AutoDiscoverFile {
