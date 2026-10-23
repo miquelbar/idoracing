@@ -918,7 +918,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               {t('how_to_record_title')}
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs text-gray-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-2 text-xs text-gray-300">
               <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
                 <span className="font-bold text-accent block text-sm">Assetto Corsa Competizione</span>
                 <p className="text-gray-400">
@@ -926,6 +926,16 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </p>
                 <p className="text-[11px] text-gray-500">
                   Guarda los archivos .ld en <code className="text-gray-300">Documentos/Assetto Corsa Competizione/MoTeC</code>.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
+                <span className="font-bold text-purple-400 block text-sm">Assetto Corsa EVO</span>
+                <p className="text-gray-400">
+                  Abre el setup del coche en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99). Sin esto no genera telemetría.
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Guarda los .ld en <code className="text-gray-300">Saved Games/ACE/MoTec/&lt;coche&gt;/&lt;circuito&gt;</code>. Los resultados de sesión (solo tiempos) se importan solos.
                 </p>
               </div>
 

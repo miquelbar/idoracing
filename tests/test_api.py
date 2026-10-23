@@ -64,6 +64,38 @@ def test_lap_times_only_sessions_are_reported_as_synthetic(client):
     assert comp["telemetry_source"] == "synthetic"
 
 
+ACEVO_RESULTS = """{
+ "track": "Red Bull Ring",
+ "layout": "GP Time Attack",
+ "drivers": [
+  {
+   "is_current_driver": true,
+   "car_brand": "Porsche",
+   "car_name": "Porsche 911 GT2 RS Clubsport Evo (991II)",
+   "laps": 2,
+   "splits": ["00:25.419", "00:46.065", "00:34.185"],
+   "best_lap": "01:45.669"
+  }
+ ]
+}
+"""
+
+
+def test_acevo_session_results_upload_is_reported_as_synthetic(client):
+    res = client.post(
+        "/api/import/upload",
+        files={"file": ("261023-2150_SP_Practice.sessionresults.json", ACEVO_RESULTS.encode(), "application/json")},
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["track"] == "Red Bull Ring"
+    assert data["laps"] == 1
+
+    comp = client.get("/api/comparison", params={"session_id": data["session_id"]}).json()
+    assert comp["telemetry_source"] == "synthetic"
+    assert comp["ref_lap_time"] == pytest.approx(105.669)
+
+
 def test_recorded_csv_laps_are_reported_as_recorded(client):
     rows = ["time,distance,speed,throttle,brake,gear,lap"]
     for lap, speed in ((1, 150), (2, 145)):

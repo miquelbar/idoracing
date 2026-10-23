@@ -34,6 +34,7 @@ from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
 from domain.session import CoachReport, CornerAnalysis, Lap, Session, SetupAdviceReport, SetupAdviceReview
+from importers.acevo_importer import ACEVOImporter
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
@@ -46,11 +47,13 @@ ACC_MOTEC_DIR = os.path.join(ACC_DOCUMENTS_DIR, "Assetto Corsa Competizione", "M
 # Where idoracing-recorder writes by default when it runs inside ACC's Proton prefix.
 ACC_RECORDINGS_DIR = os.path.join(ACC_DOCUMENTS_DIR, "IdoRacing", "recordings")
 LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
-# Assetto Corsa EVO (app 3058630) — telemetry lives in Documents under the game folder.
-ACEVO_DOCUMENTS_DIR = os.path.expanduser(
-    "~/.local/share/Steam/steamapps/compatdata/3058630/pfx/drive_c/users/steamuser/Documents"
+# Assetto Corsa EVO (app 3058630) — telemetry lives under Saved Games/ACE.
+ACEVO_SAVED_GAMES_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/3058630/pfx/drive_c/users/steamuser/Saved Games/ACE"
 )
-ACEVO_MOTEC_DIR = os.path.join(ACEVO_DOCUMENTS_DIR, "Assetto Corsa EVO", "MoTeC")
+# MoTeC .ld files are nested as MoTec/<car>/<track>/, so this directory is scanned recursively.
+ACEVO_MOTEC_DIR = os.path.join(ACEVO_SAVED_GAMES_DIR, "MoTec")
+ACEVO_RESULTS_DIR = os.path.join(ACEVO_SAVED_GAMES_DIR, "Results")
 # Assetto Corsa 1 (app 244210) — telemetry lives in Documents under the game folder.
 AC1_DOCUMENTS_DIR = os.path.expanduser(
     "~/.local/share/Steam/steamapps/compatdata/244210/pfx/drive_c/users/steamuser/Documents"
@@ -102,7 +105,7 @@ def _auto_import_from_dir(
 
     files: list[str] = []
     for pat in patterns:
-        files.extend(glob.glob(os.path.join(directory, pat)))
+        files.extend(glob.glob(os.path.join(directory, pat), recursive=True))
     # Newest first so the log reads naturally
     files = sorted(set(files), key=os.path.getmtime, reverse=True)
 
@@ -151,8 +154,11 @@ def _auto_import_all(imported_sources: set[str]) -> dict[str, int]:
     )
     # LMU — result .xml files
     results["LMU"] = _auto_import_from_dir(LMU_RESULTS_DIR, ["*.xml"], LMUImporter, imported_sources, "LMU")
-    # Assetto Corsa EVO — MoTeC .ld files
-    results["AC EVO"] = _auto_import_from_dir(ACEVO_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC EVO")
+    # Assetto Corsa EVO — MoTeC .ld files (nested under MoTec/<car>/<track>/) and session results
+    results["AC EVO"] = _auto_import_from_dir(ACEVO_MOTEC_DIR, ["**/*.ld"], MoTeCImporter, imported_sources, "AC EVO")
+    results["AC EVO (Results)"] = _auto_import_from_dir(
+        ACEVO_RESULTS_DIR, ["*.sessionresults.json"], ACEVOImporter, imported_sources, "AC EVO"
+    )
     # Assetto Corsa 1 — MoTeC .ld files
     results["AC1"] = _auto_import_from_dir(AC1_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "AC1")
 
@@ -1247,13 +1253,13 @@ def autodiscover_files():
             return []
         files: list[str] = []
         for pat in patterns:
-            files.extend(glob.glob(os.path.join(directory, pat)))
+            files.extend(glob.glob(os.path.join(directory, pat), recursive=True))
         files = sorted(set(files), key=os.path.getmtime, reverse=True)
         return [{"filename": os.path.basename(f), "path": f} for f in files]
 
     acc_files = _scan(ACC_MOTEC_DIR, ["*.ld"]) + _scan(ACC_RECORDINGS_DIR, ["*.csv"])
     lmu_files = _scan(LMU_RESULTS_DIR, ["*.xml"])
-    acevo_files = _scan(ACEVO_MOTEC_DIR, ["*.ld"])
+    acevo_files = _scan(ACEVO_MOTEC_DIR, ["**/*.ld"]) + _scan(ACEVO_RESULTS_DIR, ["*.sessionresults.json"])
     ac1_files = _scan(AC1_MOTEC_DIR, ["*.ld"])
 
     return {
@@ -1281,6 +1287,8 @@ def _parse_telemetry_file(filepath: str) -> Session:
             return MoTeCImporter(filepath).parse()
         if ext == ".csv":
             return CSVImporter(filepath).parse()
+        if ext == ".json":
+            return ACEVOImporter(filepath).parse()
     except (ValueError, KeyError, IndexError, struct.error, ET.ParseError) as e:
         raise HTTPException(status_code=400, detail=f"Could not read {os.path.basename(filepath)}: {e}") from e
     raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}")
@@ -1291,7 +1299,7 @@ def import_local_file(req: LocalImportRequest):
     filepath = os.path.realpath(req.filepath)
     allowed_dirs = [
         os.path.realpath(d)
-        for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR, ACEVO_MOTEC_DIR, AC1_MOTEC_DIR)
+        for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR, ACEVO_MOTEC_DIR, ACEVO_RESULTS_DIR, AC1_MOTEC_DIR)
     ]
     if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
         raise HTTPException(
