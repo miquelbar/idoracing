@@ -3,6 +3,7 @@ import { ChevronRight, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { fetchCarSetup } from '../services/api';
 import type { CarSetupData } from '../types/telemetry';
 import { CarSetupInspector } from '../components/CarSetupInspector';
+import { SetupAdvicePanel } from '../components/SetupAdvicePanel';
 import { useLanguage } from '../i18n';
 import { errorMessage } from '../utils/formatters';
 
@@ -10,6 +11,8 @@ interface CarSetupViewProps {
   selectedSessionId: string | null;
   trackName: string;
   carName: string;
+  refLapId: string | null;
+  compLapId: string | null;
   onGoToTelemetry: () => void;
 }
 
@@ -17,6 +20,8 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
   selectedSessionId,
   trackName: _trackName,
   carName: _carName,
+  refLapId,
+  compLapId,
   onGoToTelemetry,
 }) => {
   const { t } = useLanguage();
@@ -88,6 +93,13 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
       </div>
 
       <CarSetupInspector setup={setup} />
+
+      {/* Structured setup advice from Pep, based on telemetry */}
+      <SetupAdvicePanel
+        refLapId={refLapId}
+        compLapId={compLapId}
+        sessionId={selectedSessionId}
+      />
     </div>
   );
 };

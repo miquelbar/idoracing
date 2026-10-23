@@ -262,3 +262,107 @@ def test_chat_context_lists_only_the_corner_numbers_it_was_given():
     assert "Apex minimum speed: 80.0 km/h (Ref: 85.0 km/h, ΔV: -5.0 km/h)." in context
     assert "Entry speed" not in context
     assert "Gear at apex" not in context
+
+
+def test_setup_advice_review_returns_structured_report_and_review(client):
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_lap_id": "2",
+            "comp_lap_id": "1",
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert "report" in data
+    assert "pep_review" in data
+    assert "review_source" in data
+    assert data["review_source"] in ("llm", "rules")
+    assert data["report"]["overall_balance"] in ("understeer", "oversteer", "neutral", "mixed")
+    assert isinstance(data["report"]["recommendations"], list)
+    assert data["pep_review"] != ""
+
+
+def test_setup_advice_review_falls_back_to_rules_when_llm_is_silent(client, monkeypatch):
+    from api.server import llm_client
+
+    monkeypatch.setattr(llm_client, "chat", lambda messages, timeout=None: None)
+    monkeypatch.setattr(llm_client, "is_available", lambda: True)
+
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_lap_id": "2",
+            "comp_lap_id": "1",
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["review_source"] == "rules"
+    assert data["review_model"] is None
+    assert data["pep_review"] != ""
+
+
+def test_setup_advice_review_uses_llm_when_available(client, monkeypatch):
+    from api.server import llm_client
+
+    monkeypatch.setattr(
+        llm_client,
+        "chat",
+        lambda messages, timeout=None: "1. Veredicto: coherente.\n2. Sin conflictos.\n3. Prueba primero el TC.",
+    )
+    monkeypatch.setattr(llm_client, "is_available", lambda: True)
+    monkeypatch.setattr(llm_client, "ollama_model", "test-model")
+
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_lap_id": "2",
+            "comp_lap_id": "1",
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["review_source"] == "llm"
+    assert data["review_model"] == "test-model"
+    assert "Veredicto" in data["pep_review"]
+
+
+def test_setup_advice_review_404_for_unknown_laps(client):
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_lap_id": "999",
+            "comp_lap_id": "1",
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 404
+
+
+def test_setup_advice_review_english(client, monkeypatch):
+    from api.server import llm_client
+
+    monkeypatch.setattr(llm_client, "chat", lambda messages, timeout=None: None)
+    monkeypatch.setattr(llm_client, "is_available", lambda: True)
+
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_lap_id": "2",
+            "comp_lap_id": "1",
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "en",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["review_source"] == "rules"
+    assert "Verdict" in data["pep_review"] or "recommendation" in data["pep_review"].lower()

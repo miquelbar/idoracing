@@ -3,6 +3,7 @@ import { RefreshCw, Wrench, X } from 'lucide-react';
 import { fetchCarSetup } from '../services/api';
 import type { CarSetupData } from '../types/telemetry';
 import { CarSetupInspector } from './CarSetupInspector';
+import { SetupAdvicePanel } from './SetupAdvicePanel';
 import { useLanguage } from '../i18n';
 import { errorMessage } from '../utils/formatters';
 
@@ -10,12 +11,16 @@ interface CarSetupModalProps {
   isOpen: boolean;
   onClose: () => void;
   sessionId?: string | null;
+  refLapId?: string | null;
+  compLapId?: string | null;
 }
 
 export const CarSetupModal: React.FC<CarSetupModalProps> = ({
   isOpen,
   onClose,
   sessionId,
+  refLapId,
+  compLapId,
 }) => {
   const { t } = useLanguage();
   const [setup, setSetup] = useState<CarSetupData | null>(null);
@@ -100,7 +105,20 @@ export const CarSetupModal: React.FC<CarSetupModalProps> = ({
             </div>
           )}
 
-          {setup && !loading && <CarSetupInspector setup={setup} />}
+          {setup && !loading && (
+            <>
+              <CarSetupInspector setup={setup} />
+
+              {/* Structured setup advice from Pep, based on telemetry */}
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <SetupAdvicePanel
+                  refLapId={refLapId ?? null}
+                  compLapId={compLapId ?? null}
+                  sessionId={sessionId ?? null}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

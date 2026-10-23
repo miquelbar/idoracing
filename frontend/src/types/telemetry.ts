@@ -308,4 +308,32 @@ export interface CarSetupData {
   setup_advice: SetupAdviceItem[];
 }
 
+export interface SetupRecommendation {
+  category: string;
+  parameter: string;
+  suggested_change: string;
+  reason: string;
+  evidence: string[];
+  affected_corners: string[];
+  priority: 'high' | 'medium' | 'low';
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface SetupAdviceReport {
+  summary: string;
+  recommendations: SetupRecommendation[];
+  overall_balance: 'understeer' | 'oversteer' | 'neutral' | 'mixed';
+  primary_issue: string;
+  confidence: 'high' | 'medium' | 'low';
+  created_at?: string;
+}
+
+export interface SetupAdviceReview {
+  report: SetupAdviceReport;
+  pep_review: string;
+  review_source: 'llm' | 'rules';
+  review_model: string | null;
+  reviewed_at?: string;
+}
+
 

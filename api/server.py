@@ -17,10 +17,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.requests import Request
+from starlette.responses import Response
 
 from analysis.alignment import align_laps_by_distance
 from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
+from analysis.setup_advisor import generate_setup_advice
 from analysis.stint_analysis import analyze_session_stint
 from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tire_thermal import analyze_all_tyres
@@ -30,7 +33,7 @@ from coach.knowledge_base import knowledge_base
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
-from domain.session import CoachReport, CornerAnalysis, Lap, Session
+from domain.session import CoachReport, CornerAnalysis, Lap, Session, SetupAdviceReport, SetupAdviceReview
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
@@ -90,6 +93,18 @@ app = FastAPI(
     version="2026.2",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def _cache_control(request: Request, call_next):
+    """HTML: always revalidate. Hashed assets: cache forever (immutable)."""
+    response: Response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path == "/index.html" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache"
+    elif path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 # --- DTO Models ---
@@ -626,6 +641,210 @@ def get_car_setup(session_id: str | None = Query(None)):
 def get_stint_analysis(session_id: str | None = Query(None)):
     matched_session = _load_session(session_id)
     return analyze_session_stint(matched_session)
+
+
+class SetupAdviceRequest(BaseModel):
+    ref_lap_id: str
+    comp_lap_id: str
+    session_id: str | None = None
+
+
+@app.post("/api/setup-advice", response_model=SetupAdviceReport)
+def get_setup_advice(req: SetupAdviceRequest):
+    """Generate structured setup recommendations from a lap comparison."""
+    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    ref_lap = _find_lap(matched_session, req.ref_lap_id)
+    comp_lap = _find_lap(matched_session, req.comp_lap_id)
+    if not ref_lap or not comp_lap:
+        raise HTTPException(status_code=404, detail="Laps not found for setup advice")
+
+    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
+    return generate_setup_advice(
+        comparison,
+        car=matched_session.car,
+        track=matched_session.track,
+        synthetic=ref_lap.synthetic or comp_lap.synthetic,
+    )
+
+
+class SetupAdviceReviewRequest(BaseModel):
+    ref_lap_id: str
+    comp_lap_id: str
+    session_id: str | None = None
+    lang: str = "es"
+
+
+def _build_review_prompt(report: SetupAdviceReport, car: str, track: str, lang: str) -> str:
+    """Build the prompt asking Pep to review the structured setup advice."""
+    es = lang.lower() != "en"
+    lines: list[str] = []
+
+    if es:
+        lines.append(
+            "A continuación tienes un informe de setup advice generado automáticamente por reglas "
+            "a partir de telemetría de comparación de vueltas. Tu trabajo es REVISARLO como ingeniero de pista: "
+            "comprobar que las recomendaciones son coherentes entre sí, señalar posibles conflictos o "
+            "contradicciones, y proponer un orden de prueba recomendado.\n"
+        )
+        lines.append(f"Coche: {car}")
+        lines.append(f"Circuito: {track}")
+        lines.append(f"Balance general detectado: {report.overall_balance}")
+        lines.append(f"Problema principal: {report.primary_issue}")
+        lines.append(f"Resumen automático: {report.summary}")
+        lines.append(f"Confianza global del análisis: {report.confidence}")
+        lines.append("")
+        lines.append(f"Recomendaciones estructuradas ({len(report.recommendations)}):")
+        for i, r in enumerate(report.recommendations, 1):
+            lines.append(f"\n{i}. [{r.priority.upper()}] {r.parameter} → {r.suggested_change}")
+            lines.append(f"   Motivo: {r.reason}")
+            if r.evidence:
+                lines.append("   Evidencia:")
+                for ev in r.evidence:
+                    lines.append(f"   - {ev}")
+            if r.affected_corners:
+                lines.append(f"   Curvas afectadas: {', '.join(r.affected_corners)}")
+        lines.append("")
+        lines.append("--- TU REVISIÓN ---")
+        lines.append(
+            "Responde en español con estos apartados:\n"
+            "1. **Veredicto general**: ¿Las recomendaciones son coherentes? ¿Hay alguna que no tenga sentido "
+            "o que contradiga a otra?\n"
+            "2. **Conflictos detectados**: Si los hay, explica cuáles y por qué (ej: cambiar brake bias "
+            "hacia atrás y ablandar ARB delantero a la vez puede sobrevirar el coche en frenada).\n"
+            "3. **Orden de prueba recomendado**: Si hay varias recomendaciones, indica cuál probar primero, "
+            "cuál segunda, etc. Justifica el orden (qué cambio tiene más impacto, cuál es más seguro).\n"
+            "4. **Advertencias**: Cualquier riesgo o precaución importante (ej: no hagas dos cambios a la vez, "
+            "prueba 5 vueltas por cambio, vigila las temperaturas de neumáticos).\n"
+            "Sé directo y conciso. Máximo 300 palabras. No inventes datos que no estén en el informe."
+        )
+    else:
+        lines.append(
+            "Below is a setup advice report generated automatically by rules from lap comparison telemetry. "
+            "Your job is to REVIEW it as a race engineer: check that the recommendations are consistent "
+            "with each other, flag possible conflicts or contradictions, and suggest a recommended testing order.\n"
+        )
+        lines.append(f"Car: {car}")
+        lines.append(f"Track: {track}")
+        lines.append(f"Detected overall balance: {report.overall_balance}")
+        lines.append(f"Primary issue: {report.primary_issue}")
+        lines.append(f"Automatic summary: {report.summary}")
+        lines.append(f"Overall analysis confidence: {report.confidence}")
+        lines.append("")
+        lines.append(f"Structured recommendations ({len(report.recommendations)}):")
+        for i, r in enumerate(report.recommendations, 1):
+            lines.append(f"\n{i}. [{r.priority.upper()}] {r.parameter} → {r.suggested_change}")
+            lines.append(f"   Reason: {r.reason}")
+            if r.evidence:
+                lines.append("   Evidence:")
+                for ev in r.evidence:
+                    lines.append(f"   - {ev}")
+            if r.affected_corners:
+                lines.append(f"   Affected corners: {', '.join(r.affected_corners)}")
+        lines.append("")
+        lines.append("--- YOUR REVIEW ---")
+        lines.append(
+            "Respond in English with these sections:\n"
+            "1. **Overall verdict**: Are the recommendations consistent? Is any of them nonsensical "
+            "or contradictory?\n"
+            "2. **Detected conflicts**: If any, explain which and why (e.g.: shifting brake bias rearward "
+            "and softening the front ARB at the same time can make the car oversteer under braking).\n"
+            "3. **Recommended testing order**: If there are several recommendations, indicate which to try "
+            "first, which second, etc. Justify the order (which change has the most impact, which is safest).\n"
+            "4. **Warnings**: Any important risk or caution (e.g.: don't make two changes at once, "
+            "test 5 laps per change, watch tyre temperatures).\n"
+            "Be direct and concise. Maximum 300 words. Do not invent data not present in the report."
+        )
+
+    return "\n".join(lines)
+
+
+def _fallback_review(report: SetupAdviceReport, lang: str) -> str:
+    """Rule-based fallback review when no LLM is available."""
+    es = lang.lower() != "en"
+    if not report.recommendations:
+        return (
+            "No hay recomendaciones de setup que revisar. Concéntrate en mejorar la técnica de pilotaje "
+            "antes de tocar el reglaje."
+            if es
+            else "No setup recommendations to review. Focus on improving driving technique before touching the setup."
+        )
+
+    high = [r for r in report.recommendations if r.priority == "high"]
+    lines: list[str] = []
+    if es:
+        lines.append(
+            f"Veredicto: {len(report.recommendations)} recomendaciones detectadas, "
+            f"{len(high)} de alta prioridad. El balance general es '{report.overall_balance}'."
+        )
+        if len(report.recommendations) > 1:
+            lines.append(
+                "Orden recomendado: empieza por la recomendación de mayor prioridad, "
+                "prueba 5 vueltas, y solo entonces pasa a la siguiente. No hagas dos cambios a la vez."
+            )
+        lines.append(
+            "Advertencia: si el coche empeora tras un cambio, vuelve al valor anterior antes de probar el siguiente."
+        )
+    else:
+        lines.append(
+            f"Verdict: {len(report.recommendations)} recommendations detected, "
+            f"{len(high)} high priority. Overall balance is '{report.overall_balance}'."
+        )
+        if len(report.recommendations) > 1:
+            lines.append(
+                "Recommended order: start with the highest priority recommendation, "
+                "test 5 laps, and only then move to the next one. Do not make two changes at once."
+            )
+        lines.append(
+            "Warning: if the car gets worse after a change, revert to the previous value before trying the next one."
+        )
+    return "\n\n".join(lines)
+
+
+@app.post("/api/setup-advice/review", response_model=SetupAdviceReview)
+def get_setup_advice_review(req: SetupAdviceReviewRequest):
+    """Generate structured setup advice and enrich it with Pep's natural-language review."""
+    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    ref_lap = _find_lap(matched_session, req.ref_lap_id)
+    comp_lap = _find_lap(matched_session, req.comp_lap_id)
+    if not ref_lap or not comp_lap:
+        raise HTTPException(status_code=404, detail="Laps not found for setup advice review")
+
+    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
+    report = generate_setup_advice(
+        comparison,
+        car=matched_session.car,
+        track=matched_session.track,
+        synthetic=ref_lap.synthetic or comp_lap.synthetic,
+    )
+
+    lang = req.lang or "es"
+    system_prompt = PEP_SYSTEM_PROMPT_ES if lang.lower() != "en" else PEP_SYSTEM_PROMPT_EN
+    user_prompt = _build_review_prompt(report, matched_session.car, matched_session.track, lang)
+
+    review_text: str | None = None
+    review_source = "rules"
+    review_model: str | None = None
+
+    if llm_client.is_available():
+        chat_timeout = getattr(llm_client, "chat_timeout", float(os.environ.get("RADIO_CHAT_TIMEOUT", "120.0")))
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        review_text = llm_client.chat(messages, timeout=chat_timeout)
+        if review_text and review_text.strip():
+            review_source = "llm"
+            review_model = llm_client.active_model
+
+    if not review_text or not review_text.strip():
+        review_text = _fallback_review(report, lang)
+
+    return SetupAdviceReview(
+        report=report,
+        pep_review=review_text.strip(),
+        review_source=review_source,
+        review_model=review_model,
+    )
 
 
 @app.post("/api/coach/report", response_model=CoachReport)

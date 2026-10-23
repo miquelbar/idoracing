@@ -163,3 +163,44 @@ class CoachReport(BaseModel):
     confidence: str = Field(default="Alta", description="Nivel de confianza del análisis (Alta / Media / Baja)")
     raw_report: str = Field(default="", description="Texto completo del informe en formato Markdown")
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class SetupRecommendation(BaseModel):
+    """A single structured setup recommendation derived from telemetry analysis."""
+
+    category: str = Field(
+        ...,
+        description="Setup category: brake_bias, arb_front, arb_rear, tc, abs, wing, ride_height, camber, pressure, dampers, electronics",
+    )
+    parameter: str = Field(..., description="Human-readable parameter name, e.g. 'Brake Bias' or 'Front ARB'")
+    suggested_change: str = Field(..., description="The change to apply, e.g. '+0.5% rearward' or '-1 click'")
+    reason: str = Field(..., description="Why this change, grounded in the telemetry evidence")
+    evidence: list[str] = Field(
+        default_factory=list, description="Data points from telemetry supporting this recommendation"
+    )
+    affected_corners: list[str] = Field(default_factory=list, description="Corner names where this issue manifests")
+    priority: str = Field(default="medium", description="Priority: high, medium, low")
+    confidence: str = Field(default="medium", description="Confidence in this recommendation: high, medium, low")
+
+
+class SetupAdviceReport(BaseModel):
+    """Structured setup advice report generated from lap comparison telemetry."""
+
+    summary: str = Field(default="", description="One-paragraph summary of the overall setup state")
+    recommendations: list[SetupRecommendation] = Field(default_factory=list)
+    overall_balance: str = Field(
+        default="neutral", description="Overall car balance: understeer, oversteer, neutral, mixed"
+    )
+    primary_issue: str = Field(default="", description="The main issue costing the most time")
+    confidence: str = Field(default="medium", description="Overall confidence: high, medium, low")
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class SetupAdviceReview(BaseModel):
+    """Structured setup advice enriched with Pep's natural-language review."""
+
+    report: SetupAdviceReport
+    pep_review: str = Field(default="", description="Pep's natural-language review of the structured advice")
+    review_source: str = Field(default="rules", description="Source of the review: llm or rules")
+    review_model: str | None = Field(default=None, description="Model that generated the review, if LLM")
+    reviewed_at: datetime = Field(default_factory=datetime.now)

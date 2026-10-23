@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `idoracing-recorder`, a standalone Windows recorder for ACC that writes CSV sessions with car position from the game's shared memory, and CSV import of its metadata, position and lap validity.
 - Line offset in metres versus the reference lap at corner entry, apex and exit, for laps recorded with position data (LMU and AC MoTeC exports).
+- Structured setup advice from Pep: `POST /api/setup-advice` analyzes the lap comparison telemetry and returns prioritized, telemetry-grounded setup recommendations (brake bias, ARBs, TC, ABS, wing, dampers, camber) with numerical evidence and affected corners. Shown in the Car Setup view as an expandable panel below the setup inspector.
+- Pep's review of the structured setup advice: `POST /api/setup-advice/review` returns the structured report enriched with Pep's natural-language review (via Ollama when available, rule-based fallback otherwise). Pep checks recommendation consistency, flags conflicts between simultaneous changes, and suggests a testing order. Displayed as a dedicated section in the setup advice panel with Markdown formatting.
+- The car setup modal (opened from the telemetry header) now includes the structured setup advice panel below the setup inspector, so recommendations and Pep's review are accessible without leaving the telemetry view.
 
 ### Changed
+- The structured setup advisor no longer emits contradictory recommendations for the same parameter: corners with early braking are classified as a driving technique issue and excluded from understeer detection, and a deduplication pass keeps only the strongest recommendation per category.
 - The recorder can be started from ACC's Steam launch options on Linux (`acc-with-recorder.sh`) and stops by itself when ACC closes.
 - English users see the racing-line evaluation in English for all six labels.
 - Relicensed under GPL-3.0; the MoTeC reader follows gotzl/ldparser's file layout. See NOTICE.

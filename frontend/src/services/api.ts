@@ -12,6 +12,8 @@ import type {
   SessionDetail,
   SessionSummary,
   SettingsDTO,
+  SetupAdviceReport,
+  SetupAdviceReview,
   StintAnalysisData,
   SystemStatus,
 } from '../types/telemetry';
@@ -176,6 +178,44 @@ export async function fetchStintAnalysis(sessionId?: string): Promise<StintAnaly
   const query = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API_BASE}/stint-analysis${query}`);
   if (!res.ok) await failure(res, 'Failed to fetch stint analysis');
+  return res.json();
+}
+
+export async function fetchSetupAdvice(
+  refLapId: string,
+  compLapId: string,
+  sessionId?: string
+): Promise<SetupAdviceReport> {
+  const res = await fetch(`${API_BASE}/setup-advice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ref_lap_id: refLapId,
+      comp_lap_id: compLapId,
+      session_id: sessionId,
+    }),
+  });
+  if (!res.ok) await failure(res, 'Failed to fetch setup advice');
+  return res.json();
+}
+
+export async function fetchSetupAdviceReview(
+  refLapId: string,
+  compLapId: string,
+  sessionId: string | undefined,
+  lang: string
+): Promise<SetupAdviceReview> {
+  const res = await fetch(`${API_BASE}/setup-advice/review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ref_lap_id: refLapId,
+      comp_lap_id: compLapId,
+      session_id: sessionId,
+      lang,
+    }),
+  });
+  if (!res.ok) await failure(res, 'Failed to fetch setup advice review');
   return res.json();
 }
 

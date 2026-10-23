@@ -445,6 +445,8 @@ export const App: React.FC = () => {
                 selectedSessionId={selectedSessionId}
                 trackName={activeTrack}
                 carName={activeCar}
+                refLapId={comparison?.ref_lap_id || null}
+                compLapId={comparison?.comp_lap_id || null}
                 onGoToTelemetry={() => handleNavigateTab('telemetry')}
               />
             )}
@@ -497,6 +499,8 @@ export const App: React.FC = () => {
         isOpen={isCarSetupModalOpen}
         onClose={() => setIsCarSetupModalOpen(false)}
         sessionId={selectedSessionId}
+        refLapId={comparison?.ref_lap_id || null}
+        compLapId={comparison?.comp_lap_id || null}
       />
 
       {/* Global Stint & Tyre Degradation Modal (Opened from Telemetry header pill) */}

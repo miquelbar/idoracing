@@ -312,7 +312,7 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
         </div>
       </div>
 
-      {/* Pep AI Race Engineer Recommendations Section */}
+      {/* Static setup reference notes (not telemetry-based, not Pep's opinion) */}
       <div className="glass-panel rounded-2xl p-5 border-l-4 border-l-amber-500 space-y-4">
         <div className="flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-amber-400" />
