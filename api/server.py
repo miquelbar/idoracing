@@ -515,10 +515,18 @@ def get_lap_comparison(
     comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
 
     if not ref_lap or not comp_lap:
-        ranked = sorted(
-            [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid] or matched_session.laps,
-            key=lambda x: x.lap_time,
-        )
+        # Prefer valid laps with enough samples; fall back to any lap with a
+        # minimum amount of data so a 23-sample partial lap is never picked.
+        def _has_enough_data(lap: Lap) -> bool:
+            t = lap.telemetry or {}
+            return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+
+        candidates = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
+        if not candidates:
+            candidates = [l for l in matched_session.laps if l.lap_time > 0 and _has_enough_data(l)]
+        if not candidates:
+            candidates = [l for l in matched_session.laps if l.lap_time > 0]
+        ranked = sorted(candidates, key=lambda x: x.lap_time)
         if not ranked:
             raise HTTPException(status_code=404, detail="Session has no laps")
         ref_lap = ranked[0]

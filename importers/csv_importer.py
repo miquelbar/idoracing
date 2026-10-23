@@ -117,21 +117,26 @@ class CSVImporter:
                     lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
+                # The recorder's lap_valid flag is unreliable (it marks most samples
+                # invalid during practice/qualifying). Trust the distance-based
+                # partial-lap filter below instead.
                 laps.append(
                     Lap(
                         lap_number=int(l_num),
                         lap_time=lap_time,
-                        is_valid=lap_valid is None or all(lap_valid[idx] >= 1 for idx in indices),
+                        is_valid=True,
                         telemetry=lap_telemetry,
                     )
                 )
-            if track_position:
-                mark_partial_laps_invalid(laps)
-            elif len(laps) > 1:
+            # Always filter partial laps by distance covered, regardless of whether
+            # we have a real track-position channel or a dead-reckoned distance.
+            # A lap is invalid when it covers less than 70% or more than 130% of
+            # the median span (out-laps, in-laps, and pit-inclusive laps).
+            if len(laps) > 1:
                 spans = [distance_covered(lap.telemetry or {}) for lap in laps]
                 ref_span = float(np.median(spans))
                 for lap, span in zip(laps, spans, strict=True):
-                    if span < 0.7 * ref_span:
+                    if span < 0.7 * ref_span or span > 1.3 * ref_span:
                         lap.is_valid = False
 
         # If no explicit laps found, treat whole file as lap 1
