@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Clarified Le Mans Ultimate shared memory setup with exact plugin folder requirements and configuration paths in root and recorder documentation.
 - Documented complete Windows recording workflows (`shell:startup` background run, multi-sim auto-detection, `-exit-with` hooks) and Linux GameMode / MangoHud universal launcher syntax in root and recorder READMEs.
 - Simulator badges & labels in Garaje and Sessions for all supported simulators (`ACC`, `LMU`, `iRacing`, `AC EVO`, `AC`, `AC RALLY`, `DR2`, `WRC`) with robust fallback detection.
 - In-app guides and warning banners in Sessions and Garaje views explaining how to capture 50Hz telemetry (throttle, brake, steering, G-force, and GPS racing line) when laps only contain times ("⏱️ Solo Tiempos").

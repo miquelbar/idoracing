@@ -71,13 +71,18 @@ Enable UDP output in `hardware_settings_config.xml` (located in `Documents/My Ga
 ```
 
 ### Note for Le Mans Ultimate (LMU)
-Ensure `rFactor2SharedMemoryMapPlugin64.dll` is enabled in your LMU prefix:
-In `UserData/player/CustomPluginVariables.json`, confirm:
+LMU uses the standard rFactor 2 shared memory architecture:
+1. Place `rFactor2SharedMemoryMapPlugin64.dll` inside `<Le Mans Ultimate>/Plugins/`.
+2. Enable it in `<Le Mans Ultimate>/UserData/player/CustomPluginVariables.JSON`:
 ```json
-"rFactor2SharedMemoryMapPlugin64.dll": {
-  " Enabled": 1
+{
+  "rFactor2SharedMemoryMapPlugin64.dll": {
+    " Enabled": 1
+  }
 }
 ```
+3. Set your Steam Launch Options to `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or `lmu-with-recorder.sh %command%`).
+4. On Windows, just start `idoracing-recorder.exe -sim lmu` (or use `-sim auto`).
 
 ### Check it under Wine before driving (ACC and LMU Fake Sim)
 

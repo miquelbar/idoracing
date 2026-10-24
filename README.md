@@ -114,7 +114,7 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
 - **Native MoTeC Export (Fallback)**: In ACC, enter Car Setup > Electronics/Fuel and set **Telemetry Laps** to **10–20** (default `0` = off). ACC writes `.ld` files to `Documents\Assetto Corsa Competizione\MoTeC\`.
 
 ### 🏁 Le Mans Ultimate (LMU)
-- **Automatic Recorder (50Hz + GPS coords)**: Use the Universal launcher above, or dedicated `/path/to/recorder/linux/lmu-with-recorder.sh %command%`. Ensure `rFactor2SharedMemoryMapPlugin64.dll` is enabled in `UserData/player/CustomPluginVariables.json`. On Windows, run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"`.
+- **Automatic Recorder (50Hz + GPS coords)**: Requires `rFactor2SharedMemoryMapPlugin64.dll` inside `<Le Mans Ultimate>/Plugins/` and `" Enabled": 1` in `<Le Mans Ultimate>/UserData/player/CustomPluginVariables.JSON`. Then add `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `lmu-with-recorder.sh %command%`) to Steam Launch Options. On Windows, run `idoracing-recorder.exe -sim lmu` (or `-sim auto`).
 - **Session Results XML (Fallback)**: LMU automatically generates result XMLs under `UserData/Log/Results/`. IdoRacing detects them and displays lap times and split deltas.
 
 ### 🏎️ Assetto Corsa 1, AC Rally & Assetto Corsa EVO
