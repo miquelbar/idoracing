@@ -69,20 +69,34 @@ Supports:
 - **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...), with an instant deterministic rule-based engine when offline.
 
 ### 5. 📻 Pep Live Spotter (Zero-Daemon Track Radio)
-**Pep Live Spotter** delivers real-time voice coaching over your GT3 pit-wall radio while driving, running at **0% CPU / 0% GPU overhead** and requiring **zero background Python services or web servers** during your race.
+**Pep Live Spotter** delivers real-time voice coaching over your pit-wall radio while driving, running at **0% CPU / 0% GPU overhead** and requiring **zero background Python services or web servers** during your race.
+
+#### 🎙️ Broadcast-Level Audio Master & Priority Voice Channel
+- **Engine-Cutting Loudness Master**: All voice clips are remastered with EBU R128 broadcast loudness normalization (`loudnorm=I=-11:TP=-0.3:LRA=4`), speech presence boost (+5dB at 2.8 kHz), 200 Hz highpass filter, and multi-band compression so Pep sounds crystal clear and cuts cleanly through screaming GT3 exhausts, straight-cut transmission whine, and rally gravel chatter.
+- **Native OS Voice Priority (`media.role=voice`)**: Linux launch scripts automatically stream audio through PipeWire (`pw-play --media-role=voice`) or PulseAudio (`paplay --property="media.role=voice"`), allowing the desktop audio engine to prioritize pit-wall radio above simulator engine sound.
+- **Volume & In-Game Hotkey Controls**:
+  - In-game toggle hotkey: Press **`F9`** anytime while driving inside the sim to mute (*"Copiado. Pep se va, no te molesto"*) or unmute (*"Idò, Pep al habla. Te leo en el muro"*). Configurable via `"toggle_key"` in `data/spotter_config.json`.
+  - Configurable volume: Adjustable via the web UI, in `data/spotter_config.json` (`"volume": 100`), or via the `IDORACING_SPOTTER_VOLUME` environment variable.
+
+#### 🌍 Universal Track & Rally Support (Circuits + Point-to-Point Stages)
+- **Universal Physics Distance Engine**: Calculates distance traveled via 2D Euclidean coordinate displacement ($\Delta d = \sqrt{\Delta x^2 + \Delta y^2}$) combined with numerical speed integration ($\int v \, dt$).
+- **No Pinned Track Lists**: Operates generically across any track in the world without hardcoded track names or pinned circuit lengths.
+- **Full Rally & Hillclimb Support (Assetto Corsa Rally, DiRT Rally 2.0, EA SPORTS WRC)**:
+  - Supports linear point-to-point stages from start line (0 m) to flying finish (point B).
+  - Automatically avoids false loop closure or jump artifacts typical of circuit lap counters.
+  - Cues hairpins, heavy braking zones, and technical complexes 250m in advance based on your previous stage deficits against Bubota.
 
 #### 🔄 The 3-Phase Intelligent Spotter Cycle:
 1. **Phase 1 · First Stint (Quiet Calibration)**:
-   When driving on a circuit for the first time, Pep doesn't have your historical corner baseline yet. He announces *"Copy. No Bubota baseline for this track yet"* on pit exit, records your laps quietly, and only calls out personal best laps (`lap_pb`) and critical tyre pressure warnings (`> 27.3 psi`).
+   When driving on a circuit or rally stage for the first time, Pep doesn't have your historical corner baseline yet. He announces *"Copy. No Bubota baseline for this track yet"* on pit exit, records your laps quietly, and only calls out personal best laps (`lap_pb`) and critical tyre pressure warnings (`> 27.3 psi` in GT3).
 2. **Phase 2 · Creating the Plan against 👻 Bubota (Offline Analysis)**:
-   When you open IdoRacing Analytics after driving, the backend identifies the **3 critical corners where you lose the most time against 👻 Bubota** (Hotspots 1, 2, and 3), saves `recorder/voices/tracks/<track_slug>/manifest.json`, and pre-generates walkie-talkie filtered `.ogg` audio cues in Spanish and English with `edge-tts` + `ffmpeg`.
+   When you open IdoRacing Analytics after driving, the backend identifies the **3 critical corners or sectors where you lose the most time against 👻 Bubota** (Hotspots 1, 2, and 3), saves `recorder/voices/tracks/<track_slug>/manifest.json`, and pre-generates walkie-talkie filtered `.ogg` audio cues in Spanish and English with `edge-tts` + `ffmpeg`.
 3. **Phase 3 · Live Track Radio (Zero-Daemon / 0% CPU)**:
    In your subsequent driving sessions (with Python backend and browser **completely closed**), `idoracing-recorder.exe` monitors track metres in memory and pipes events to your native audio player (`pw-play` / `paplay`):
-   - **Pit Exit**: Confirms frequency with *"Idò, Pep al habla. Te leo en el muro"* (*"Idò, Pep on the radio. Reading you on the pit wall"*).
-   - **Corner Pre-Warning**: Exactly 250m before each critical corner, Pep cues you: *"Atento en la curva {id}, frena en el {brake_m} y alarga el trail braking."*
+   - **Pit Exit / Stage Start**: Confirms frequency with *"Idò, Pep al habla. Te leo en el muro"* (*"Idò, Pep on the radio. Reading you on the pit wall"*).
+   - **Corner Pre-Warning**: Exactly 250m before each critical corner or rally hairpin, Pep cues you: *"Atento en la curva {id}, frena en el {brake_m} y alarga el trail braking."*
    - **Post-Corner Evaluation**: Compares minimum apex speed at corner exit: acknowledges gains (*"Buena salida, ahí le has recortado tiempo a la Bubota"*) or roasts late braking.
-   - **Strict 10s Cooldown**: Prevents audio clutter in rapid chicane sequences.
-   - **In-Game Toggle (`F9`)**: Press **`F9`** anytime while driving inside the simulator to instantly mute (*"Copiado. Pep se va, no te molesto"*) or unmute without touching other controls. Configurable via `"toggle_key"` in `data/spotter_config.json`.
+   - **Strict 10s Cooldown**: Prevents audio clutter in rapid chicane sequences or rally switchbacks.
 
 ---
 

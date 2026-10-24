@@ -24,6 +24,32 @@ It runs on its own; the IdoRacing app does not need to be open while you drive. 
 - Nothing is written while the game is paused. Rows are buffered and written to disk once per lap.
 - About 2 MB on disk and a few MB of memory.
 
+## 📻 Pep Live Spotter & Pit-Wall Radio System
+
+The recorder and its companion Linux launch scripts (`sim-with-recorder.sh`, `acc-with-recorder.sh`, `ac-with-recorder.sh`, etc.) include an integrated, **zero-daemon live audio spotter** ("Pep"). It delivers real-time voice cues directly to your headset while driving with **0% CPU / 0% GPU overhead** and **without requiring any web server, Python daemon, or browser to be open**:
+
+### 🎯 Universal Distance Engine (Circuits & Rally Stages)
+- **Circuit & Point-to-Point Support**: Generic displacement integration ($\Delta d = \sqrt{\Delta x^2 + \Delta y^2}$, $\int v \, dt$) powers both closed race circuits (ACC, LMU, AC1, AC EVO, iRacing) and linear point-to-point stages (Assetto Corsa Rally, DiRT Rally 2.0, EA SPORTS WRC) from start to finish.
+- **Zero Pinned Track Lists**: Does not rely on hardcoded track geometries. Any stage or track with telemetry automatically tracks distance and detects heavy braking points.
+- **Pre-Corner Cues**: Cues key braking marks exactly 250m before corners or rally hairpins where you lose time against the ideal ghost line (Bubota).
+- **Exit Feedback & Cooldown**: Evaluates minimum apex speed on exit and enforces a strict 10s cooldown to prevent clutter in chicane complexes.
+
+### 🎙️ Audio Pipeline & System Integration
+- **Broadcast Mastered Audio**: Mastered with EBU R128 broadcast loudness (`loudnorm=I=-11:TP=-0.3:LRA=4`), highpass filter at 200 Hz, and vocal presence boost (+5dB at 2.8 kHz) to punch cleanly through engine noise, transmission whine, and gravel chatter.
+- **Native OS Voice Priority**: Audio is streamed via `pw-play --media-role=voice` (PipeWire) or `paplay --property="media.role=voice"` (PulseAudio), instructing the OS audio mixer to prioritize Pep's voice over game sound.
+- **In-Game Toggle Hotkey (`F9`)**: Press **`F9`** anytime while driving to mute (*"Copiado. Pep se va, no te molesto"*) or unmute (*"Idò, Pep al habla. Te leo en el muro"*). Configurable in `data/spotter_config.json`.
+- **Volume Control**: Configurable in `data/spotter_config.json` (`"volume": 100`) or via the `IDORACING_SPOTTER_VOLUME` environment variable.
+
+### ⚙️ Spotter Configuration (`data/spotter_config.json`)
+```json
+{
+  "enabled": true,
+  "language": "es",
+  "volume": 100,
+  "toggle_key": "F9"
+}
+```
+
 ## Build
 
 ```bash
