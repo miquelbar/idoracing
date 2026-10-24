@@ -121,19 +121,50 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [workspaceSessionFilter, setWorkspaceSessionFilter] = useState<string>('all');
 
-  // Load session groups for cross-session comparison
+  // Load session groups for cross-session comparison (deduplicating by canonical track)
   useEffect(() => {
     fetchSessionGroups()
-      .then((groups) => {
-        setSessionGroups(groups);
-        if (groups.length > 0) {
+      .then((rawGroups) => {
+        const byTrack = new Map<string, SessionGroup>();
+        for (const g of rawGroups) {
+          const existing = byTrack.get(g.track);
+          if (!existing) {
+            byTrack.set(g.track, { ...g, sessions: [...g.sessions] });
+          } else {
+            const seen = new Set(existing.sessions.map((s) => s.session_id));
+            for (const s of g.sessions) {
+              if (!seen.has(s.session_id)) {
+                existing.sessions.push(s);
+                seen.add(s.session_id);
+              }
+            }
+            if (existing.simulator === 'Unknown' && g.simulator && g.simulator !== 'Unknown') {
+              existing.simulator = g.simulator;
+            }
+          }
+        }
+        const merged = Array.from(byTrack.values()).map((g) => {
+          const realSess = g.sessions.filter((s) => !s.is_demo && !s.session_id.startsWith('synth_'));
+          const sessList = realSess.length > 0 ? realSess : g.sessions;
+          sessList.sort((a, b) => b.date.localeCompare(a.date));
+          const pbs = sessList.filter((s) => s.best_lap_time > 0).map((s) => s.best_lap_time);
+          return {
+            ...g,
+            sessions: sessList,
+            total_laps: sessList.reduce((acc, s) => acc + s.lap_count, 0),
+            best_lap_time: pbs.length > 0 ? Math.min(...pbs) : g.best_lap_time,
+          };
+        });
+        merged.sort((a, b) => b.sessions.length - a.sessions.length || b.total_laps - a.total_laps);
+
+        setSessionGroups(merged);
+        if (merged.length > 0) {
           setExpandedGroups((prev) => {
             if (prev.size > 0) return prev;
             const next = new Set<string>();
-            for (const g of groups.slice(0, 2)) {
+            for (const g of merged.slice(0, 2)) {
               next.add(`${g.simulator}|${g.track}`);
             }
             return next;
@@ -160,15 +191,6 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     });
   };
 
-  const toggleSession = (sessionId: string) => {
-    setExpandedSessions((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
-
   const filteredGroups = sessionGroups.filter((g) => {
     if (filterGame === 'acc') return g.simulator === 'Assetto Corsa Competizione';
     if (filterGame === 'lmu') return g.simulator === 'Le Mans Ultimate';
@@ -188,9 +210,27 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       g.sessions.some((s) => s.session_id === selectedSessionId)
   );
 
-  const matchingCarSessions = (matchingTrackGroup?.sessions || []).filter(
+  const rawMatchingCarSessions = (matchingTrackGroup?.sessions || []).filter(
     (s) => s.car.toLowerCase() === activeCarName.toLowerCase() || s.session_id === selectedSessionId
   );
+  const isCurrentDemo = Boolean(selectedSessionId?.startsWith('synth_'));
+  const nonDemoMatching = rawMatchingCarSessions.filter((s) => !s.is_demo && !s.session_id.startsWith('synth_'));
+  const matchingCarSessions =
+    !isCurrentDemo && nonDemoMatching.length > 0 ? nonDemoMatching : rawMatchingCarSessions;
+
+  const formatSessionChipDate = (isoDate: string) => {
+    try {
+      const d = new Date(isoDate);
+      if (Number.isNaN(d.getTime())) return formatDate(isoDate, lang);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm} ${hh}:${min}`;
+    } catch {
+      return formatDate(isoDate, lang);
+    }
+  };
 
   interface HistoricalLapRow {
     sessionId: string;
@@ -210,19 +250,21 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             sess.session_id === activeFullSession?.session_id
               ? activeFullSession.laps
               : null;
-          return sess.laps.map((l) => {
-            const detailLap = fullLaps?.find((fl) => fl.lap_number === l.lap_number);
-            return {
-              sessionId: sess.session_id,
-              sessionDate: sess.date,
-              lap_number: l.lap_number,
-              lap_time: l.lap_time,
-              is_valid: l.is_valid,
-              has_telemetry: l.has_telemetry ?? sess.has_telemetry ?? false,
-              is_outlap: Boolean(l.is_outlap || l.lap_time > 150),
-              sector_times: detailLap?.sector_times,
-            };
-          });
+          return sess.laps
+            .filter((l) => l.lap_time >= 20.0)
+            .map((l) => {
+              const detailLap = fullLaps?.find((fl) => fl.lap_number === l.lap_number);
+              return {
+                sessionId: sess.session_id,
+                sessionDate: sess.date,
+                lap_number: l.lap_number,
+                lap_time: l.lap_time,
+                is_valid: l.is_valid,
+                has_telemetry: l.has_telemetry ?? sess.has_telemetry ?? false,
+                is_outlap: Boolean(l.is_outlap || l.lap_time > 150),
+                sector_times: detailLap?.sector_times,
+              };
+            });
         })
       : (activeFullSession?.laps || []).map((l) => ({
           sessionId: activeFullSession?.session_id || selectedSessionId || '',
@@ -518,7 +560,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       </div>
                     )}
 
-                    {/* Sessions within the group grouped by normalized Car */}
+                    {/* Cars within the circuit group (1 row per Car, no nested sessions or laps on the left) */}
                     {isExpanded && (
                       <div className="border-t border-white/5 divide-y divide-white/5">
                         {Array.from(
@@ -528,182 +570,112 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                             map.set(s.car, list);
                             return map;
                           }, new Map<string, typeof group.sessions>())
-                        ).map(([carName, carSessions]) => (
-                          <div key={carName} className="bg-black/10">
-                            {/* Normalized Car subheader */}
-                            <div className="px-4 py-2 bg-white/[0.03] border-b border-white/5 flex items-center justify-between text-xs font-telemetry">
-                              <span className="font-bold text-brand flex items-center gap-2">
-                                <span>🏎️ {carName}</span>
-                              </span>
-                              <span className="text-[11px] text-gray-400">
-                                {carSessions.length} {t('sessions_count')} ·{' '}
-                                {carSessions.reduce((acc, s) => acc + s.lap_count, 0)} {t('laps_count')}
-                              </span>
+                        ).map(([carName, carSessions]) => {
+                          const totalCarLaps = carSessions.reduce((acc, s) => acc + s.lap_count, 0);
+                          const has50Hz = carSessions.some((s) => Boolean(s.has_telemetry));
+                          const realPbs = carSessions
+                            .filter((s) => s.best_lap_time > 0 && !s.is_demo)
+                            .map((s) => s.best_lap_time);
+                          const allPbs = carSessions.filter((s) => s.best_lap_time > 0).map((s) => s.best_lap_time);
+                          const bestCarLap =
+                            realPbs.length > 0
+                              ? Math.min(...realPbs)
+                              : allPbs.length > 0
+                              ? Math.min(...allPbs)
+                              : 0;
+
+                          const isCarActive =
+                            carSessions.some((s) => s.session_id === selectedSessionId) ||
+                            (activeTrackName.toLowerCase() === group.track.toLowerCase() &&
+                              activeCarName.toLowerCase() === carName.toLowerCase());
+
+                          // Best default session to load when clicking this [Track + Car]
+                          const targetSession =
+                            carSessions.find((s) => s.has_telemetry && !s.is_demo && s.lap_count >= 2) ||
+                            carSessions.find((s) => s.has_telemetry && !s.is_demo) ||
+                            carSessions.find((s) => s.has_telemetry) ||
+                            carSessions[0];
+
+                          return (
+                            <div
+                              key={carName}
+                              onClick={() => {
+                                if (!isCarActive && targetSession) {
+                                  onSelectSession(targetSession.session_id);
+                                }
+                              }}
+                              className={`p-4 pl-6 flex items-center justify-between gap-3 transition cursor-pointer ${
+                                isCarActive
+                                  ? 'bg-brand/10 border-l-2 border-l-brand'
+                                  : 'bg-black/15 hover:bg-white/5'
+                              }`}
+                            >
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-bold text-white font-telemetry flex items-center gap-1.5">
+                                    <span>🏎️</span>
+                                    <span>{carName}</span>
+                                  </span>
+                                  {has50Hz ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold font-telemetry">
+                                      📈 Telemetría 50Hz
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold font-telemetry">
+                                      ⏱️ Solo Tiempos
+                                    </span>
+                                  )}
+                                  {isCarActive && (
+                                    <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand border border-brand/40 text-[9px] font-bold font-telemetry uppercase">
+                                      Activo en Workspace
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 text-[11px] font-telemetry text-gray-400">
+                                  <span>
+                                    {carSessions.length} {t('sessions_count')}
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    {totalCarLaps} {t('laps_count')}
+                                  </span>
+                                  {bestCarLap > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-brand font-bold">
+                                        PB: {formatLapTime(bestCarLap)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div
+                                className="flex items-center gap-2 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {isCarActive ? (
+                                  <button
+                                    onClick={onGoToTelemetry}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
+                                  >
+                                    <Zap className="w-3.5 h-3.5" />
+                                    <span>{t('view_telemetry_arrow')}</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => targetSession && onSelectSession(targetSession.session_id)}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold tracking-wide transition cursor-pointer"
+                                  >
+                                    <Zap className="w-3.5 h-3.5 text-brand" />
+                                    <span>{t('load_in_workspace')}</span>
+                                  </button>
+                                )}
+                              </div>
                             </div>
-
-                            <div className="divide-y divide-white/5">
-                              {carSessions.map((sess) => {
-                                const isSessionExpanded = expandedSessions.has(sess.session_id);
-                                const isActive = sess.session_id === selectedSessionId;
-                                const isRefSession = refSessionId === sess.session_id;
-                                const isCompSession = compSessionId === sess.session_id;
-                                const sessHasTelem = Boolean(sess.has_telemetry);
-
-                                return (
-                                  <div key={sess.session_id}>
-                                    {/* Session row */}
-                                    <div
-                                      className={`p-3.5 pl-6 flex items-center justify-between gap-3 cursor-pointer ${
-                                        isActive ? 'bg-brand/5' : 'hover:bg-white/5'
-                                      }`}
-                                      onClick={() => toggleSession(sess.session_id)}
-                                    >
-                                      <div className="flex items-center gap-2.5 min-w-0">
-                                        <ChevronDown
-                                          className={`w-3.5 h-3.5 text-gray-500 transition-transform shrink-0 ${isSessionExpanded ? '' : '-rotate-90'}`}
-                                        />
-                                        <div className="min-w-0">
-                                          <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                                            <span className="text-xs font-bold text-white font-telemetry">
-                                              {formatDate(sess.date, lang)}
-                                            </span>
-                                            {sessHasTelem ? (
-                                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold font-telemetry">
-                                                📈 Telemetría 50Hz
-                                              </span>
-                                            ) : (
-                                              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold font-telemetry">
-                                                ⏱️ Solo Tiempos
-                                              </span>
-                                            )}
-                                            {isRefSession && (
-                                              <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand border border-brand/40 text-[9px] font-bold font-telemetry">
-                                                Ref P1
-                                              </span>
-                                            )}
-                                            {isCompSession && (
-                                              <span className="px-1.5 py-0.5 rounded bg-comp/20 text-[#D8B4FE] border border-comp/40 text-[9px] font-bold font-telemetry">
-                                                Comp P2
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-3 text-[11px] font-telemetry text-gray-400">
-                                            <span>{sess.lap_count} {t('laps_count')}</span>
-                                            <span className="text-gray-300">PB: {formatLapTime(sess.best_lap_time)}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div
-                                        className="flex items-center gap-2 shrink-0"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {isActive ? (
-                                          <button
-                                            onClick={onGoToTelemetry}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-light text-black text-xs font-bold tracking-wide transition cursor-pointer shadow-md"
-                                          >
-                                            <Zap className="w-3.5 h-3.5" />
-                                            <span>{t('view_telemetry_arrow')}</span>
-                                          </button>
-                                        ) : (
-                                          <button
-                                            onClick={() => onSelectSession(sess.session_id)}
-                                            disabled={loading}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-brand text-white hover:text-black border border-white/10 hover:border-brand text-xs font-bold tracking-wide transition cursor-pointer"
-                                          >
-                                            <Zap className="w-3.5 h-3.5 text-brand" />
-                                            <span>{t('load_in_workspace')}</span>
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Laps within the session */}
-                                    {isSessionExpanded && (
-                                      <div className="bg-black/25 divide-y divide-white/5">
-                                        {sess.laps.map((lap) => {
-                                          const isRef = isRefSession && refLapNumber === lap.lap_number;
-                                          const isComp = isCompSession && compLapNumber === lap.lap_number;
-                                          const isOutlap = Boolean(lap.is_outlap || lap.lap_time > 150);
-
-                                          return (
-                                            <div
-                                              key={`lap-${lap.lap_number}`}
-                                              className={`px-6 py-2 flex items-center justify-between gap-3 ${
-                                                isRef
-                                                  ? 'bg-brand/10'
-                                                  : isComp
-                                                  ? 'bg-comp/10'
-                                                  : 'hover:bg-white/5'
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-2.5 min-w-0">
-                                                <span
-                                                  className={`w-7 h-7 rounded-lg border flex items-center justify-center font-telemetry font-bold text-[11px] shrink-0 ${
-                                                    isRef
-                                                      ? 'bg-brand text-black border-brand'
-                                                      : isComp
-                                                      ? 'bg-comp text-white border-comp'
-                                                      : 'bg-black/40 border-white/5 text-white'
-                                                  }`}
-                                                >
-                                                  V{lap.lap_number}
-                                                </span>
-                                                <span className="font-telemetry text-xs font-bold text-white">
-                                                  {formatLapTime(lap.lap_time)}
-                                                </span>
-                                                {isOutlap && (
-                                                  <span className="px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-300 border border-gray-500/30 text-[9px] font-telemetry">
-                                                    Out-lap / Pit
-                                                  </span>
-                                                )}
-                                                {!lap.is_valid && (
-                                                  <span className="text-[10px] text-rose-400 font-telemetry">
-                                                    ({t('invalid_lap')})
-                                                  </span>
-                                                )}
-                                              </div>
-
-                                              <div className="flex items-center gap-1.5 shrink-0">
-                                                {onSelectRefLapCross && (
-                                                  <button
-                                                    onClick={() => onSelectRefLapCross(sess.session_id, lap.lap_number)}
-                                                    className={`px-2 py-1 rounded-md text-[10px] font-telemetry font-bold transition cursor-pointer ${
-                                                      isRef
-                                                        ? 'bg-brand text-black shadow-sm'
-                                                        : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                                                    }`}
-                                                    title={t('select_as_reference')}
-                                                  >
-                                                    {isRef ? '✓ Ref (P1)' : 'Ref P1'}
-                                                  </button>
-                                                )}
-                                                {onSelectCompLapCross && (
-                                                  <button
-                                                    onClick={() => onSelectCompLapCross(sess.session_id, lap.lap_number)}
-                                                    className={`px-2 py-1 rounded-md text-[10px] font-telemetry font-bold transition cursor-pointer ${
-                                                      isComp
-                                                        ? 'bg-comp text-white shadow-sm'
-                                                        : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                                                    }`}
-                                                    title={t('select_as_comparison')}
-                                                  >
-                                                    {isComp ? '✓ Comp (P2)' : 'Comp P2'}
-                                                  </button>
-                                                )}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -849,7 +821,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                               : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
                           }`}
                         >
-                          {formatDate(ms.date, lang)} ({ms.lap_count}v)
+                          {formatSessionChipDate(ms.date)} ({ms.lap_count}v)
                         </button>
                       ))}
                     </div>

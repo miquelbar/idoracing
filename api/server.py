@@ -479,15 +479,24 @@ class SessionGroupDTO(BaseModel):
 
 @app.get("/api/session-groups", response_model=list[SessionGroupDTO])
 def list_session_groups():
-    """Group sessions by (simulator, canonical track) with canonical car names so the UI can offer cross-session comparison."""
+    """Group sessions by canonical track (and canonical car inside) so each circuit appears once."""
     sessions = storage.list_sessions()
-    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    groups: dict[str, list[dict[str, Any]]] = {}
     for s in sessions:
-        sim = s.simulator or "Unknown"
+        sim = s.simulator
+        if not sim or sim == "Unknown":
+            sid_low = s.session_id.lower()
+            if sid_low.startswith("lmu"):
+                sim = "Le Mans Ultimate"
+            elif sid_low.startswith("acevo"):
+                sim = "Assetto Corsa EVO"
+            elif sid_low.startswith("ac1"):
+                sim = "Assetto Corsa"
+            else:
+                sim = "Assetto Corsa Competizione"
         norm_track = normalize_track_name(s.track)
         norm_car = normalize_car_name(s.car)
-        key = (sim, norm_track)
-        groups.setdefault(key, []).append(
+        groups.setdefault(norm_track, []).append(
             {
                 "session_id": s.session_id,
                 "car": norm_car,
@@ -495,7 +504,7 @@ def list_session_groups():
                 "date": s.date.isoformat() if hasattr(s.date, "isoformat") else str(s.date),
                 "best_lap_time": s.best_lap_time,
                 "lap_count": s.lap_count,
-                "simulator": s.simulator,
+                "simulator": sim,
                 "source_file": getattr(s, "source_file", None),
                 "has_telemetry": getattr(s, "has_telemetry", True),
                 "is_demo": getattr(s, "is_demo", False),
@@ -504,14 +513,18 @@ def list_session_groups():
         )
 
     result: list[SessionGroupDTO] = []
-    for (sim, track), sess_list in sorted(groups.items()):
+    for track, sess_list in groups.items():
+        real_sessions = [s for s in sess_list if not s.get("is_demo")]
+        if real_sessions:
+            sess_list = real_sessions
         sess_list.sort(key=lambda x: x["date"], reverse=True)
         total_laps = sum(s["lap_count"] for s in sess_list)
         best = min((s["best_lap_time"] for s in sess_list if s["best_lap_time"] > 0), default=0.0)
         cars = sorted({s["car"] for s in sess_list if s.get("car")})
+        primary_sim = next((s["simulator"] for s in sess_list if s.get("simulator")), "Assetto Corsa Competizione")
         result.append(
             SessionGroupDTO(
-                simulator=sim,
+                simulator=primary_sim,
                 track=track,
                 cars=cars,
                 sessions=sess_list,
@@ -519,6 +532,7 @@ def list_session_groups():
                 best_lap_time=best,
             )
         )
+    result.sort(key=lambda g: (-len(g.sessions), -g.total_laps, g.track))
     return result
 
 
