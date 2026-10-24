@@ -119,3 +119,39 @@ func wideString(b []byte) string {
 	}
 	return string(utf16.Decode(units))
 }
+
+func (p physicsPage) toSample(g graphicsPage, splineLength float32) TelemetrySample {
+	x, y, _ := g.playerPosition()
+	inPit := int32(0)
+	if g.IsInPit != 0 || g.IsInPitLane != 0 {
+		inPit = 1
+	}
+	return TelemetrySample{
+		PacketID:    p.PacketID,
+		Lap:         g.CompletedLaps + 1,
+		LapDistance: g.NormalizedCarPosition * splineLength,
+		SpeedKmh:    p.SpeedKmh,
+		Gas:         p.Gas,
+		Brake:       p.Brake,
+		Gear:        p.Gear - 1, // ACC counts reverse as 0 and neutral as 1
+		SteerAngle:  p.SteerAngle,
+		RPM:         p.RPM,
+		LatG:        p.AccG[0],
+		LongG:       p.AccG[2],
+		YawRate:     p.LocalAngularVel[1],
+		X:           x,
+		Y:           y,
+		InPit:       inPit,
+		LapValid:    g.IsValidLap,
+	}
+}
+
+func (s staticInfo) toMetadata(simulator, simPrefix string) SessionMetadata {
+	return SessionMetadata{
+		Simulator:         simulator,
+		SimPrefix:         simPrefix,
+		Track:             s.Track,
+		CarModel:          s.CarModel,
+		TrackSplineLength: s.TrackSplineLength,
+	}
+}

@@ -52,6 +52,20 @@ func openSharedPage(name string, size int) (*sharedPage, error) {
 	}, nil
 }
 
+// probeSharedPage checks if a named shared memory map currently exists without mapping it.
+func probeSharedPage(name string) bool {
+	namePtr, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return false
+	}
+	h, _, _ := procOpenFileMappingW.Call(fileMapRead, 0, uintptr(unsafe.Pointer(namePtr)))
+	if h != 0 {
+		syscall.CloseHandle(syscall.Handle(h))
+		return true
+	}
+	return false
+}
+
 // snapshot copies the page so a frame is decoded from one consistent read.
 func (p *sharedPage) snapshot(dst []byte) []byte {
 	return append(dst[:0], p.view...)

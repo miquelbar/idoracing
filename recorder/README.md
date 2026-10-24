@@ -1,8 +1,18 @@
 # idoracing-recorder
 
-ACC's MoTeC export has no car position, so IdoRacing cannot measure how far your line sits from your reference lap on ACC laps. This small recorder reads ACC's shared memory while you drive and writes a CSV per session that includes your position on track. Import it into IdoRacing like any other file.
+Reads telemetry and car position from **Assetto Corsa Competizione (ACC)**, **Le Mans Ultimate (LMU)**, **Assetto Corsa 1 (AC)**, and **Assetto Corsa EVO (AC EVO)** in real time and writes standard CSV files per session. Import them into IdoRacing like any other file.
 
 It runs on its own; the IdoRacing app does not need to be open while you drive.
+
+## Supported Simulators
+
+| Simulator | Detection Flag (`-sim`) | Process / Shared Memory | Launch Script |
+| :--- | :--- | :--- | :--- |
+| **Assetto Corsa Competizione** | `acc` (default) | `AC2-Win64-Shipping.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/acc-with-recorder.sh` |
+| **Le Mans Ultimate** | `lmu` | `Le Mans Ultimate.exe`<br>`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$` | `linux/lmu-with-recorder.sh` |
+| **Assetto Corsa 1** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
+| **Assetto Corsa EVO** | `acevo` | `AssettoCorsaEVO.exe`<br>`Local\acevo_pmf_*` (fallback `Local\acpmf_*`) | `linux/acevo-with-recorder.sh` |
+| **Auto-Detect All** | `auto` | Detects via running processes or active shared memory maps | `linux/sim-with-recorder.sh` |
 
 ## Footprint
 
@@ -18,26 +28,38 @@ cd recorder
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .
 go test ./...
 bash linux/test-acc-with-recorder.sh
+bash linux/test-sim-launchers.sh
 ```
 
 ## Run on Linux (Steam + Proton)
 
-ACC's shared memory only exists inside the wineserver that runs the game, so the recorder has to run in the same Proton prefix, with the same Proton build and the same fsync/esync setting. The launch-option script takes care of that by reusing the Proton from the command Steam builds:
+The simulator's shared memory only exists inside the wineserver that runs the game, so the recorder has to run in the same Proton prefix, with the same Proton build and the same fsync/esync setting. The launch-option scripts take care of that by reusing the Proton from the command Steam builds:
 
-1. Put `idoracing-recorder.exe` next to `linux/acc-with-recorder.sh`.
-2. In Steam: ACC > Properties > General > Launch options:
+1. Put `idoracing-recorder.exe` next to the `linux/*.sh` scripts.
+2. In Steam: Sim Properties > General > Launch options:
 
-   ```
-   /path/to/recorder/linux/acc-with-recorder.sh %command%
-   ```
+   - **ACC:** `/path/to/recorder/linux/acc-with-recorder.sh %command%`
+   - **LMU:** `/path/to/recorder/linux/lmu-with-recorder.sh %command%`
+   - **AC1:** `/path/to/recorder/linux/ac-with-recorder.sh %command%`
+   - **AC EVO:** `/path/to/recorder/linux/acevo-with-recorder.sh %command%`
+   - **Universal (Any):** `/path/to/recorder/linux/sim-with-recorder.sh %command%`
 
-3. Start ACC from Steam as usual. The recorder starts 10 seconds later and stops by itself a few seconds after ACC closes. Its log is in `~/.local/state/idoracing-recorder.log`.
+3. Start the game from Steam as usual. The recorder starts 10 seconds later and stops by itself a few seconds after the game closes. Its log is in `~/.local/state/idoracing-recorder.log`.
 
-If the recorder is missing or the launch command has no Proton, ACC starts normally without it. `IDORACING_RECORDER`, `IDORACING_RECORDER_DELAY` and `IDORACING_RECORDER_LOG` override the executable, the delay and the log path.
+If the recorder is missing or the launch command has no Proton, the game starts normally without it. `IDORACING_RECORDER`, `IDORACING_RECORDER_DELAY` and `IDORACING_RECORDER_LOG` override the executable, the delay and the log path.
 
-Session files go to `~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings/`, which IdoRacing lists next to ACC's MoTeC files. Pass `-out` to write somewhere else.
+Session files go to `.../pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings/`, which IdoRacing lists alongside other telemetry files. Pass `-out` to write somewhere else.
 
-### Check it under Wine before driving
+### Note for Le Mans Ultimate (LMU)
+Ensure `rFactor2SharedMemoryMapPlugin64.dll` is enabled in your LMU prefix:
+In `UserData/player/CustomPluginVariables.json`, confirm:
+```json
+"rFactor2SharedMemoryMapPlugin64.dll": {
+  " Enabled": 1
+}
+```
+
+### Check it under Wine before driving (ACC Fake Sim)
 
 `tools/fakeacc` publishes ACC's three shared memory pages with a car lapping a circle, so the whole chain can be checked without the game:
 
@@ -53,7 +75,9 @@ The recorder exits on its own when `fakeacc.exe` finishes.
 
 ## Run on Windows
 
-Start `idoracing-recorder.exe` before or after ACC and leave it running; close it with Ctrl+C, or pass `-exit-with AC2-Win64-Shipping.exe` so it stops with the game. Files go to `Documents\IdoRacing\recordings`.
+Start `idoracing-recorder.exe` before or after the game and leave it running; close it with Ctrl+C, or pass `-exit-with <game.exe>` (e.g. `-exit-with AC2-Win64-Shipping.exe`, `-exit-with "Le Mans Ultimate.exe"`, `-exit-with "acs.exe,AssettoCorsa.exe"`, `-exit-with AssettoCorsaEVO.exe`) so it stops with the game. Files go to `Documents\IdoRacing\recordings`.
+
+Pass `-sim <acc|lmu|ac|acevo|auto>` to force a specific simulator adapter or let it auto-detect.
 
 ## Output
 

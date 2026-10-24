@@ -17,11 +17,19 @@ func processRunning(exe string) (bool, error) {
 	}
 	defer syscall.CloseHandle(snap)
 
+	targets := strings.Split(exe, ",")
+	for i := range targets {
+		targets[i] = strings.TrimSpace(targets[i])
+	}
+
 	var entry syscall.ProcessEntry32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 	for err = syscall.Process32First(snap, &entry); err == nil; err = syscall.Process32Next(snap, &entry) {
-		if strings.EqualFold(syscall.UTF16ToString(entry.ExeFile[:]), exe) {
-			return true, nil
+		name := syscall.UTF16ToString(entry.ExeFile[:])
+		for _, target := range targets {
+			if target != "" && strings.EqualFold(name, target) {
+				return true, nil
+			}
 		}
 	}
 	return false, nil

@@ -3,13 +3,13 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -21,7 +21,8 @@ const (
 func main() {
 	out := flag.String("out", defaultOutDir(), "folder where session CSV files are written")
 	hz := flag.Int("hz", 30, "samples per second while driving")
-	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe)")
+	sim := flag.String("sim", "auto", "simulator: auto, acc, lmu, ac, acevo")
+	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe, Le Mans Ultimate.exe, acs.exe, AssettoCorsaEVO.exe)")
 	logPath := flag.String("log", "", "file to append log messages to")
 	flag.Parse()
 
@@ -36,7 +37,9 @@ func main() {
 
 	runtime.GOMAXPROCS(1)
 	lowerPriority()
-	log.Printf("idoracing-recorder %s: writing to %s at %d Hz; waiting for ACC", version, *out, *hz)
+
+	adapter := selectAdapter(*sim, *exitWith)
+	log.Printf("idoracing-recorder %s: writing to %s at %d Hz; waiting for %s", version, *out, *hz, adapter.Name())
 
 	rec := &recorder{outDir: *out}
 	watch := &gameWatch{exe: *exitWith, running: processRunning, started: time.Now()}
@@ -48,7 +51,10 @@ func main() {
 	}()
 
 	for {
-		if err := record(rec, watch, time.Second/time.Duration(*hz)); err != nil {
+		if *sim == "auto" && *exitWith == "" {
+			adapter = selectAdapter(*sim, *exitWith)
+		}
+		if err := record(rec, adapter, watch, time.Second/time.Duration(*hz)); err != nil {
 			log.Print(err)
 		}
 		if exit, reason := watch.shouldExit(time.Now()); exit {
@@ -66,42 +72,74 @@ func finish(rec *recorder, reason string) {
 	os.Exit(0)
 }
 
-// record reads ACC's shared memory until the pages can no longer be opened.
-func record(rec *recorder, watch *gameWatch, livePoll time.Duration) error {
-	physics, err := openSharedPage(physicsPageName, binary.Size(physicsPage{}))
-	if err != nil {
-		return nil // ACC not running yet
+// selectAdapter chooses the right simulator reader based on -sim, -exit-with, running processes or active shared memory maps.
+func selectAdapter(sim string, exitWith string) SimAdapter {
+	switch strings.ToLower(strings.TrimSpace(sim)) {
+	case "acc":
+		return newACCAdapter()
+	case "lmu":
+		return newLMUAdapter()
+	case "ac":
+		return newACAdapter()
+	case "acevo":
+		return newACEVOAdapter()
 	}
-	defer physics.close()
-	graphics, err := openSharedPage(graphicsPageName, binary.Size(graphicsPage{}))
-	if err != nil {
-		return err
-	}
-	defer graphics.close()
-	static, err := openSharedPage(staticPageName, staticMinimumPageLength)
-	if err != nil {
-		return err
-	}
-	defer static.close()
 
-	var pbuf, gbuf, sbuf []byte
+	lowerExe := strings.ToLower(exitWith)
+	if strings.Contains(lowerExe, "ac2-win64-shipping.exe") {
+		return newACCAdapter()
+	} else if strings.Contains(lowerExe, "le mans ultimate.exe") {
+		return newLMUAdapter()
+	} else if strings.Contains(lowerExe, "assettocorsaevo") {
+		return newACEVOAdapter()
+	} else if strings.Contains(lowerExe, "acs.exe") || strings.Contains(lowerExe, "assettocorsa.exe") {
+		return newACAdapter()
+	}
+
+	// Probe running processes
+	if running, _ := processRunning("Le Mans Ultimate.exe"); running {
+		return newLMUAdapter()
+	}
+	if running, _ := processRunning("AssettoCorsaEVO.exe"); running {
+		return newACEVOAdapter()
+	}
+	if running, _ := processRunning("acs.exe"); running {
+		return newACAdapter()
+	}
+	if running, _ := processRunning("AC2-Win64-Shipping.exe"); running {
+		return newACCAdapter()
+	}
+
+	// Probe active shared memory files
+	if probeSharedPage(lmuTelemetryPageName) {
+		return newLMUAdapter()
+	}
+	if probeSharedPage(`Local\acevo_pmf_physics`) {
+		return newACEVOAdapter()
+	}
+
+	// Default to ACC (covers ACC and fakeacc.exe)
+	return newACCAdapter()
+}
+
+// record reads simulator shared memory through the selected adapter until it closes or fails.
+func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.Duration) error {
+	if err := adapter.Open(); err != nil {
+		return nil // Simulator not running or shared memory pages not ready yet
+	}
+	defer adapter.Close()
+
 	for {
-		pbuf, gbuf = physics.snapshot(pbuf), graphics.snapshot(gbuf)
-		p, err := decodePhysics(pbuf)
-		if err != nil {
-			return err
-		}
-		g, err := decodeGraphics(gbuf)
-		if err != nil {
-			return err
-		}
-		sbuf = static.snapshot(sbuf)
 		now := time.Now()
-		live, err := rec.step(p, g, decodeStatic(sbuf), now)
+		sample, meta, live, err := adapter.Read(now)
 		if err != nil {
 			return err
 		}
-		watch.notePacket(p.PacketID, now)
+		live, err = rec.stepSample(sample, meta, live, now)
+		if err != nil {
+			return err
+		}
+		watch.notePacket(sample.PacketID, now)
 		if exit, reason := watch.shouldExit(now); exit {
 			finish(rec, reason)
 		}
