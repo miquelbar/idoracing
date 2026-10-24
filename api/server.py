@@ -1364,7 +1364,10 @@ def _resolve_setup_laps(
             if ranked:
                 comp_lap = next((l for l in ranked if not ref_lap or l.lap_number != ref_lap.lap_number), ranked[0])
             elif ref_session.laps:
-                comp_lap = next((l for l in ref_session.laps if not ref_lap or l.lap_number != ref_lap.lap_number), ref_session.laps[0])
+                comp_lap = next(
+                    (l for l in ref_session.laps if not ref_lap or l.lap_number != ref_lap.lap_number),
+                    ref_session.laps[0],
+                )
         if ref_lap and comp_lap and ref_lap.lap_number == comp_lap.lap_number and len(ranked) == 1:
             sib = _find_sibling_flying_lap(ref_session)
             if sib is not None:
@@ -1388,9 +1391,7 @@ def get_setup_advice(req: SetupAdviceRequest):
         detail_prefix="setup advice",
     )
 
-    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(
-        comp_session, comp_lap
-    )
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(comp_session, comp_lap)
     comparison = compare_laps(ref_lap, comp_lap, track_name=ref_session.track)
     return generate_setup_advice(
         comparison,
@@ -1547,9 +1548,7 @@ def get_setup_advice_review(req: SetupAdviceReviewRequest):
         detail_prefix="setup advice review",
     )
 
-    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(
-        comp_session, comp_lap
-    )
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(comp_session, comp_lap)
     comparison = compare_laps(ref_lap, comp_lap, track_name=ref_session.track)
     report = generate_setup_advice(
         comparison,
