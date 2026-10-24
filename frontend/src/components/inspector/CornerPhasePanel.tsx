@@ -46,13 +46,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
   const compBadgeText = phaseMetrics
     ? `COMP · P2 (${lapPrefix}${phaseMetrics.labels.compNum})`
     : t('your_lap_col');
-  const deltaHeaderText = phaseMetrics?.ideal.bothLapsFault
-    ? isEn
-      ? 'Δ vs 👻 IDEAL'
-      : 'Δ vs 👻 IDEAL'
-    : isEn
-    ? 'Δ (P2 vs P1)'
-    : 'Δ (P2 vs P1)';
+  const deltaHeaderText = phaseMetrics?.ideal.bothLapsFault ? 'Δ vs 👻 BUBOTA' : 'Δ (P2 vs P1)';
 
   return (
     <div className="w-full h-full flex flex-col justify-start p-3 select-text overflow-y-auto gap-2">
@@ -66,8 +60,8 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
         </div>
         <div className="flex items-center gap-2 text-[11px] font-telemetry text-gray-400">
           {phaseMetrics && (
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 font-bold text-[10px]">
-              👻 {isEn ? 'IDEAL POTENTIAL:' : 'POTENCIAL IDEAL:'} -{phaseMetrics.ideal.idealTimeGain.toFixed(3)}s
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 font-bold text-[10px] whitespace-nowrap">
+              {t('bubota_badge')} -{phaseMetrics.ideal.idealTimeGain.toFixed(3)}s
             </span>
           )}
           <span>
@@ -154,10 +148,10 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                           : t('progressive_trail')
                       } (${phaseMetrics.trail.compPct}%)`}
                 </td>
-                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap overflow-hidden">
+                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap">
                   {phaseMetrics.ideal.bothTrailFault ? (
-                    <span className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[9px]">
-                      ⚠️ {isEn ? `P1/P2 (Ideal >${phaseMetrics.ideal.idealTrailPct}%)` : `Fallo P1/P2 (Ideal >${phaseMetrics.ideal.idealTrailPct}%)`}
+                    <span className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[9px] whitespace-nowrap">
+                      ⚠️ {t('bubota_both_fault', { pct: phaseMetrics.ideal.idealTrailPct })}
                     </span>
                   ) : phaseMetrics.trail.code === 'early_release' ||
                     (phaseMetrics.braking.isBrakingCorner && phaseMetrics.trail.compPct < 25) ? (
@@ -198,11 +192,11 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                     t('outside_to_kerb')
                   )}
                 </td>
-                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap overflow-hidden">
+                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap">
                   {phaseMetrics.position.offsets ? (
                     Math.abs(phaseMetrics.position.offsets.apex) < LINE_OFFSET_NOTE_M ? (
                       phaseMetrics.ideal.bothLapsFault ? (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[9.5px]">
+                        <span className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[9.5px] whitespace-nowrap">
                           ⚠️ {isEn ? 'vs 👻 Bubota' : 'Mejorable vs 👻 Bubota'}
                         </span>
                       ) : (
@@ -246,7 +240,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                   {phaseMetrics.min.comp} km/h{' '}
                   <span className="text-brand font-bold">({formatGear(phaseMetrics.min.compGear, lang)})</span>
                 </td>
-                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap overflow-hidden">
+                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap">
                   <span
                     className={
                       phaseMetrics.min.delta > 0.5
@@ -259,8 +253,8 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                     {phaseMetrics.min.delta > 0 ? '+' : ''}
                     {phaseMetrics.min.delta.toFixed(1)} km/h
                   </span>
-                  <span className="ml-1 text-[9px] text-amber-300/90 font-normal">
-                    (👻 {phaseMetrics.ideal.vMinIdeal})
+                  <span className="ml-1 text-[9px] text-amber-300/90 font-normal whitespace-nowrap">
+                    (👻 Bubota {phaseMetrics.ideal.vMinIdeal})
                   </span>
                 </td>
               </tr>
@@ -306,7 +300,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                 <td className="py-1 px-1.5 text-right text-[#D8B4FE] font-bold whitespace-nowrap">
                   {phaseMetrics.exit.comp} km/h
                 </td>
-                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap overflow-hidden">
+                <td className="py-1 px-1.5 text-right font-black whitespace-nowrap">
                   <span
                     className={
                       phaseMetrics.exit.delta > 0.5
@@ -319,8 +313,8 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                     {phaseMetrics.exit.delta > 0 ? '+' : ''}
                     {phaseMetrics.exit.delta.toFixed(1)} km/h
                   </span>
-                  <span className="ml-1 text-[9px] text-amber-300/90 font-normal">
-                    (👻 {phaseMetrics.ideal.vExitIdeal})
+                  <span className="ml-1 text-[9px] text-amber-300/90 font-normal whitespace-nowrap">
+                    (👻 Bubota {phaseMetrics.ideal.vExitIdeal})
                   </span>
                 </td>
               </tr>

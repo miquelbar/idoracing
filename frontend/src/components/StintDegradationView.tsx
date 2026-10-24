@@ -15,6 +15,7 @@ import {
 import { fetchStintAnalysis } from '../services/api';
 import type { StintAnalysisData } from '../types/telemetry';
 import { formatLapTime } from '../utils/formatters';
+import { useLanguage } from '../i18n';
 
 interface StintDegradationViewProps {
   sessionId?: string | null;
@@ -37,6 +38,7 @@ export const StintDegradationView: React.FC<StintDegradationViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredLapIdx, setHoveredLapIdx] = useState<number | null>(null);
+  const { t } = useLanguage();
 
   const loadData = async () => {
     try {
@@ -500,7 +502,7 @@ export const StintDegradationView: React.FC<StintDegradationViewProps> = ({
                   CANAL DE RADIO BOXES • FREQ 454.125 MHz
                 </span>
                 <h4 className="text-sm font-bold text-white font-brand">
-                  Debrief de Ingeniero de Pista (Pep)
+                  {t('stint_pep_debrief_title')}
                 </h4>
               </div>
             </div>

@@ -28,19 +28,25 @@ Supports:
 - **Local by default**: telemetry and sessions stay in a SQLite file on your machine. Nothing leaves it unless you configure a cloud LLM provider (the web UI also loads its fonts from Google Fonts).
 - **100% Data Honesty**: real sessions that only contain lap/sector times (e.g. ACC with `Telemetry Laps = 0` or LMU XML results without a `.ld` file) **never invent or interpolate fake telemetry charts or corner diagnoses**. Instead, the app displays the real timed splits and a step-by-step telemetry activation guide for that simulator. Synthetic telemetry is strictly limited to the explicit **`[ Load Valencia Demo ]`** button.
 
+### 🏝️ The Name & Identity: Why "IdoRacing", "Pep", and "Bubota"?
+
+- **IdoRacing (from *"Idò!"*, not *"I do"*)**: pronounced `/iˈðɔ/` (with the stress on the *ò*), **"Idò"** is the quintessential word from **Mallorca (Balearic Islands, Spain)**. Depending on tone, it means *"Well then!"*, *"So..."*, *"Of course!"*, or *"Let's get to it!"*. When a race engineer looks at your telemetry trace and spots where those three tenths went, the analysis always starts with: *"Idò, look at your braking point in Turn 1..."*
+- **Pep — Your AI Race Engineer**: **Pep** is a classic traditional Mallorcan name—and in IdoRacing Analytics, he is your local AI race engineer on the pit wall (**P**erformance **E**ngineering **P**artner). Grounded 100% in physics and verified telemetry metrics, Pep skips generic fluff and tells you directly what happened in `P1` vs `P2`.
+- **Bubota — The Ideal Physics Ghost**: In Mallorcan folklore, a ***bubota*** is a ghost. In telemetry analysis, comparing two of your own laps (`P1` vs `P2`) has a blind spot: *what if you made the exact same braking or line mistake on both laps?* **Bubota** (**B**enchmark **U**ltimate **B**raking & **O**ptimal **T**rajectory **A**nalyzer) is the theoretical physics ghost that projects the optimal trail-braking release, apex minimum speed, and throttle ramp for your car's real grip limit, showing how much lap time is still on the table even against your Personal Best.
+
 ---
 
 ## 🌟 Key Features
 
-### 1. 🗺️ Track map & 50Hz Telemetry Channels (`P1` vs `P2` vs `👻 Ideal`)
+### 1. 🗺️ Track map & 50Hz Telemetry Channels (`P1` vs `P2` vs `👻 Bubota`)
 - Lap outline coloured by the speed difference between `REF · P1` (Cyan) and `COMP · P2` (Purple).
-- **👻 Ideal Ghost Lap (`Target Ghost`)**: computes your **Rolling Best (Optimal Lap)** and physical limit envelope ($a_{y,\max}$, optimal diagonal trail braking regression `100% -> 0%` at apex, and progressive throttle pickup), drawing golden dashed `--- 👻 Ideal` curves on Speed and Pedals.
+- **👻 Bubota (Ideal Physics Ghost)**: computes your **Rolling Best (Optimal Lap)** and physical limit envelope ($a_{y,\max}$, optimal diagonal trail braking regression `100% -> 0%` at apex, and progressive throttle pickup), drawing golden dashed `--- 👻 Bubota (Ideal)` curves on Speed and Pedals.
 - Click any corner on the map or top bar (`T1`..`T14`) to zoom into its trajectory and phase breakdown.
 
 ![IdoRacing Analytics Telemetry Dashboard](docs/screenshots/telemetry-overview.png)
 
 ### 2. 🔍 Corner-by-corner Phase Diagnosis & Optimal Line
-- **Explicit Lap Identification (`REF · P1 (V2)` vs `COMP · P2 (V4)` vs `👻 Ideal`)**: every table header, badge, and improvement bullet explicitly cites which lap is being diagnosed—including cross-session dates (`P1 (V2 · 19/10)`) and shared faults (`⚠️ Fallo P1 y P2 (Ideal >55%)`).
+- **Explicit Lap Identification (`REF · P1 (V2)` vs `COMP · P2 (V4)` vs `👻 Bubota`)**: every table header, badge, and improvement bullet explicitly cites which lap is being diagnosed—including cross-session dates (`P1 (V2 · 19/10)`) and shared faults (`⚠️ Fallo en P1 y P2 (👻 Bubota: >55%)`).
 - **2D Optimal Line Inspector**: compares `P1 (V2)` and `P2 (V4)` apex markers with non-overlapping coordinates and lateral line offset in metres.
 - **Ask Pep** about the selected corner in one click.
 
@@ -55,7 +61,7 @@ Supports:
 ![Sessions & Garage Cross-Session Workspace](docs/screenshots/sessions-workspace.png)
 
 ### 4. 🤖 Pep · AI Race Engineer & Team Radio
-- **Pep (`PEP · INGENIERO DE PISTA & RADIO`)** is your pit-wall race engineer, delivering structured debriefs, setup recommendations, and live team radio answers in Spanish or English.
+- **Pep (`PEP · AI RACE ENGINEER & RADIO`)** is your pit-wall race engineer, delivering structured debriefs, setup recommendations, and live team radio answers in Spanish or English.
 - **Strict Mathematical Coherence**: `delta = comp - ref`, trail braking `< 25%` is flagged as abrupt release (`Suelta brusca`), and zero false praise is ever given when losing time or apex speed.
 - **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...), with an instant deterministic rule-based engine when offline.
 

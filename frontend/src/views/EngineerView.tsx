@@ -320,7 +320,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
                 {t('engineer_panel_title')}
               </h4>
-              <p className="text-[10px] text-gray-400">Pep · Ingeniero de Pista</p>
+              <p className="text-[10px] text-gray-400">{t('pep_role')}</p>
             </div>
           </div>
 

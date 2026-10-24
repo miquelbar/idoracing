@@ -127,7 +127,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         )}
       </div>
 
-      {/* Right: Timing, Ideal Ghost Metrics & AI Action Strip */}
+      {/* Right: Timing, 👻 Bubota Metrics & AI Action Strip */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Lap Times */}
         {comparison ? (
@@ -165,7 +165,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
               </span>
             </div>
 
-            {/* Rolling Best & Ideal Ghost Potential + Toggle */}
+            {/* Rolling Best & 👻 Bubota Potential + Toggle */}
             {comparison.has_telemetry !== false && (
               <div className="hidden lg:flex items-center gap-1.5 border-l border-white/10 pl-2">
                 {comparison.optimal_lap_time && (
@@ -185,7 +185,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                         : 'Potencial físico total frente a 👻 Bubota'
                     }
                   >
-                    👻 {isEn ? 'Potential:' : 'Potencial:'} -{comparison.ideal_potential_gain.toFixed(2)}s
+                    {t('bubota_badge')} -{comparison.ideal_potential_gain.toFixed(2)}s
                   </span>
                 )}
                 {onToggleIdealGhost && (
@@ -197,13 +197,9 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                         ? 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-sm'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
                     }`}
-                    title={
-                      isEn
-                        ? 'Toggle 👻 Bubota target curves on telemetry charts'
-                        : 'Mostrar/ocultar curvas objetivo de 👻 Bubota en las gráficas'
-                    }
+                    title={t('bubota_toggle_hint')}
                   >
-                    👻 Bubota
+                    {t('bubota_toggle')}
                   </button>
                 )}
               </div>

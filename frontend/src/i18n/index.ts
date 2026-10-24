@@ -118,7 +118,21 @@ export const translations = {
     phase_exit_title: '3. Salida y Tracción:',
     view_optimal_line_action: 'Ver en Trazada Óptima',
     ask_engineer_corner_action: 'Consultar a Pep sobre',
-    
+
+    // Bubota (Ideal Physics Ghost) — brand name, kept identical in ES and EN
+    bubota_toggle: '👻 Guía Bubota',
+    bubota_badge: '👻 Potencial Bubota:',
+    bubota_legend: '👻 Bubota (Ideal)',
+    bubota_both_fault: 'Fallo en P1 y P2 (👻 Bubota: >{pct}%)',
+    bubota_toggle_hint: '👻 Bubota: Activar/desactivar guía ideal de Freno (#f97316), Gas (#a3e635) y Velocidad (#facc15)',
+    toggle_p2_hint: 'Mostrar/ocultar Vuelta Comparada (P2) - Línea Continua',
+    toggle_p1_hint: 'Mostrar/ocultar Vuelta Referencia (P1) - Línea Punteada',
+    toggle_p1_bubota_hint: 'P1 oculta en Pedales mientras 👻 Bubota está activa — haz clic para superponer también P1 en Pedales',
+    brake_curve_hint: 'Curva de Freno (Gama Roja/Naranja)',
+    throttle_curve_hint: 'Curva de Gas / Acelerador (Gama Verde/Lima)',
+    line_solid: 'Sólida',
+    line_dotted: 'Puntos',
+
     // Diagnosis Cards (Row 4)
     overall_balance: 'Balance General de Vuelta',
     critical_point: 'Punto Crítico de Mejora',
@@ -262,6 +276,7 @@ export const translations = {
     debrief_cta_button: 'Generar Análisis de Vuelta',
     track_colon: 'Pista:',
     pep_role: 'Pep · Ingeniero de Pista',
+    stint_pep_debrief_title: 'Debrief de Ingeniero de Pista (Pep)',
     you_role: 'Tú',
     pep_thinking: 'Pep está consultando los canales de telemetría de {track}...',
     ask_pep_corner_placeholder: 'Pregunta a Pep sobre Curva {num} ({name}), telemetría o setup...',
@@ -464,7 +479,21 @@ export const translations = {
     phase_exit_title: '3. Exit & Traction:',
     view_optimal_line_action: 'View in Optimal Line',
     ask_engineer_corner_action: 'Ask Pep about',
-    
+
+    // Bubota (Ideal Physics Ghost) — brand name, kept identical in ES and EN
+    bubota_toggle: '👻 Bubota Ghost',
+    bubota_badge: '👻 Bubota Potential:',
+    bubota_legend: '👻 Bubota (Ideal)',
+    bubota_both_fault: 'Both P1 & P2 off target (👻 Bubota: >{pct}%)',
+    bubota_toggle_hint: '👻 Bubota: Toggle Optimal Trail Braking (#f97316), Gas (#a3e635) & Target Speed (#facc15)',
+    toggle_p2_hint: 'Show/hide Comparison Lap (P2) - Solid Line',
+    toggle_p1_hint: 'Show/hide Reference Lap (P1) - Dotted Line',
+    toggle_p1_bubota_hint: 'P1 hidden in Pedals while 👻 Bubota is active — click to also overlay P1 in Pedals',
+    brake_curve_hint: 'Brake Curve (Red/Orange Range)',
+    throttle_curve_hint: 'Throttle Curve (Green/Lime Range)',
+    line_solid: 'Solid',
+    line_dotted: 'Dotted',
+
     // Diagnosis Cards (Row 4)
     overall_balance: 'Overall Lap Balance',
     critical_point: 'Critical Improvement Area',
@@ -608,6 +637,7 @@ export const translations = {
     debrief_cta_button: 'Generate Lap Analysis',
     track_colon: 'Track:',
     pep_role: 'Pep · Race Engineer',
+    stint_pep_debrief_title: 'Race Engineer Debrief (Pep)',
     you_role: 'You',
     pep_thinking: 'Pep is inspecting telemetry channels for {track}...',
     ask_pep_corner_placeholder: 'Ask Pep about Turn {num} ({name}), telemetry or setup...',

@@ -619,12 +619,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   ? 'bg-[#A855F7]/20 border-[#A855F7]/60 text-[#D8B4FE] shadow-sm'
                   : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-100'
               }`}
-              title="Mostrar/ocultar Vuelta Comparada (P2) - Línea Continua"
+              title={t('toggle_p2_hint')}
             >
               <svg width="14" height="4" className="shrink-0">
                 <line x1="0" y1="2" x2="14" y2="2" stroke={showP2 ? '#D8B4FE' : '#64748B'} strokeWidth="2" />
               </svg>
-              <span className="font-bold">P2 ({isEn ? 'L' : 'V'}{compNum})</span>
+              <span className="font-bold whitespace-nowrap">P2 ({isEn ? 'L' : 'V'}{compNum})</span>
             </button>
 
             {/* P1 Toggle Button: Dotted Line */}
@@ -640,8 +640,8 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               }`}
               title={
                 isBubotaActive && showP1 && !p1PedalsExplicitWithBubota
-                  ? 'P1 oculta en Pedales mientras 👻 Bubota está activa — haz clic para superponer también P1 en Pedales'
-                  : 'Mostrar/ocultar Vuelta Referencia (P1) - Línea Punteada'
+                  ? t('toggle_p1_bubota_hint')
+                  : t('toggle_p1_hint')
               }
             >
               <svg width="14" height="4" className="shrink-0">
@@ -655,7 +655,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   strokeDasharray="3,3"
                 />
               </svg>
-              <span className="font-bold">P1 ({isEn ? 'L' : 'V'}{refNum})</span>
+              <span className="font-bold whitespace-nowrap">P1 ({isEn ? 'L' : 'V'}{refNum})</span>
             </button>
 
             {/* 👻 Bubota Toggle Button */}
@@ -667,11 +667,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   ? 'bg-[#facc15]/20 border-[#facc15]/70 text-[#facc15] shadow-sm'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
               }`}
-              title={
-                isEn
-                  ? '👻 Bubota: Toggle Optimal Trail Braking (#f97316), Gas (#a3e635) & Target Speed (#facc15)'
-                  : '👻 Bubota: Activar/desactivar guía ideal de Freno (#f97316), Gas (#a3e635) y Velocidad (#facc15)'
-              }
+              title={t('bubota_toggle_hint')}
             >
               <svg width="14" height="4" className="shrink-0">
                 <line
@@ -684,16 +680,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   strokeDasharray="7,4"
                 />
               </svg>
-              <span className="font-bold">👻 Bubota</span>
+              <span className="font-bold whitespace-nowrap">{t('bubota_toggle')}</span>
             </button>
 
             {/* Channel Colors: Brake & Throttle */}
             <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-white/10">
-              <div className="flex items-center gap-1" title="Curva de Freno (Gama Roja/Naranja)">
+              <div className="flex items-center gap-1" title={t('brake_curve_hint')}>
                 <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
                 <span className="text-[#ef4444] font-bold">{t('brake')}</span>
               </div>
-              <div className="flex items-center gap-1" title="Curva de Gas / Acelerador (Gama Verde/Lima)">
+              <div className="flex items-center gap-1" title={t('throttle_curve_hint')}>
                 <span className="w-2 h-2 rounded-full bg-[#10b981]" />
                 <span className="text-[#10b981] font-bold">{t('throttle')}</span>
               </div>
@@ -709,9 +705,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           className="absolute z-10 pointer-events-none flex items-center justify-between px-2 select-none"
           style={{ top: 2, left: padLeft, width: chartWidth, height: laneHeaderH - 4 }}
         >
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm">
-            {t('speed_ch')}
-          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase text-gray-200 bg-[#161D2C] border border-white/10 shadow-sm whitespace-nowrap">
+              {t('speed_ch')}
+            </span>
+            {isBubotaActive && (
+              <span className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#facc15]/10 border border-[#facc15]/30 text-[#facc15] font-bold text-[9.5px] whitespace-nowrap">
+                <svg width="12" height="4" className="shrink-0"><line x1="0" y1="2" x2="12" y2="2" stroke="#facc15" strokeWidth="2" strokeDasharray="7,4" /></svg>
+                {t('bubota_legend')}
+              </span>
+            )}
+          </div>
           {hoverData && (
             <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
               P1: <strong className="text-brand">{Math.round(hoverData.refSpeed)}</strong> / P2: <strong className="text-comp">{Math.round(hoverData.compSpeed)}</strong>{' '}
@@ -750,54 +754,54 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {!hoverData && (
               <span className="hidden lg:flex items-center gap-2.5 text-[9.5px] text-gray-300 font-telemetry bg-black/55 px-2.5 py-0.5 rounded border border-white/10">
                 {showP2 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#ef4444" strokeWidth="2" /></svg>
-                    <span className="text-[#ef4444] font-bold">Freno P2</span>
+                    <span className="text-[#ef4444] font-bold">{t('brake')} P2</span>
                   </span>
                 )}
                 {showP1InPedals && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#fca5a5" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
-                    <span className="text-[#fca5a5] font-bold">Freno P1</span>
+                    <span className="text-[#fca5a5] font-bold">{t('brake')} P1</span>
                   </span>
                 )}
                 {isBubotaActive && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#f97316" strokeWidth="2" strokeDasharray="7,4" /></svg>
-                    <span className="text-[#f97316] font-bold">👻 Freno</span>
+                    <span className="text-[#f97316] font-bold">👻 {t('brake')}</span>
                   </span>
                 )}
                 <span className="text-gray-600">|</span>
                 {showP2 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#10b981" strokeWidth="2" /></svg>
-                    <span className="text-[#10b981] font-bold">Gas P2</span>
+                    <span className="text-[#10b981] font-bold">{t('throttle')} P2</span>
                   </span>
                 )}
                 {showP1InPedals && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#6ee7b7" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
-                    <span className="text-[#6ee7b7] font-bold">Gas P1</span>
+                    <span className="text-[#6ee7b7] font-bold">{t('throttle')} P1</span>
                   </span>
                 )}
                 {isBubotaActive && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#a3e635" strokeWidth="2" strokeDasharray="7,4" /></svg>
-                    <span className="text-[#a3e635] font-bold">👻 Gas</span>
+                    <span className="text-[#a3e635] font-bold">👻 {t('throttle')}</span>
                   </span>
                 )}
               </span>
             )}
           </div>
           {hoverData && (
-            <span className="text-[10px] font-telemetry text-gray-300 bg-black/75 px-2.5 py-0.5 rounded border border-white/10">
-              Gas: <strong className="text-[#10b981]">P2 {Math.round(hoverData.compThr)}%</strong>{' '}
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/75 px-2.5 py-0.5 rounded border border-white/10 whitespace-nowrap">
+              {t('throttle')}: <strong className="text-[#10b981]">P2 {Math.round(hoverData.compThr)}%</strong>{' '}
               {showP1InPedals && <span className="text-[#6ee7b7]">(P1 {Math.round(hoverData.refThr)}%)</span>}
-              {isBubotaActive && <span className="text-[#a3e635] font-bold"> (👻 Gas {Math.round(hoverData.idealThr)}%)</span>}
-              {' • '}Freno:{' '}
+              {isBubotaActive && <span className="text-[#a3e635] font-bold"> (👻 {t('throttle')} {Math.round(hoverData.idealThr)}%)</span>}
+              {' • '}{t('brake')}:{' '}
               <strong className="text-[#ef4444]">P2 {Math.round(hoverData.compBrk)}%</strong>{' '}
               {showP1InPedals && <span className="text-[#fca5a5]">(P1 {Math.round(hoverData.refBrk)}%)</span>}
-              {isBubotaActive && <span className="text-[#f97316] font-bold"> (👻 Freno {Math.round(hoverData.idealBrk)}%)</span>}
+              {isBubotaActive && <span className="text-[#f97316] font-bold"> (👻 {t('brake')} {Math.round(hoverData.idealBrk)}%)</span>}
             </span>
           )}
         </div>
@@ -813,24 +817,24 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {!hoverData && (
               <span className="hidden lg:flex items-center gap-2 text-[9px] text-gray-400 font-telemetry bg-black/40 px-2 py-0.5 rounded border border-white/5">
                 {showP2 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#E2E8F0" strokeWidth="2" /></svg>
-                    <span className="text-gray-300">P2 (Sólida)</span>
+                    <span className="text-gray-300">P2 ({t('line_solid')})</span>
                   </span>
                 )}
                 {showP1 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 whitespace-nowrap">
                     <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
-                    <span className="text-cyan-400">P1 (Puntos)</span>
+                    <span className="text-cyan-400">P1 ({t('line_dotted')})</span>
                   </span>
                 )}
               </span>
             )}
           </div>
           {hoverData && (
-            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
-              Marcha: <strong className="text-white">{hoverData.compGear}ª</strong>{' '}
-              <span className="text-gray-500">(Ref: {hoverData.refGear}ª)</span>
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5 whitespace-nowrap">
+              {isEn ? 'Gear:' : 'Marcha:'} <strong className="text-white">{hoverData.compGear}{isEn ? '' : 'ª'}</strong>{' '}
+              <span className="text-gray-500">(Ref: {hoverData.refGear}{isEn ? '' : 'ª'})</span>
             </span>
           )}
         </div>
@@ -1007,7 +1011,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                     fontFamily="'JetBrains Mono', monospace"
                     textAnchor="middle"
                   >
-                    {lbl.kind === 'brake' ? '👻 Freno' : '👻 Gas'}
+                    {lbl.kind === 'brake' ? `👻 ${t('brake')}` : `👻 ${t('throttle')}`}
                   </text>
                 </g>
               ))}
