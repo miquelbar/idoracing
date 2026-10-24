@@ -224,6 +224,26 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
           />
         ))}
 
+        {/* Start/Finish Line & Direction-of-Travel Arrow */}
+        {staticTrack.startFinish && (
+          <g
+            data-testid="track-direction-arrow"
+            transform={`translate(${staticTrack.startFinish.x.toFixed(1)}, ${staticTrack.startFinish.y.toFixed(1)}) rotate(${staticTrack.startFinish.angleDeg.toFixed(1)})`}
+            className="pointer-events-none"
+          >
+            {/* Perpendicular Start/Finish Line */}
+            <line x1="0" y1="-8" x2="0" y2="8" stroke="#FFFFFF" strokeWidth="2.5" />
+            <line x1="0" y1="-8" x2="0" y2="8" stroke={COLORS.night1} strokeWidth="2.5" strokeDasharray="3 3" />
+            {/* Direction Arrow pointing along direction of travel */}
+            <polygon
+              points="15,0 6,-5 8,0 6,5"
+              fill={COLORS.brand}
+              stroke={COLORS.night1}
+              strokeWidth="1"
+            />
+          </g>
+        )}
+
         {/* Interactive Corner Track Hit Areas (Wide Ribbons & Hover Glow) */}
         {staticTrack.cornerArcs.map((c) => {
           if (!c.pathD) return null;

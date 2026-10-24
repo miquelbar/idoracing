@@ -687,9 +687,10 @@ def analyze_corner(
     else:
         turn_dir = corner_def.get("turn_dir") or "right"
 
+    is_interior_apex = len(s.sub_dist) > 4 and 1 < s.ref_apex_idx < len(s.sub_dist) - 2
     measured_apex = (
         float(s.sub_dist[s.ref_apex_idx])
-        if len(s.sub_dist) > s.ref_apex_idx
+        if is_interior_apex
         else float(corner_def.get("apex", (start_d + end_d) / 2.0))
     )
 

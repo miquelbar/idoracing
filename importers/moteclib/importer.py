@@ -5,7 +5,13 @@ from typing import Any
 import numpy as np
 
 from domain.session import Lap, Session, SessionSummary
-from importers.laps import LAP_RESET_DROP_M, MIN_LAP_DURATION_S, mark_partial_laps_invalid, without_boundary_wrap
+from importers.laps import (
+    LAP_RESET_DROP_M,
+    MIN_LAP_DURATION_S,
+    mark_partial_laps_invalid,
+    truncate_teleport_jumps,
+    without_boundary_wrap,
+)
 from importers.motec_binary import MoTeCLDParser, MoTeCLDXParser
 
 logger = logging.getLogger(__name__)
@@ -184,11 +190,14 @@ class MoTeCImporter:
                     # Dead-reckoned distance is cumulative over the session; each lap starts at 0.
                     d0 = lap_telemetry["distance"][0]
                     lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+            lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
+            assert lap_telemetry is not None
             laps.append(
                 Lap(
                     lap_number=lap_number,
                     lap_time=round(float(time[end - 1] - time[start]), 3),
-                    is_valid=True,
+                    is_valid=not is_incomplete,
+                    is_incomplete=is_incomplete,
                     telemetry=lap_telemetry,
                     start_time=float(time[start]),
                     end_time=float(time[end - 1]),

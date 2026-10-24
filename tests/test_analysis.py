@@ -340,3 +340,175 @@ def test_track_coordinates_ignore_the_recording_frame():
     span_x = float(np.ptp(np.asarray(tx)))
     span_y = float(np.ptp(np.asarray(ty)))
     assert span_x >= span_y
+
+
+def test_corner_turn_direction_matches_xy_geometry():
+    """
+    Verify that every corner in Ricardo Tormo de Valencia (T1 Aspar left, T2 Doohan left,
+    T4 Nico Terol right, T10 right, etc.) has screen-space cross product matching its label:
+    cross_screen < 0 for 'left' and cross_screen > 0 for 'right' (where +X is right, +Y is down).
+    Also verifies that recorded world positions in a mirrored game frame are auto-oriented on
+    both track_x/y and ref_x/y + comp_x/y.
+    """
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.corners import extract_corners_analysis
+    from analysis.demo_session import generate_lap_telemetry
+    from analysis.tracks import VALENCIA_CORNERS, generate_track_coordinates
+
+    ref = generate_lap_telemetry(is_reference=True)
+    comp = generate_lap_telemetry(is_reference=False)
+    ref_dict = {k: v.tolist() for k, v in ref.items()}
+    comp_dict = {k: v.tolist() for k, v in comp.items()}
+    aligned = align_laps_by_distance(ref_dict, comp_dict)
+    tx, ty = generate_track_coordinates("Ricardo Tormo de Valencia", aligned["distance"], aligned)
+
+    # Also simulate a session with recorded world (x, y) in a mirrored (left-handed) game frame
+    ref_mirrored = dict(ref_dict)
+    comp_mirrored = dict(comp_dict)
+    ref_mirrored["x"] = np.interp(ref_dict["distance"], aligned["distance"], tx).tolist()
+    ref_mirrored["y"] = (-np.interp(ref_dict["distance"], aligned["distance"], ty)).tolist()
+    comp_mirrored["x"] = ref_mirrored["x"]
+    comp_mirrored["y"] = ref_mirrored["y"]
+    aligned_mirrored = align_laps_by_distance(ref_mirrored, comp_mirrored)
+    tx_m, ty_m = generate_track_coordinates("Ricardo Tormo de Valencia", aligned_mirrored["distance"], aligned_mirrored)
+
+    for dataset_label, dist, xs, ys, aln in (
+        ("reconstructed", aligned["distance"], tx, ty, aligned),
+        ("mirrored_world_track", aligned_mirrored["distance"], tx_m, ty_m, aligned_mirrored),
+        (
+            "mirrored_world_ref_xy",
+            aligned_mirrored["distance"],
+            aligned_mirrored["ref_x"],
+            aligned_mirrored["ref_y"],
+            aligned_mirrored,
+        ),
+    ):
+        x_screen = np.asarray(xs, dtype=np.float64)
+        y_screen = -np.asarray(ys, dtype=np.float64)  # Screen coords: +X right, +Y down
+        corners = extract_corners_analysis(aln, track_name="Ricardo Tormo de Valencia")
+        assert len(corners) == 14
+        # Specifically validate T1 Aspar and T2 Doohan are left, T4 Nico Terol is right
+        assert corners[0].racing_line_svg["turn_dir"] == "left"
+        assert corners[1].racing_line_svg["turn_dir"] == "left"
+        assert corners[3].racing_line_svg["turn_dir"] == "right"
+
+        for c_def, c_ana in zip(VALENCIA_CORNERS, corners, strict=True):
+            turn_dir = c_ana.racing_line_svg["turn_dir"]
+            assert turn_dir == c_def["turn_dir"], f"[{dataset_label}] T{c_def['number']} label mismatch"
+            i_entry = int(np.searchsorted(dist, c_ana.start_dist))
+            i_apex = int(np.searchsorted(dist, c_ana.apex_dist or c_def["apex"]))
+            i_exit = min(int(np.searchsorted(dist, c_ana.end_dist)), len(dist) - 1)
+
+            x_entry, y_entry = x_screen[i_entry], y_screen[i_entry]
+            x_apex, y_apex = x_screen[i_apex], y_screen[i_apex]
+            x_exit, y_exit = x_screen[i_exit], y_screen[i_exit]
+
+            cross_screen = (x_apex - x_entry) * (y_exit - y_apex) - (y_apex - y_entry) * (x_exit - x_apex)
+            if turn_dir == "left":
+                assert cross_screen < 0.0, (
+                    f"[{dataset_label}] T{c_def['number']} ({c_def['name']}) is 'left' "
+                    f"but cross_screen={cross_screen:.2f} >= 0"
+                )
+            else:
+                assert cross_screen > 0.0, (
+                    f"[{dataset_label}] T{c_def['number']} ({c_def['name']}) is 'right' "
+                    f"but cross_screen={cross_screen:.2f} <= 0"
+                )
+
+
+def test_track_loop_winding_order():
+    """
+    Verify the signed Shoelace area sum(x_i * y_{i+1} - x_{i+1} * y_i) in screen coordinates
+    (+X right, +Y down):
+    - Counter-clockwise circuit (Ricardo Tormo de Valencia): shoelace_screen < 0 (shoelace_world > 0).
+    - Clockwise circuit (Red Bull Ring): shoelace_screen > 0 (shoelace_world < 0).
+    """
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.demo_session import generate_lap_telemetry
+    from analysis.telemetry_generator import generate_lap_telemetry_for_track
+    from analysis.tracks import generate_track_coordinates
+
+    # 1. Counter-clockwise: Ricardo Tormo de Valencia
+    ref_v = generate_lap_telemetry(is_reference=True)
+    comp_v = generate_lap_telemetry(is_reference=False)
+    aligned_v = align_laps_by_distance(
+        {k: v.tolist() for k, v in ref_v.items()},
+        {k: v.tolist() for k, v in comp_v.items()},
+    )
+    vx, vy = generate_track_coordinates("Ricardo Tormo de Valencia", aligned_v["distance"], aligned_v)
+    vx_screen = np.asarray(vx, dtype=np.float64)
+    vy_screen = -np.asarray(vy, dtype=np.float64)
+    shoelace_valencia_screen = float(np.sum(vx_screen[:-1] * vy_screen[1:] - vx_screen[1:] * vy_screen[:-1]))
+    assert shoelace_valencia_screen < 0.0, "Valencia is counter-clockwise: screen Shoelace area must be < 0"
+
+    # 2. Clockwise: Red Bull Ring
+    ref_rbr = generate_lap_telemetry_for_track("Red Bull Ring", 105.6, is_reference=True)
+    comp_rbr = generate_lap_telemetry_for_track("Red Bull Ring", 107.1, is_reference=False)
+    aligned_rbr = align_laps_by_distance(
+        {k: v.tolist() for k, v in ref_rbr.items()},
+        {k: v.tolist() for k, v in comp_rbr.items()},
+    )
+    rx, ry = generate_track_coordinates("Red Bull Ring", aligned_rbr["distance"], aligned_rbr)
+    rx_screen = np.asarray(rx, dtype=np.float64)
+    ry_screen = -np.asarray(ry, dtype=np.float64)
+    shoelace_rbr_screen = float(np.sum(rx_screen[:-1] * ry_screen[1:] - rx_screen[1:] * ry_screen[:-1]))
+    assert shoelace_rbr_screen > 0.0, "Red Bull Ring is clockwise: screen Shoelace area must be > 0"
+
+
+def test_no_teleport_spikes_in_track_map():
+    """
+    Simulate an aborted lap where the driver presses 'Escape / Return to Garage' mid-lap
+    (creating a spatial jump > 25m). Verify that:
+    - truncate_teleport_jumps truncates at i - 1 and marks is_incomplete = True,
+    - generate_track_coordinates and align_laps_by_distance contain zero segments with hypot(dx, dy) > 25m,
+    - the incomplete loop is NEVER closed back to the start point.
+    """
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.demo_session import generate_lap_telemetry
+    from analysis.tracks import generate_track_coordinates
+    from importers.laps import truncate_teleport_jumps
+
+    ref = generate_lap_telemetry(is_reference=True)
+    ref_dict = {k: v.tolist() for k, v in ref.items()}
+    n = len(ref_dict["distance"])
+    theta = np.linspace(0.0, 2.0 * np.pi, n)
+    x_clean = (600.0 * np.cos(theta)).tolist()
+    y_clean = (400.0 * np.sin(theta)).tolist()
+
+    # Inject a "Return to Garage" teleport jump at sample 900 (mid-lap)
+    aborted = dict(ref_dict)
+    x_abort = list(x_clean)
+    y_abort = list(y_clean)
+    for k in range(900, n):
+        x_abort[k] = 0.0  # Teleported back to pit garage at (0, 0)
+        y_abort[k] = 0.0
+    aborted["x"] = x_abort
+    aborted["y"] = y_abort
+
+    truncated_tel, is_incomplete = truncate_teleport_jumps(aborted)
+    assert is_incomplete is True
+    assert truncated_tel is not None
+    assert len(truncated_tel["x"]) == 900
+
+    # Also pass the raw un-truncated aborted telemetry directly into generate_track_coordinates
+    tx, ty = generate_track_coordinates("Ricardo Tormo de Valencia", np.asarray(aborted["distance"]), aborted)
+    tx_arr, ty_arr = np.asarray(tx), np.asarray(ty)
+    step_dists = np.hypot(np.diff(tx_arr), np.diff(ty_arr))
+    assert float(np.max(step_dists)) <= 25.0, f"Found teleport spike of {float(np.max(step_dists)):.1f}m"
+    # Must NOT have closed the polygon from mid-lap back to start
+    start_end_gap = float(np.hypot(tx_arr[-1] - tx_arr[0], ty_arr[-1] - ty_arr[0]))
+    assert start_end_gap > 30.0, "Incomplete aborted lap must not be closed back to start"
+
+    # Also verify align_laps_by_distance truncates teleport spikes
+    comp_clean = dict(ref_dict)
+    comp_clean["x"] = x_clean
+    comp_clean["y"] = y_clean
+    aligned = align_laps_by_distance(aborted, comp_clean)
+    ref_steps = np.hypot(np.diff(aligned["ref_x"]), np.diff(aligned["ref_y"]))
+    assert float(np.max(ref_steps)) <= 25.0

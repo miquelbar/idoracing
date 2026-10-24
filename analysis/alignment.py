@@ -6,6 +6,9 @@ speed deltas and cumulative time delta profiles.
 
 import numpy as np
 
+from analysis.tracks import MAX_TELEPORT_STEP_M, orient_aligned_positions
+from importers.laps import truncate_teleport_jumps
+
 
 def align_laps_by_distance(
     ref_telemetry: dict[str, list[float]],
@@ -16,6 +19,11 @@ def align_laps_by_distance(
     Interpolate reference and comparison telemetry onto a uniform distance axis.
     Returns aligned distance, channels for both laps, and calculated deltas.
     """
+    ref_clean, ref_inc = truncate_teleport_jumps(ref_telemetry, MAX_TELEPORT_STEP_M)
+    comp_clean, comp_inc = truncate_teleport_jumps(comp_telemetry, MAX_TELEPORT_STEP_M)
+    ref_telemetry = ref_clean or ref_telemetry
+    comp_telemetry = comp_clean or comp_telemetry
+
     ref_dist = np.array(ref_telemetry.get("distance", []), dtype=np.float64)
     comp_dist = np.array(comp_telemetry.get("distance", []), dtype=np.float64)
 
@@ -68,6 +76,22 @@ def align_laps_by_distance(
     has_ref_xy = np.any(aligned.get("ref_x", 0) != 0) or np.any(aligned.get("ref_y", 0) != 0)
     has_comp_xy = np.any(aligned.get("comp_x", 0) != 0) or np.any(aligned.get("comp_y", 0) != 0)
 
+    # Guard against any residual >25m jump introduced by interpolation over duplicate distance samples
+    cut_idx: int | None = None
+    for prefix, has_xy in (("ref_", has_ref_xy), ("comp_", has_comp_xy)):
+        if has_xy and len(common_dist) > 1:
+            step_xy = np.hypot(np.diff(aligned[f"{prefix}x"]), np.diff(aligned[f"{prefix}y"]))
+            jumps = np.where(step_xy > MAX_TELEPORT_STEP_M)[0]
+            if len(jumps) > 0:
+                c = int(jumps[0]) + 1
+                cut_idx = c if cut_idx is None else min(cut_idx, c)
+    if cut_idx is not None and cut_idx >= 2:
+        for k in list(aligned.keys()):
+            if isinstance(aligned[k], np.ndarray) and len(aligned[k]) == len(common_dist):
+                aligned[k] = aligned[k][:cut_idx]
+        common_dist = aligned["distance"]
+        ref_inc = True
+
     if has_ref_xy and has_comp_xy:
         ref_gap = float(
             np.hypot(aligned["ref_x"][-1] - aligned["ref_x"][0], aligned["ref_y"][-1] - aligned["ref_y"][0])
@@ -75,18 +99,20 @@ def align_laps_by_distance(
         comp_gap = float(
             np.hypot(aligned["comp_x"][-1] - aligned["comp_x"][0], aligned["comp_y"][-1] - aligned["comp_y"][0])
         )
-        if comp_gap < ref_gap:
-            aligned["x"] = aligned["comp_x"]
-            aligned["y"] = aligned["comp_y"]
+        if (comp_gap < ref_gap and not comp_inc) or (ref_inc and not comp_inc):
+            aligned["x"] = aligned["comp_x"].copy()
+            aligned["y"] = aligned["comp_y"].copy()
         else:
-            aligned["x"] = aligned["ref_x"]
-            aligned["y"] = aligned["ref_y"]
+            aligned["x"] = aligned["ref_x"].copy()
+            aligned["y"] = aligned["ref_y"].copy()
     elif has_ref_xy:
-        aligned["x"] = aligned["ref_x"]
-        aligned["y"] = aligned["ref_y"]
+        aligned["x"] = aligned["ref_x"].copy()
+        aligned["y"] = aligned["ref_y"].copy()
     elif has_comp_xy:
-        aligned["x"] = aligned["comp_x"]
-        aligned["y"] = aligned["comp_y"]
+        aligned["x"] = aligned["comp_x"].copy()
+        aligned["y"] = aligned["comp_y"].copy()
+
+    orient_aligned_positions(aligned)
 
     # Speed Delta (km/h): Positive means reference is faster
     aligned["speed_delta"] = aligned["ref_speed"] - aligned["comp_speed"]

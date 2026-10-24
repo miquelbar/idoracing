@@ -561,23 +561,87 @@ def _lateral_accel_channel(telemetry: dict[str, np.ndarray], length: int) -> tup
     return None
 
 
+MAX_TELEPORT_STEP_M = 25.0
+MAX_CLOSURE_GAP_M = 30.0
+
+
+def sanitize_xy_teleport(
+    x: np.ndarray,
+    y: np.ndarray,
+    max_step_m: float = MAX_TELEPORT_STEP_M,
+) -> tuple[np.ndarray, np.ndarray, bool]:
+    """
+    Truncate (x, y) series at index i-1 when step_dist = hypot(x[i]-x[i-1], y[i]-y[i-1]) > max_step_m.
+    Returns (truncated_x, truncated_y, is_incomplete).
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    y_arr = np.asarray(y, dtype=np.float64)
+    if len(x_arr) < 2 or len(y_arr) < 2:
+        return x_arr, y_arr, False
+    step_dist = np.hypot(np.diff(x_arr), np.diff(y_arr))
+    jumps = np.where(step_dist > max_step_m)[0]
+    if len(jumps) > 0:
+        cut = int(jumps[0]) + 1
+        return x_arr[:cut], y_arr[:cut], True
+    return x_arr, y_arr, False
+
+
+def _is_mirrored_frame(x: np.ndarray, y: np.ndarray, lat_accel: np.ndarray | None) -> bool:
+    """True when recorded (x, y) lives in a left-handed frame that disagrees with lateral acceleration."""
+    if lat_accel is None or len(lat_accel) != len(x) or len(x) < 4:
+        return False
+    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
+    geometric_turn = np.gradient(heading)
+    turning = np.abs(lat_accel) > 0.05
+    if int(np.sum(turning)) < 20:
+        return False
+    agreement = float(np.mean(np.sign(geometric_turn[turning]) == np.sign(lat_accel[turning])))
+    return agreement < 0.5
+
+
 def _auto_orient(x: np.ndarray, y: np.ndarray, lat_accel: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
     """
     Recorded positions can live in a mirrored frame (left-handed game coordinates). The
     lateral acceleration channel says which way the car really turned, so flip the frame
     whenever the drawn geometry disagrees with it on most lateral samples.
     """
-    if lat_accel is None or len(lat_accel) != len(x):
-        return x, y
-    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
-    geometric_turn = np.gradient(heading)
-    turning = np.abs(lat_accel) > 0.05
-    if int(np.sum(turning)) < 20:
-        return x, y
-    agreement = float(np.mean(np.sign(geometric_turn[turning]) == np.sign(lat_accel[turning])))
-    if agreement < 0.5:
+    if _is_mirrored_frame(x, y, lat_accel):
         return x, -y
     return x, y
+
+
+def _canonical_transform(x: np.ndarray, y: np.ndarray) -> tuple[float, float, np.ndarray, float]:
+    """
+    Compute the rigid canonical frame parameters (cx, cy, rot_matrix, sign_180) so multiple
+    traces (track_x/y, ref_x/y, comp_x/y) can be placed in the exact same right-handed frame.
+    """
+    n = len(x)
+    cx, cy = float(np.mean(x)), float(np.mean(y))
+    if n < 4:
+        return cx, cy, np.eye(2), 1.0
+    pts = np.vstack([x - cx, y - cy]).T
+    cov = (pts.T @ pts) / n
+    evals, evecs = np.linalg.eigh(cov)
+    major = evecs[:, int(np.argmax(evals))]
+    angle = float(np.arctan2(major[1], major[0]))
+    cos_a, sin_a = np.cos(-angle), np.sin(-angle)
+    rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
+    can = pts @ rot.T
+    sign = -1.0 if float(np.mean(can[: max(3, n // 20), 0])) > 0.0 else 1.0
+    return cx, cy, rot, sign
+
+
+def _apply_canonical_transform(
+    x: np.ndarray,
+    y: np.ndarray,
+    cx: float,
+    cy: float,
+    rot: np.ndarray,
+    sign: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    pts = np.vstack([x - cx, y - cy]).T
+    can = sign * (pts @ rot.T)
+    return can[:, 0], can[:, 1]
 
 
 def _canonical_frame(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -586,20 +650,53 @@ def _canonical_frame(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarr
     centroid, lay the loop's principal axis horizontally and, between the two possible
     180-degree choices, keep the lap start on the left half of the map.
     """
-    n = len(x)
-    if n < 4:
+    if len(x) < 4:
         return x, y
-    pts = np.vstack([x - float(np.mean(x)), y - float(np.mean(y))]).T
-    cov = (pts.T @ pts) / n
-    evals, evecs = np.linalg.eigh(cov)
-    major = evecs[:, int(np.argmax(evals))]
-    angle = float(np.arctan2(major[1], major[0]))
-    cos_a, sin_a = np.cos(-angle), np.sin(-angle)
-    rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    can = pts @ rot.T
-    if float(np.mean(can[: max(3, n // 20), 0])) > 0.0:
-        can = -can
-    return can[:, 0], can[:, 1]
+    cx, cy, rot, sign = _canonical_transform(x, y)
+    return _apply_canonical_transform(x, y, cx, cy, rot, sign)
+
+
+def orient_aligned_positions(aligned: dict[str, np.ndarray]) -> None:
+    """
+    Orient aligned['x']/['y'], aligned['ref_x']/['ref_y'], and aligned['comp_x']/['comp_y']
+    into the same right-handed canonical frame so recorded world positions never render mirrored.
+    """
+    if "x" not in aligned or "y" not in aligned:
+        return
+    base_x = np.asarray(aligned["x"], dtype=np.float64).copy()
+    base_y = np.asarray(aligned["y"], dtype=np.float64).copy()
+    if len(base_x) <= 10 or (float(np.var(base_x)) <= 1.0 and float(np.var(base_y)) <= 1.0):
+        return
+
+    lat = None
+    for key in ("ref_lat_accel", "comp_lat_accel", "lat_accel"):
+        channel = aligned.get(key)
+        if channel is not None and len(channel) == len(base_x) and float(np.max(np.abs(channel))) > 0.05:
+            lat = np.asarray(channel, dtype=np.float64)
+            break
+
+    mirrored = _is_mirrored_frame(base_x, base_y, lat)
+    if mirrored:
+        base_y = -base_y
+
+    _, _, is_inc = sanitize_xy_teleport(base_x, base_y, MAX_TELEPORT_STEP_M)
+    is_incomplete = bool(is_inc or aligned.get("is_incomplete", False))
+    closure_gap = float(np.hypot(base_x[-1] - base_x[0], base_y[-1] - base_y[0])) if len(base_x) > 1 else 0.0
+    if not is_incomplete and closure_gap <= MAX_CLOSURE_GAP_M:
+        base_x[-1], base_y[-1] = base_x[0], base_y[0]
+
+    cx, cy, rot, sign = _canonical_transform(base_x, base_y)
+    aligned["x"], aligned["y"] = _apply_canonical_transform(base_x, base_y, cx, cy, rot, sign)
+
+    for prefix in ("ref_", "comp_"):
+        kx, ky = f"{prefix}x", f"{prefix}y"
+        if kx in aligned and ky in aligned:
+            px = np.asarray(aligned[kx], dtype=np.float64).copy()
+            py = np.asarray(aligned[ky], dtype=np.float64).copy()
+            if np.any(px != 0.0) or np.any(py != 0.0):
+                if mirrored:
+                    py = -py
+                aligned[kx], aligned[ky] = _apply_canonical_transform(px, py, cx, cy, rot, sign)
 
 
 def generate_track_coordinates(
@@ -615,6 +712,7 @@ def generate_track_coordinates(
     2. the outline dead-reckoned from speed and lateral acceleration;
     3. a plain circle scaled to the lap length.
     Every path is returned in a canonical frame: centred, upright and start-on-the-left.
+    Never closes the polygon if the lap is incomplete (teleport jump > 25m) or start-to-end gap > 30m.
     """
     distance = np.asarray(distance, dtype=np.float64)
 
@@ -622,14 +720,22 @@ def generate_track_coordinates(
         raw_x = np.array(telemetry["x"], dtype=np.float64)
         raw_y = np.array(telemetry["y"], dtype=np.float64)
         if len(raw_x) > 10 and (float(np.var(raw_x)) > 1.0 or float(np.var(raw_y)) > 1.0):
+            raw_x, raw_y, is_inc = sanitize_xy_teleport(raw_x, raw_y, MAX_TELEPORT_STEP_M)
+            is_incomplete = bool(is_inc or telemetry.get("is_incomplete", False))
             lat = None
             for key in ("ref_lat_accel", "comp_lat_accel", "lat_accel"):
                 channel = telemetry.get(key)
-                if channel is not None and len(channel) == len(raw_x) and float(np.max(np.abs(channel))) > 0.05:
-                    lat = np.asarray(channel, dtype=np.float64)
+                if (
+                    channel is not None
+                    and len(channel) >= len(raw_x)
+                    and float(np.max(np.abs(channel[: len(raw_x)]))) > 0.05
+                ):
+                    lat = np.asarray(channel[: len(raw_x)], dtype=np.float64)
                     break
             raw_x, raw_y = _auto_orient(raw_x, raw_y, lat)
-            raw_x[-1], raw_y[-1] = raw_x[0], raw_y[0]
+            closure_gap = float(np.hypot(raw_x[-1] - raw_x[0], raw_y[-1] - raw_y[0])) if len(raw_x) > 1 else 0.0
+            if not is_incomplete and closure_gap <= MAX_CLOSURE_GAP_M:
+                raw_x[-1], raw_y[-1] = raw_x[0], raw_y[0]
             raw_x, raw_y = _canonical_frame(raw_x, raw_y)
             return raw_x.tolist(), raw_y.tolist()
 

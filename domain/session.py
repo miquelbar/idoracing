@@ -45,6 +45,9 @@ class Lap(BaseModel):
     lap_time: float
     sector_times: list[float] = Field(default_factory=list)
     is_valid: bool = True
+    is_incomplete: bool = Field(
+        default=False, description="Whether this lap was truncated due to a garage teleport or reset"
+    )
     telemetry: dict[str, list[float]] | None = None
     synthetic: bool = Field(default=False, description="Telemetry was generated, not recorded by the simulator")
     has_telemetry: bool = Field(default=False, description="Whether 50Hz telemetry channels were recorded for this lap")

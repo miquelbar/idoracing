@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from domain.session import Lap, Session
-from importers.laps import distance_covered, without_boundary_wrap
+from importers.laps import distance_covered, truncate_teleport_jumps, without_boundary_wrap
 
 
 class CSVImporter:
@@ -115,6 +115,8 @@ class CSVImporter:
                 else:
                     d0 = lap_telemetry["distance"][0]
                     lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+                lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
+                assert lap_telemetry is not None
                 t_arr = lap_telemetry["time"]
                 lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
                 # Hybrid lap_valid rule: the recorder's flag is unreliable when it
@@ -122,10 +124,10 @@ class CSVImporter:
                 # when at least half the samples are valid — then a single invalid
                 # sample invalidates the whole lap. The distance filter below still
                 # runs as a final arbiter for partial laps.
-                is_valid = True
-                if lap_valid is not None:
-                    lap_valid_samples = [lap_valid[idx] for idx in indices]
-                    valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / len(lap_valid_samples)
+                is_valid = not is_incomplete
+                if is_valid and lap_valid is not None:
+                    lap_valid_samples = [lap_valid[idx] for idx in indices[: len(t_arr)]]
+                    valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / max(len(lap_valid_samples), 1)
                     if valid_fraction >= 0.5:
                         is_valid = all(v >= 1 for v in lap_valid_samples)
                 laps.append(
@@ -133,6 +135,7 @@ class CSVImporter:
                         lap_number=int(l_num),
                         lap_time=lap_time,
                         is_valid=is_valid,
+                        is_incomplete=is_incomplete,
                         telemetry=lap_telemetry,
                     )
                 )
@@ -149,13 +152,16 @@ class CSVImporter:
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:
-            total_time = float(telemetry["time"][-1] - telemetry["time"][0]) if len(telemetry["time"]) > 1 else 0.0
+            lap_tel, is_inc = truncate_teleport_jumps(telemetry)
+            assert lap_tel is not None
+            total_time = float(lap_tel["time"][-1] - lap_tel["time"][0]) if len(lap_tel["time"]) > 1 else 0.0
             laps.append(
                 Lap(
                     lap_number=1,
                     lap_time=total_time,
-                    is_valid=True,
-                    telemetry=telemetry,
+                    is_valid=not is_inc,
+                    is_incomplete=is_inc,
+                    telemetry=lap_tel,
                 )
             )
 

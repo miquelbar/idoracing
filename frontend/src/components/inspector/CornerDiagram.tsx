@@ -41,37 +41,92 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
     const indices: number[] = [];
     for (let i = 0; i < dists.length; i++) {
       if (dists[i] >= startDist && dists[i] <= endDist) {
+        if (
+          indices.length > 0 &&
+          Math.hypot(xs[i] - xs[indices[indices.length - 1]], ys[i] - ys[indices[indices.length - 1]]) > 25.0
+        ) {
+          break; // truncate on teleport jump > 25m
+        }
         indices.push(i);
       }
     }
     if (indices.length < 5) return null;
 
-    // 1. Frame bounding box STRICTLY around the track centerline with an 8m road margin.
-    // This prevents outlaps or spurious GPS jumps from distorting the framing.
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    indices.forEach((i) => {
-      minX = Math.min(minX, xs[i] - 8);
-      maxX = Math.max(maxX, xs[i] + 8);
-      minY = Math.min(minY, ys[i] - 8);
-      maxY = Math.max(maxY, ys[i] + 8);
+    const n = indices.length;
+
+    // Find key indices (Turn-in, Apex, Exit) along the slice first
+    let apexIdx = 0;
+    let minApexDiff = Infinity;
+    let turnInIdx = 0;
+    let minTurnInDiff = Infinity;
+    let exitIdx = n - 1;
+    let minExitDiff = Infinity;
+
+    indices.forEach((idx, localI) => {
+      const d = dists[idx];
+      const diffApex = Math.abs(d - selectedCorner.apex_distance);
+      if (diffApex < minApexDiff) {
+        minApexDiff = diffApex;
+        apexIdx = localI;
+      }
+      const diffStart = Math.abs(d - selectedCorner.start_distance);
+      if (diffStart < minTurnInDiff) {
+        minTurnInDiff = diffStart;
+        turnInIdx = localI;
+      }
+      const diffEnd = Math.abs(d - selectedCorner.end_distance);
+      if (diffEnd < minExitDiff) {
+        minExitDiff = diffEnd;
+        exitIdx = localI;
+      }
     });
+
+    // 1. Convert Cartesian world (wx, wy) to unrotated screen coordinates (+X right, +Y down: sy0 = -wy)
+    // and apply a pure rigid 2D rotation (det(R) = +1, no reflection) so the car enters from the bottom
+    // heading upward (-108 deg for left turns, -72 deg for right turns), preserving chirality 100%.
+    const sx0 = indices.map((i) => xs[i]);
+    const sy0 = indices.map((i) => -ys[i]);
+
+    const vInX = sx0[apexIdx] - sx0[turnInIdx] || sx0[Math.min(n - 1, turnInIdx + 3)] - sx0[0] || 1;
+    const vInY = sy0[apexIdx] - sy0[turnInIdx] || sy0[Math.min(n - 1, turnInIdx + 3)] - sy0[0] || 0;
+    const entryAngle = Math.atan2(vInY, vInX);
+    const targetAngle = isLeft ? -Math.PI * 0.60 : -Math.PI * 0.40;
+    const theta = targetAngle - entryAngle;
+    const cosT = Math.cos(theta);
+    const sinT = Math.sin(theta);
+
+    const rotX = new Array<number>(n);
+    const rotY = new Array<number>(n);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+    for (let k = 0; k < n; k++) {
+      const dx = sx0[k] - sx0[0];
+      const dy = sy0[k] - sy0[0];
+      const rx = dx * cosT - dy * sinT;
+      const ry = dx * sinT + dy * cosT;
+      rotX[k] = rx;
+      rotY[k] = ry;
+      minX = Math.min(minX, rx - 8);
+      maxX = Math.max(maxX, rx + 8);
+      minY = Math.min(minY, ry - 8);
+      maxY = Math.max(maxY, ry + 8);
+    }
 
     const spanX = maxX - minX || 1;
     const spanY = maxY - minY || 1;
 
-    // SVG coordinate system 440 x 230 with padding
+    // SVG coordinate system 440 x 230 with padding (uniform positive scale -> det = scale^2 > 0)
     const pad = 34;
     const scale = Math.min((440 - pad * 2) / spanX, (230 - pad * 2) / spanY);
     const offsetX = (440 - spanX * scale) / 2;
     const offsetY = (230 - spanY * scale) / 2;
 
-    const toSvg = (x: number, y: number) => ({
-      x: offsetX + (x - minX) * scale,
-      y: 230 - (offsetY + (y - minY) * scale),
-    });
-
-    const trackPts = indices.map((i) => toSvg(xs[i], ys[i]));
-    const n = trackPts.length;
+    const trackPts = indices.map((idx, k) => ({
+      x: offsetX + (rotX[k] - minX) * scale,
+      y: offsetY + (rotY[k] - minY) * scale,
+      wx: xs[idx],
+      wy: ys[idx],
+    }));
 
     // 2. Compute local tangents, normals and inside/outside vectors along the curve
     const inX: number[] = new Array(n);
@@ -107,8 +162,18 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
     const W = Math.max(15, Math.min(25, 6.5 * scale));
 
     // 3. Construct 2D Asphalt Ribbon and Curbs
-    const innerEdge = trackPts.map((p, i) => ({ x: p.x + inX[i] * W, y: p.y + inY[i] * W }));
-    const outerEdge = trackPts.map((p, i) => ({ x: p.x - inX[i] * W, y: p.y - inY[i] * W }));
+    const innerEdge = trackPts.map((p, i) => ({ x: p.x + inX[i] * W, y: p.y + inY[i] * W, wx: p.wx, wy: p.wy }));
+    const outerEdge = trackPts.map((p, i) => ({ x: p.x - inX[i] * W, y: p.y - inY[i] * W, wx: p.wx, wy: p.wy }));
+
+    const buildSafeSubPath = (pts: Array<{ x: number; y: number; wx: number; wy: number }>) => {
+      if (pts.length === 0) return '';
+      const cmds = [`M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`];
+      for (let i = 1; i < pts.length; i++) {
+        const jumpM = Math.hypot(pts[i].wx - pts[i - 1].wx, pts[i].wy - pts[i - 1].wy);
+        cmds.push(`${jumpM > 25.0 ? 'M' : 'L'} ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`);
+      }
+      return cmds.join(' ');
+    };
 
     const asphaltPolygon =
       `M ${innerEdge[0].x.toFixed(1)} ${innerEdge[0].y.toFixed(1)} ` +
@@ -116,44 +181,9 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       outerEdge.slice().reverse().map((p) => ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('') +
       ' Z';
 
-    const innerBorder =
-      `M ${innerEdge[0].x.toFixed(1)} ${innerEdge[0].y.toFixed(1)} ` +
-      innerEdge.slice(1).map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-
-    const outerBorder =
-      `M ${outerEdge[0].x.toFixed(1)} ${outerEdge[0].y.toFixed(1)} ` +
-      outerEdge.slice(1).map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-
-    const centerLine =
-      `M ${trackPts[0].x.toFixed(1)} ${trackPts[0].y.toFixed(1)} ` +
-      trackPts.slice(1).map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-
-    // Find key indices (Turn-in, Apex, Exit)
-    let apexIdx = 0;
-    let minApexDiff = Infinity;
-    let turnInIdx = 0;
-    let minTurnInDiff = Infinity;
-    let exitIdx = n - 1;
-    let minExitDiff = Infinity;
-
-    indices.forEach((idx, localI) => {
-      const d = dists[idx];
-      const diffApex = Math.abs(d - selectedCorner.apex_distance);
-      if (diffApex < minApexDiff) {
-        minApexDiff = diffApex;
-        apexIdx = localI;
-      }
-      const diffStart = Math.abs(d - selectedCorner.start_distance);
-      if (diffStart < minTurnInDiff) {
-        minTurnInDiff = diffStart;
-        turnInIdx = localI;
-      }
-      const diffEnd = Math.abs(d - selectedCorner.end_distance);
-      if (diffEnd < minExitDiff) {
-        minExitDiff = diffEnd;
-        exitIdx = localI;
-      }
-    });
+    const innerBorder = buildSafeSubPath(innerEdge);
+    const outerBorder = buildSafeSubPath(outerEdge);
+    const centerLine = buildSafeSubPath(trackPts);
 
     // Curbs: Apex Kerb on the inside edge, Exit Kerb on the outside edge
     const kerbHalfSpan = Math.max(3, Math.floor(n * 0.14));
@@ -257,6 +287,22 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
     const turnInPt = refLinePts[turnInIdx];
     const exitPt = refLinePts[exitIdx];
 
+    // Entry direction arrow on the approach segment (before turn-in)
+    const arrowIdx = Math.max(0, Math.min(n - 2, Math.floor(turnInIdx * 0.4)));
+    const arrowNextIdx = Math.min(n - 1, arrowIdx + 3);
+    const entryArrowPt = trackPts[arrowIdx];
+    const entryArrowAngleDeg =
+      (Math.atan2(trackPts[arrowNextIdx].y - entryArrowPt.y, trackPts[arrowNextIdx].x - entryArrowPt.x) * 180) /
+      Math.PI;
+
+    // Screen-space 2D cross product between entry vector (turnIn -> apex) and exit vector (apex -> exit):
+    // crossScreen < 0 => LEFT turn, crossScreen > 0 => RIGHT turn
+    const vInScreenX = trackPts[apexIdx].x - trackPts[turnInIdx].x;
+    const vInScreenY = trackPts[apexIdx].y - trackPts[turnInIdx].y;
+    const vOutScreenX = trackPts[exitIdx].x - trackPts[apexIdx].x;
+    const vOutScreenY = trackPts[exitIdx].y - trackPts[apexIdx].y;
+    const crossScreen = vInScreenX * vOutScreenY - vInScreenY * vOutScreenX;
+
     return {
       asphaltPolygon,
       innerBorder,
@@ -270,9 +316,12 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       apexRefPt,
       apexCompPt,
       exitPt,
+      entryArrowPt,
+      entryArrowAngleDeg,
+      crossScreen,
       apexDeltaPx: Math.hypot(apexCompPt.x - apexRefPt.x, apexCompPt.y - apexRefPt.y),
     };
-  }, [comparison, selectedCorner, isEarlyApex, hasUndersteer]);
+  }, [comparison, selectedCorner, isEarlyApex, hasUndersteer, isLeft]);
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
@@ -320,7 +369,13 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       </div>
 
       {/* SVG Curva Detallada con Pianos */}
-      <svg viewBox="0 0 440 230" preserveAspectRatio="xMidYMid meet" className="w-full h-full select-none">
+      <svg
+        viewBox="0 0 440 230"
+        preserveAspectRatio="xMidYMid meet"
+        className="w-full h-full select-none"
+        data-turn-dir={isLeft ? 'left' : 'right'}
+        data-cross-screen={realCorner ? realCorner.crossScreen.toFixed(1) : isLeft ? '-1000.0' : '1000.0'}
+      >
         <defs>
           <pattern
             id="unified-kerb-pattern"
@@ -431,6 +486,19 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
                 opacity="0.8"
               />
             )}
+
+            {/* Entry Direction Arrow */}
+            <g
+              data-testid="corner-entry-arrow"
+              transform={`translate(${realCorner.entryArrowPt.x.toFixed(1)}, ${realCorner.entryArrowPt.y.toFixed(1)}) rotate(${realCorner.entryArrowAngleDeg.toFixed(1)})`}
+            >
+              <polygon
+                points="14,0 2,-6 5,0 2,6"
+                fill={COLORS.brand}
+                stroke={COLORS.night1}
+                strokeWidth="1.2"
+              />
+            </g>
 
             {/* Turn-In Marker */}
             <g transform={`translate(${realCorner.turnInPt.x}, ${realCorner.turnInPt.y})`}>
@@ -573,6 +641,19 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
               strokeLinecap="round"
               filter={hasUndersteer ? 'url(#glow-under)' : 'url(#glow-act)'}
             />
+
+            {/* Entry Direction Arrow */}
+            <g
+              data-testid="corner-entry-arrow"
+              transform={`translate(${cornerSvgData.turn_in.x}, ${cornerSvgData.turn_in.y + 28}) rotate(${isLeft ? -105 : -75})`}
+            >
+              <polygon
+                points="14,0 2,-6 5,0 2,6"
+                fill={COLORS.brand}
+                stroke={COLORS.night1}
+                strokeWidth="1.2"
+              />
+            </g>
 
             {/* Turn-In Marker */}
             <g transform={`translate(${cornerSvgData.turn_in.x}, ${cornerSvgData.turn_in.y})`}>

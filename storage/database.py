@@ -187,8 +187,11 @@ class Storage:
             lap_rows = cursor.fetchall()
 
             laps: list[Lap] = []
+            from importers.laps import truncate_teleport_jumps
+
             for lr in lap_rows:
                 l_telemetry = json.loads(lr["telemetry"]) if lr["telemetry"] else None
+                l_telemetry, is_inc = truncate_teleport_jumps(l_telemetry)
                 l_sectors = json.loads(lr["sector_times"]) if lr["sector_times"] else []
                 is_syn = bool(lr["synthetic"])
                 has_tel = bool(l_telemetry and l_telemetry.get("speed") and (is_demo or not is_syn))
@@ -197,7 +200,8 @@ class Storage:
                         lap_number=lr["lap_number"],
                         lap_time=lr["lap_time"],
                         sector_times=l_sectors,
-                        is_valid=bool(lr["is_valid"]),
+                        is_valid=bool(lr["is_valid"]) and not is_inc,
+                        is_incomplete=is_inc,
                         telemetry=l_telemetry,
                         synthetic=is_syn,
                         has_telemetry=has_tel,
