@@ -36,14 +36,21 @@ def compare_laps(
     brake_diffs: dict[str, float] = {}
     gear_changes: dict[str, int] = {}
 
-    if ref_lap.telemetry and comp_lap.telemetry:
+    if ref_lap.has_telemetry and comp_lap.has_telemetry:
         aligned_data = align_laps_by_distance(
             ref_lap.telemetry,
             comp_lap.telemetry,
             step_m=step_m,
         )
 
-        corners = extract_corners_analysis(aligned_data, track_name=track_name)
+        ref_label = f"P1 (V{ref_lap.lap_number})"
+        comp_label = f"P2 (V{comp_lap.lap_number})"
+        corners = extract_corners_analysis(
+            aligned_data,
+            track_name=track_name,
+            ref_label=ref_label,
+            comp_label=comp_label,
+        )
 
         # Average channel differences per sector/track third
         n_pts = len(aligned_data["distance"])

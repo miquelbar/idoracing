@@ -57,12 +57,18 @@ LMU_RESULTS = """<?xml version="1.0" encoding="utf-8"?>
 """
 
 
-def test_lap_times_only_sessions_are_reported_as_synthetic(client):
+def test_lap_times_only_sessions_do_not_invent_synthetic_telemetry(client):
     res = client.post("/api/import/upload", files={"file": ("lmu_race.xml", LMU_RESULTS.encode(), "text/xml")})
     assert res.status_code == 200, res.text
 
     comp = client.get("/api/comparison", params={"session_id": res.json()["session_id"]}).json()
-    assert comp["telemetry_source"] == "synthetic"
+    assert comp["telemetry_source"] == "none"
+    assert comp["has_telemetry"] is False
+    assert comp["is_demo"] is False
+    assert comp["distance"] == []
+    assert comp["corners"] == []
+    assert comp["ref_lap_time"] == pytest.approx(190.0)
+    assert comp["comp_lap_time"] == pytest.approx(193.0)
 
 
 ACEVO_RESULTS = """{
@@ -82,7 +88,7 @@ ACEVO_RESULTS = """{
 """
 
 
-def test_acevo_session_results_upload_is_reported_as_synthetic(client):
+def test_acevo_session_results_upload_does_not_invent_synthetic_telemetry(client):
     res = client.post(
         "/api/import/upload",
         files={"file": ("261023-2150_SP_Practice.sessionresults.json", ACEVO_RESULTS.encode(), "application/json")},
@@ -93,7 +99,10 @@ def test_acevo_session_results_upload_is_reported_as_synthetic(client):
     assert data["laps"] == 1
 
     comp = client.get("/api/comparison", params={"session_id": data["session_id"]}).json()
-    assert comp["telemetry_source"] == "synthetic"
+    assert comp["telemetry_source"] == "none"
+    assert comp["has_telemetry"] is False
+    assert comp["distance"] == []
+    assert comp["corners"] == []
     assert comp["ref_lap_time"] == pytest.approx(105.669)
 
 
@@ -420,3 +429,31 @@ def test_setup_advice_review_english(client, monkeypatch):
     data = res.json()
     assert data["review_source"] == "rules"
     assert "Verdict" in data["pep_review"] or "recommendation" in data["pep_review"].lower()
+
+
+def test_canonical_car_and_track_normalization():
+    from domain.session import normalize_car_name, normalize_track_name
+
+    assert normalize_car_name("porsche_992_gt3_r") == "Porsche 911 GT3 R (992)"
+    assert normalize_car_name("992 GT3 R") == "Porsche 911 GT3 R (992)"
+    assert normalize_car_name("Porsche 992 GT3 R") == "Porsche 911 GT3 R (992)"
+    assert normalize_track_name("Valencia") == "Ricardo Tormo de Valencia"
+    assert normalize_track_name("valencia") == "Ricardo Tormo de Valencia"
+    assert normalize_track_name("Circuit Ricardo Tormo") == "Ricardo Tormo de Valencia"
+
+
+def test_ideal_ghost_fields_in_comparison_and_rescan(client):
+    comp = client.get("/api/comparison", params={"session_id": "synth_valencia_992_gt3"}).json()
+    assert comp["has_telemetry"] is True
+    assert comp["is_demo"] is True
+    assert comp["optimal_lap_time"] is not None
+    assert comp["ideal_lap_time"] is not None
+    assert comp["ideal_potential_gain"] > 0.0
+    assert len(comp["ideal_speed"]) == len(comp["distance"])
+    assert len(comp["ideal_brake"]) == len(comp["distance"])
+    assert len(comp["ideal_throttle"]) == len(comp["distance"])
+    assert any(c.get("ideal_time_gain", 0) > 0 for c in comp["corners"])
+
+    rescan = client.post("/api/autodiscover/rescan")
+    assert rescan.status_code == 200
+    assert rescan.json()["status"] == "ok"

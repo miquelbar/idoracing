@@ -117,32 +117,34 @@ def _corner_brief(corner: dict[str, Any], is_en: bool) -> str:
 
     if is_en:
         loss_alert = (
-            f"- **Performance Alert:** Losing `{sign}{d_time:.3f}s` at T{c_num} with `{abs(delta_vmin):.1f} km/h` deficit at apex.\n"
+            f"- **Performance Alert:** Losing `{sign}{d_time:.3f}s` at T{c_num} in P2 vs P1 with `{abs(delta_vmin):.1f} km/h` deficit at apex.\n"
             if is_loss
             else ""
         )
         return (
-            f"\n\n**Telemetry Focus — T{c_num} ({c_name}):**\n"
+            f"\n\n**Telemetry Focus — T{c_num} ({c_name}) [P2 vs P1 & 👻 Ideal]:**\n"
             f"{loss_alert}"
-            f"- **Time Delta:** `{sign}{d_time:.3f}s`\n"
-            f"- **Apex Speed:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{delta_vmin_str}`)\n"
+            f"- **Time Delta (P2 vs P1):** `{sign}{d_time:.3f}s`\n"
+            f"- **Apex Speed:** `P2: {vmin_c:.0f} km/h` vs `P1: {vmin_r:.0f} km/h` (ΔV: `{delta_vmin_str}`)\n"
             f"- **Gear:** `Gear {gear}` ({gear_ev})\n"
             f"- **Balance & Trail:** `{bal}` • `{trail}`\n"
-            f"- **Line Advice:** {r_advice}"
+            f"- **Line Advice:** {r_advice}\n\n"
+            f"— **Pep · Ingeniero de Pista**"
         )
     loss_alert = (
-        f"- **Alerta de Rendimiento:** Pierdes `{sign}{d_time:.3f}s` en T{c_num} con un déficit de `{abs(delta_vmin):.1f} km/h` en el vértice.\n"
+        f"- **Alerta de Rendimiento:** Pierdes `{sign}{d_time:.3f}s` en T{c_num} en P2 frente a P1 con un déficit de `{abs(delta_vmin):.1f} km/h` en el vértice.\n"
         if is_loss
         else ""
     )
     return (
-        f"\n\n**Datos de Telemetría en T{c_num} ({c_name}):**\n"
+        f"\n\n**Datos de Telemetría en T{c_num} ({c_name}) [P2 vs P1 y 👻 Ideal]:**\n"
         f"{loss_alert}"
-        f"- **Diferencia de tiempo:** `{sign}{d_time:.3f}s`\n"
-        f"- **Velocidad en vértice:** `{vmin_c:.0f} km/h` (Ref: `{vmin_r:.0f} km/h`, ΔV: `{delta_vmin_str}`)\n"
+        f"- **Diferencia de tiempo (P2 vs P1):** `{sign}{d_time:.3f}s`\n"
+        f"- **Velocidad en vértice:** `P2: {vmin_c:.0f} km/h` vs `P1: {vmin_r:.0f} km/h` (ΔV: `{delta_vmin_str}`)\n"
         f"- **Marcha en vértice:** `{gear}ª Marcha` ({gear_ev})\n"
         f"- **Balance & Trail Braking:** `{bal}` • `{trail}`\n"
-        f"- **Recomendación de trazada:** {r_advice}"
+        f"- **Recomendación de trazada:** {r_advice}\n\n"
+        f"— **Pep · Ingeniero de Pista**"
     )
 
 

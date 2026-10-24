@@ -4,6 +4,39 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
+CAR_ALIASES: dict[str, str] = {
+    "porsche_992_gt3_r": "Porsche 911 GT3 R (992)",
+    "porsche_911_gt3_r_992": "Porsche 911 GT3 R (992)",
+    "992 gt3 r": "Porsche 911 GT3 R (992)",
+    "porsche 992 gt3 r": "Porsche 911 GT3 R (992)",
+    "porsche 911 gt3 r (992)": "Porsche 911 GT3 R (992)",
+    "porsche 911 gt3 r": "Porsche 911 GT3 R (992)",
+}
+
+TRACK_ALIASES: dict[str, str] = {
+    "valencia": "Ricardo Tormo de Valencia",
+    "circuit ricardo tormo": "Ricardo Tormo de Valencia",
+    "ricardo tormo": "Ricardo Tormo de Valencia",
+    "ricardo tormo de valencia": "Ricardo Tormo de Valencia",
+    "cheste": "Ricardo Tormo de Valencia",
+}
+
+
+def normalize_car_name(car: str | None) -> str:
+    """Unify simulator vehicle identifiers under a single canonical model name."""
+    if not car:
+        return "Porsche 911 GT3 R (992)"
+    cleaned = car.strip()
+    return CAR_ALIASES.get(cleaned.lower(), cleaned)
+
+
+def normalize_track_name(track: str | None) -> str:
+    """Unify simulator circuit identifiers under a single canonical circuit name."""
+    if not track:
+        return "Ricardo Tormo de Valencia"
+    cleaned = track.strip()
+    return TRACK_ALIASES.get(cleaned.lower(), cleaned)
+
 
 class Lap(BaseModel):
     """Represents a single lap within a driving session."""
@@ -14,8 +47,15 @@ class Lap(BaseModel):
     is_valid: bool = True
     telemetry: dict[str, list[float]] | None = None
     synthetic: bool = Field(default=False, description="Telemetry was generated, not recorded by the simulator")
+    has_telemetry: bool = Field(default=False, description="Whether 50Hz telemetry channels were recorded for this lap")
     start_time: float | None = None
     end_time: float | None = None
+
+    @model_validator(mode="after")
+    def _infer_has_telemetry(self) -> "Lap":
+        if not self.has_telemetry and self.telemetry and len(self.telemetry.get("speed", [])) >= 5:
+            self.has_telemetry = True
+        return self
 
 
 class Session(BaseModel):
@@ -65,6 +105,8 @@ class SessionSummary(BaseModel):
     lap_count: int = 0
     id: str | None = None
     simulator: str | None = None
+    has_telemetry: bool = True
+    is_demo: bool = False
 
 
 class CornerAnalysis(BaseModel):
@@ -127,6 +169,18 @@ class CornerAnalysis(BaseModel):
         default=False, description="Whether a high-frequency kerb strike impact was detected"
     )
     damping_advice: str | None = Field(default=None, description="Fast vs slow damping recommendations")
+    v_min_ideal: float = Field(default=0.0, description="Physical target apex speed from lateral grip envelope")
+    v_exit_ideal: float = Field(default=0.0, description="Physical target exit speed")
+    ideal_brake_point: float | None = Field(default=None, description="Ideal braking point distance in metres")
+    ideal_throttle_point: float | None = Field(default=None, description="Ideal throttle pickup distance in metres")
+    ideal_trail_pct: float = Field(default=55.0, description="Target trail braking percentage in turn-in window")
+    ref_trail_pct: float = Field(default=0.0, description="Reference lap trail braking percentage in turn-in window")
+    comp_trail_pct: float = Field(default=0.0, description="Comparison lap trail braking percentage in turn-in window")
+    ideal_time_gain: float = Field(default=0.0, description="Potential time gain vs Ideal Ghost in this corner (s)")
+    both_laps_fault: bool = Field(default=False, description="Whether both P1 and P2 share a technical fault vs Ideal")
+    both_laps_fault_reason: str | None = Field(
+        default=None, description="Explanation when both P1 and P2 underperform vs Ideal"
+    )
 
 
 class LapComparison(BaseModel):

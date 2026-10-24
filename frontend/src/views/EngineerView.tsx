@@ -247,9 +247,9 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
             </div>
             <div>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                Radio de Equipo • Ingeniero
+                {t('engineer_panel_title')}
               </h4>
-              <p className="text-[10px] text-gray-400">Pregunta sobre trazadas, frenadas o setup</p>
+              <p className="text-[10px] text-gray-400">Pep · Ingeniero de Pista</p>
             </div>
           </div>
 

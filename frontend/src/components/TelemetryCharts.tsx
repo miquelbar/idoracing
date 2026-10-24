@@ -10,6 +10,8 @@ interface TelemetryChartsProps {
   onHoverDistance: (d: number | null) => void;
   selectedCorner: CornerDTO | null;
   onResetZoom: () => void;
+  showIdealGhost?: boolean;
+  onToggleIdealGhost?: () => void;
 }
 
 export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
@@ -18,8 +20,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   onHoverDistance,
   selectedCorner,
   onResetZoom,
+  showIdealGhost = true,
+  onToggleIdealGhost,
 }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const isEn = lang === 'en';
+  const refNum = comparison.ref_lap_id.replace('Lap ', '');
+  const compNum = comparison.comp_lap_id.replace('Lap ', '');
   const containerRef = useRef<HTMLDivElement>(null);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 850, height: 500 });
@@ -106,12 +113,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   const {
     speedRefPath,
     speedCompPath,
+    speedIdealPath,
     deltaPath,
     deltaFillPath,
     thrRefPath,
     thrCompPath,
+    thrIdealPath,
     brkRefPath,
     brkCompPath,
+    brkIdealPath,
     brkCompFillPath,
     gearRefPath,
     gearCompPath,
@@ -123,11 +133,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     const dists = comparison.distance;
     const refSp = comparison.ref_speed;
     const compSp = comparison.comp_speed;
+    const idealSp = comparison.ideal_speed || [];
     const deltaT = comparison.delta_time;
     const refThr = comparison.ref_throttle;
     const compThr = comparison.comp_throttle;
+    const idealThr = comparison.ideal_throttle || [];
     const refBrk = comparison.ref_brake;
     const compBrk = comparison.comp_brake;
+    const idealBrk = comparison.ideal_brake || [];
     const refGr = comparison.ref_gear;
     const compGr = comparison.comp_gear;
 
@@ -135,12 +148,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       return {
         speedRefPath: '',
         speedCompPath: '',
+        speedIdealPath: '',
         deltaPath: '',
         deltaFillPath: '',
         thrRefPath: '',
         thrCompPath: '',
+        thrIdealPath: '',
         brkRefPath: '',
         brkCompPath: '',
+        brkIdealPath: '',
         brkCompFillPath: '',
         gearRefPath: '',
         gearCompPath: '',
@@ -157,8 +173,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       const idx = filteredIndices[i];
       const s1 = refSp[idx];
       const s2 = compSp[idx];
+      const s3 = idealSp[idx];
       if (typeof s1 === 'number' && s1 > 5) speedsInView.push(s1);
       if (typeof s2 === 'number' && s2 > 5) speedsInView.push(s2);
+      if (typeof s3 === 'number' && s3 > 5) speedsInView.push(s3);
     }
 
     const rawMinSpeed = speedsInView.length > 0 ? Math.min(...speedsInView) : 50;
@@ -202,12 +220,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
     let spR = '';
     let spC = '';
+    let spI = '';
     let dLine = '';
     let dFill = '';
     let tR = '';
     let tC = '';
+    let tI = '';
     let bR = '';
     let bC = '';
+    let bI = '';
     let bC_Fill = '';
     let gR = '';
     let gC = '';
@@ -221,35 +242,44 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
       const ySpR = toYSpeed(refSp[idx]).toFixed(1);
       const ySpC = toYSpeed(compSp[idx]).toFixed(1);
+      const ySpI = toYSpeed(idealSp[idx] ?? Math.max(refSp[idx], compSp[idx])).toFixed(1);
       const yDt = toYDelta(deltaT[idx]).toFixed(1);
       const yTr = toYPedal(refThr[idx]).toFixed(1);
       const yTc = toYPedal(compThr[idx]).toFixed(1);
+      const yTi = toYPedal(idealThr[idx] ?? refThr[idx]).toFixed(1);
       const yBr = toYPedal(refBrk[idx]).toFixed(1);
       const yBc = toYPedal(compBrk[idx]).toFixed(1);
+      const yBi = toYPedal(idealBrk[idx] ?? refBrk[idx]).toFixed(1);
       const yGr = toYGear(refGr[idx]).toFixed(1);
       const yGc = toYGear(compGr[idx]).toFixed(1);
 
       if (i === 0) {
         spR += `M ${x} ${ySpR}`;
         spC += `M ${x} ${ySpC}`;
+        spI += `M ${x} ${ySpI}`;
         dLine += `M ${x} ${yDt}`;
         dFill += `M ${x} ${yDeltaZero} L ${x} ${yDt}`;
         tR += `M ${x} ${yTr}`;
         tC += `M ${x} ${yTc}`;
+        tI += `M ${x} ${yTi}`;
         bR += `M ${x} ${yBr}`;
         bC += `M ${x} ${yBc}`;
+        bI += `M ${x} ${yBi}`;
         bC_Fill += `M ${x} ${yPedalZero} L ${x} ${yBc}`;
         gR += `M ${x} ${yGr}`;
         gC += `M ${x} ${yGc}`;
       } else {
         spR += ` L ${x} ${ySpR}`;
         spC += ` L ${x} ${ySpC}`;
+        spI += ` L ${x} ${ySpI}`;
         dLine += ` L ${x} ${yDt}`;
         dFill += ` L ${x} ${yDt}`;
         tR += ` L ${x} ${yTr}`;
         tC += ` L ${x} ${yTc}`;
+        tI += ` L ${x} ${yTi}`;
         bR += ` L ${x} ${yBr}`;
         bC += ` L ${x} ${yBc}`;
+        bI += ` L ${x} ${yBi}`;
         bC_Fill += ` L ${x} ${yBc}`;
         gR += ` L ${x} ${yGr}`;
         gC += ` L ${x} ${yGc}`;
@@ -279,12 +309,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         distance: dists[closestIdx],
         refSpeed: refSp[closestIdx],
         compSpeed: compSp[closestIdx],
+        idealSpeed: idealSp[closestIdx] ?? Math.max(refSp[closestIdx], compSp[closestIdx]),
         deltaSpeed: compSp[closestIdx] - refSp[closestIdx],
         deltaTime: deltaT[closestIdx],
         refThr: toPct(refThr[closestIdx]),
         compThr: toPct(compThr[closestIdx]),
+        idealThr: toPct(idealThr[closestIdx] ?? refThr[closestIdx]),
         refBrk: toPct(refBrk[closestIdx]),
         compBrk: toPct(compBrk[closestIdx]),
+        idealBrk: toPct(idealBrk[closestIdx] ?? refBrk[closestIdx]),
         refGear: refGr[closestIdx],
         compGear: compGr[closestIdx],
         x: toX(dists[closestIdx]),
@@ -294,12 +327,15 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     return {
       speedRefPath: spR,
       speedCompPath: spC,
+      speedIdealPath: spI,
       deltaPath: dLine,
       deltaFillPath: dFill,
       thrRefPath: tR,
       thrCompPath: tC,
+      thrIdealPath: tI,
       brkRefPath: bR,
       brkCompPath: bC,
+      brkIdealPath: bI,
       brkCompFillPath: bC_Fill,
       gearRefPath: gR,
       gearCompPath: gC,
@@ -394,33 +430,52 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             </button>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* P2: Solid Line */}
             <div
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10"
-              title="Vuelta de Comparación (Tu vuelta) - Línea Continua"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#A855F7]/15 border border-[#A855F7]/30"
+              title="Vuelta Comparada (P2) - Línea Continua"
             >
-              <svg width="16" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="16" y2="2" stroke="#D8B4FE" strokeWidth="2.5" />
+              <svg width="14" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="14" y2="2" stroke="#D8B4FE" strokeWidth="2.5" />
               </svg>
-              <span className="text-comp font-bold">P2</span>
-              <span className="text-gray-400 text-[9px] hidden md:inline">Sólida</span>
+              <span className="text-[#D8B4FE] font-bold">P2 ({isEn ? 'L' : 'V'}{compNum})</span>
             </div>
 
             {/* P1: Dashed Line */}
             <div
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/5 border border-white/10"
-              title="Vuelta de Referencia (PB) - Línea Discontinua / Puntos"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#00D2BE]/12 border border-[#00D2BE]/30"
+              title="Vuelta Referencia (P1) - Línea Discontinua"
             >
-              <svg width="16" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="16" y2="2" stroke="#00E5FF" strokeWidth="2" strokeDasharray="3,2" />
+              <svg width="14" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="14" y2="2" stroke="#00E5FF" strokeWidth="2" strokeDasharray="3,2" />
               </svg>
-              <span className="text-brand font-bold">P1</span>
-              <span className="text-gray-400 text-[9px] hidden md:inline">Puntos</span>
+              <span className="text-[#00D2BE] font-bold">P1 ({isEn ? 'L' : 'V'}{refNum})</span>
             </div>
 
+            {/* 👻 Ideal Ghost Toggle/Pill */}
+            <button
+              type="button"
+              onClick={onToggleIdealGhost}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition cursor-pointer ${
+                showIdealGhost
+                  ? 'bg-amber-500/20 border-amber-400/50 text-amber-200'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+              }`}
+              title={
+                isEn
+                  ? '👻 Ideal Ghost: Optimal Trail Braking & Target Speed Envelope'
+                  : '👻 Fantasma Ideal: Curva óptima de Trail Braking y velocidad objetivo'
+              }
+            >
+              <svg width="14" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="14" y2="2" stroke="#F59E0B" strokeWidth="2.2" strokeDasharray="4,2" />
+              </svg>
+              <span className="font-bold">👻 Ideal</span>
+            </button>
+
             {/* Channel Colors: Brake & Throttle */}
-            <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+            <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-white/10">
               <div className="flex items-center gap-1" title="Curva de Freno (Rojo)">
                 <span className="w-2 h-2 rounded-full bg-loss" />
                 <span className="text-loss font-bold">{t('brake')}</span>
@@ -596,6 +651,16 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
             <path d={speedRefPath} fill="none" stroke={COLORS.brand} strokeWidth="2" strokeOpacity="0.85" />
             <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.5" />
+            {showIdealGhost && speedIdealPath && (
+              <path
+                d={speedIdealPath}
+                fill="none"
+                stroke="#F59E0B"
+                strokeWidth="2"
+                strokeDasharray="6,3"
+                strokeOpacity="0.95"
+              />
+            )}
           </g>
 
           {/* Cumulative time delta */}
@@ -633,13 +698,33 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             {/* Brake translucent fill under comp braking curve */}
             <path d={brkCompFillPath} fill="rgba(255, 24, 1, 0.18)" />
 
-            {/* Throttle traces: Ref (dashed gold/yellow) & Comp (solid neon green) */}
-            <path d={thrRefPath} fill="none" stroke="#FACC15" strokeWidth="1.8" strokeDasharray="4,3" strokeOpacity="0.9" />
+            {/* Throttle traces: Ref (dashed gold/yellow), Comp (solid neon green), & 👻 Ideal Ramp */}
+            <path d={thrRefPath} fill="none" stroke="#FACC15" strokeWidth="1.6" strokeDasharray="4,3" strokeOpacity="0.85" />
             <path d={thrCompPath} fill="none" stroke={COLORS.gain} strokeWidth="2.2" />
+            {showIdealGhost && thrIdealPath && (
+              <path
+                d={thrIdealPath}
+                fill="none"
+                stroke="#A3E635"
+                strokeWidth="1.8"
+                strokeDasharray="6,3"
+                strokeOpacity="0.9"
+              />
+            )}
 
-            {/* Brake traces: Ref (dashed coral/orange) & Comp (solid red) */}
-            <path d={brkRefPath} fill="none" stroke="#FB923C" strokeWidth="1.8" strokeDasharray="4,3" strokeOpacity="0.95" />
+            {/* Brake traces: Ref (dashed coral/orange), Comp (solid red), & 👻 Ideal Trail Braking Envelope */}
+            <path d={brkRefPath} fill="none" stroke="#FB923C" strokeWidth="1.6" strokeDasharray="4,3" strokeOpacity="0.9" />
             <path d={brkCompPath} fill="none" stroke={COLORS.loss} strokeWidth="2.4" />
+            {showIdealGhost && brkIdealPath && (
+              <path
+                d={brkIdealPath}
+                fill="none"
+                stroke="#F59E0B"
+                strokeWidth="2.3"
+                strokeDasharray="6,3"
+                strokeOpacity="0.98"
+              />
+            )}
           </g>
 
           {/* Gear */}

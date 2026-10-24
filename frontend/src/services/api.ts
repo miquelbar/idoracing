@@ -144,6 +144,12 @@ export async function autodiscoverSims(): Promise<AutoDiscoverData> {
   return res.json();
 }
 
+export async function rescanSimulators(): Promise<{ status: string; imported: number }> {
+  const res = await fetch(`${API_BASE}/autodiscover/rescan`, { method: 'POST' });
+  if (!res.ok) await failure(res, 'Failed to rescan simulator folders');
+  return res.json();
+}
+
 export async function importLocalFile(filepath: string): Promise<ImportResult> {
   const res = await fetch(`${API_BASE}/import/local-file`, {
     method: 'POST',

@@ -75,10 +75,17 @@ function readStoredLaps(sessionId: string): { ref: number; comp: number } | null
   return null;
 }
 
-/** Fastest valid lap as reference, paired with the next best lap or valid comparison lap. */
+/** Fastest valid flying lap (<= 150s) as reference, paired with the next best flying lap. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (!session || session.laps.length === 0) return [1, 2];
   if (session.laps.length === 1) return [session.laps[0].lap_number, session.laps[0].lap_number];
+
+  const flyingValid = session.laps
+    .filter((l) => l.lap_time > 0 && l.lap_time <= 150 && l.is_valid)
+    .sort((a, b) => a.lap_time - b.lap_time);
+  if (flyingValid.length >= 2) {
+    return [flyingValid[0].lap_number, flyingValid[1].lap_number];
+  }
 
   const valid = session.laps.filter((l) => l.lap_time > 0 && l.is_valid).sort((a, b) => a.lap_time - b.lap_time);
   if (valid.length >= 2) {
@@ -127,6 +134,7 @@ export const App: React.FC = () => {
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [isCarSetupModalOpen, setIsCarSetupModalOpen] = useState(false);
   const [isStintModalOpen, setIsStintModalOpen] = useState(false);
+  const [showIdealGhost, setShowIdealGhost] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -215,6 +223,8 @@ export const App: React.FC = () => {
       const storedSessionId = readStoredSessionId();
       const activeSession =
         sList.find((s) => s.session_id === storedSessionId) ||
+        sList.find((s) => !s.session_id.startsWith('synth_') && s.has_telemetry !== false && s.lap_count >= 5) ||
+        sList.find((s) => !s.session_id.startsWith('synth_') && s.has_telemetry !== false) ||
         sList.find((s) => !s.session_id.startsWith('synth_')) || // default to real data over the demo
         sList[0];
       const activeSessionId = activeSession?.session_id || null;
@@ -397,6 +407,8 @@ export const App: React.FC = () => {
           }
         }}
         reportAvailable={!!coachReport}
+        showIdealGhost={showIdealGhost}
+        onToggleIdealGhost={() => setShowIdealGhost((v) => !v)}
       />
 
       {/* Main Viewport */}
@@ -454,6 +466,13 @@ export const App: React.FC = () => {
                 isDebriefOpen={isDebriefOpen}
                 onOpenDebrief={() => setIsDebriefOpen(true)}
                 onCloseDebrief={() => setIsDebriefOpen(false)}
+                showIdealGhost={showIdealGhost}
+                onToggleIdealGhost={() => setShowIdealGhost((v) => !v)}
+                onSessionUploaded={async (newSessionId) => {
+                  await loadInitialData();
+                  await handleSelectSession(newSessionId);
+                }}
+                onRescanComplete={loadInitialData}
               />
             )}
 

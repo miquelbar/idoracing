@@ -33,7 +33,7 @@ export const CornerHeader: React.FC<CornerHeaderProps> = ({
           <span className="px-1.5 py-0.5 rounded bg-comp text-white font-black text-[10px] shadow-sm shrink-0">
             T{selectedCorner.corner_number}
           </span>
-          <span className="font-bold text-white tracking-wide truncate max-w-[130px] sm:max-w-[200px]">
+          <span className="font-bold text-white tracking-wide whitespace-nowrap">
             {selectedCorner.name}
           </span>
           <span

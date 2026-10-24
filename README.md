@@ -26,49 +26,38 @@ Supports:
 
 - **Free and open source**: runs on your PC or home network, no accounts or paywalls.
 - **Local by default**: telemetry and sessions stay in a SQLite file on your machine. Nothing leaves it unless you configure a cloud LLM provider (the web UI also loads its fonts from Google Fonts).
-- **Honest about the data**: when a file only carries lap times, the traces are simulated and the app says so on screen (see [Synthetic telemetry](#-synthetic-telemetry)).
+- **100% Data Honesty**: real sessions that only contain lap/sector times (e.g. ACC with `Telemetry Laps = 0` or LMU XML results without a `.ld` file) **never invent or interpolate fake telemetry charts or corner diagnoses**. Instead, the app displays the real timed splits and a step-by-step telemetry activation guide for that simulator. Synthetic telemetry is strictly limited to the explicit **`[ Load Valencia Demo ]`** button.
 
 ---
 
 ## 🌟 Key Features
 
-### 1. 🗺️ Track map with speed delta
-- Lap outline coloured by the speed difference between the two laps.
-- Click any corner on the map to open its analysis.
-- Valencia (Ricardo Tormo) and Sebring have hand-made corner tables; Sebring's outline comes from OpenStreetMap. On any other track, corners are detected from dips in the speed trace and the outline is dead-reckoned from speed and lateral acceleration, or taken from GPS / world-position channels when the log has them.
+### 1. 🗺️ Track map & 50Hz Telemetry Channels (`P1` vs `P2` vs `👻 Ideal`)
+- Lap outline coloured by the speed difference between `REF · P1` (Cyan) and `COMP · P2` (Purple).
+- **👻 Ideal Ghost Lap (`Target Ghost`)**: computes your **Rolling Best (Optimal Lap)** and physical limit envelope ($a_{y,\max}$, optimal diagonal trail braking regression `100% -> 0%` at apex, and progressive throttle pickup), drawing golden dashed `--- 👻 Ideal` curves on Speed and Pedals.
+- Click any corner on the map or top bar (`T1`..`T14`) to zoom into its trajectory and phase breakdown.
 
 ![IdoRacing Analytics Telemetry Dashboard](docs/screenshots/telemetry-overview.png)
 
-### 2. 🔍 Corner-by-corner inspector
-- **Phase table** comparing reference and your lap for each corner: braking point, brake pressure into the apex, minimum speed and gear, throttle pick-up after the apex, and exit speed.
-- **Diagnosis** per corner (early braking, early release of the brake, early apex, traction-limited exit...) from fixed thresholds on those numbers.
-- **Line offset in metres**: when both laps carry position data, how much wider or tighter your line is than the reference lap at entry, apex and exit. Le Mans Ultimate and Assetto Corsa MoTeC exports have it (GPS or world coordinates). ACC's MoTeC export does not appear to include a position channel, so for ACC record with [idoracing-recorder](recorder/README.md); laps without position show the qualitative reading only.
-- **Corner diagram**: a schematic picture of the line the diagnosis suggests. It is an illustration, not your measured trajectory.
+### 2. 🔍 Corner-by-corner Phase Diagnosis & Optimal Line
+- **Explicit Lap Identification (`REF · P1 (V2)` vs `COMP · P2 (V4)` vs `👻 Ideal`)**: every table header, badge, and improvement bullet explicitly cites which lap is being diagnosed—including cross-session dates (`P1 (V2 · 19/10)`) and shared faults (`⚠️ Fallo P1 y P2 (Ideal >55%)`).
+- **2D Optimal Line Inspector**: compares `P1 (V2)` and `P2 (V4)` apex markers with non-overlapping coordinates and lateral line offset in metres.
 - **Ask Pep** about the selected corner in one click.
 
-![Corner Phase Performance Analysis](docs/screenshots/corner-phase-analysis.png)
+![Corner Optimal Racing Line](docs/screenshots/corner-optimal-line.png)
 
-### 3. 📈 Distance-aligned traces
-- Speed, cumulative time delta, throttle and brake (with the trail-braking overlap), and gear, resampled every 2 m so both laps line up.
-- Hovering any chart moves a shared cursor across all of them and the map.
+![Corner Phase Performance Diagnosis](docs/screenshots/corner-phase-diagnosis.png)
 
-### 4. 🤖 Pep, the AI race engineer
-- Pep (Performance Engineering Partner, and a nod to IdoRacing's Mallorcan origins) is your pit-wall engineer.
-- Debrief report and radio chat about your laps, in Spanish or English.
-- **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...).
-- The prompt carries the corner numbers and tells the model not to invent data; nothing checks the model's answer against them afterwards.
-- **Rule-based fallback**: when no LLM answers, Pep replies with canned explanations picked by keyword and filled with your corner numbers. The UI shows which engine answered and the report's confidence drops to *Baja* on synthetic telemetry.
+### 3. 🗄️ Cross-Session Garage & Normalized Workspace
+- **Canonical Car & Track Normalization**: unifies internal simulator IDs (`porsche_992_gt3_r`, `992 GT3 R`) under their official name (**`Porsche 911 GT3 R (992)`**, **`Ricardo Tormo de Valencia`**).
+- **Cross-Session Lap Comparison**: view all historical laps across all sessions of a `[Circuit + Car]` in a single workspace, filter by session date, see **`📈 Telemetría 50Hz`** vs **`⏱️ Solo Tiempos`** badges, and click **`[ 🏆 Usar PB Histórico como Ref P1 ]`** to compare today's stint against your all-time personal best.
 
-### 5. 🗄️ Sessions and lap history
-- Switch between imported sessions, compare any two laps, and see each lap's gap to your personal best.
-- A demo session (generated laps at Valencia) to explore the app before importing anything.
+![Sessions & Garage Cross-Session Workspace](docs/screenshots/sessions-workspace.png)
 
-### 6. 📂 Import
-- **Auto-discovery** of the default ACC and LMU folders under Steam / Proton on Linux.
-- **Upload** `.ld` (MoTeC), `.xml` (LMU results) or `.csv` files from the web UI. Laps are cut from the `.ldx` markers when the `.ld` is imported from its folder, or from lap-distance resets when only the `.ld` is uploaded.
-
-### 🧪 Synthetic telemetry
-LMU result files contain lap and sector times, not traces. For those laps (and for the demo session) the app generates placeholder traces from the track's corner table, scaled to each lap time, and shows a warning banner above the charts. The corner diagnosis on those laps is a simulation and should not be read as feedback on your driving.
+### 4. 🤖 Pep · AI Race Engineer & Team Radio
+- **Pep (`PEP · INGENIERO DE PISTA & RADIO`)** is your pit-wall race engineer, delivering structured debriefs, setup recommendations, and live team radio answers in Spanish or English.
+- **Strict Mathematical Coherence**: `delta = comp - ref`, trail braking `< 25%` is flagged as abrupt release (`Suelta brusca`), and zero false praise is ever given when losing time or apex speed.
+- **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...), with an instant deterministic rule-based engine when offline.
 
 ---
 

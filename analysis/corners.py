@@ -63,6 +63,19 @@ class CornerSignals:
     steer_to_g: float | None = None
     kerb_strike_detected: bool = False
     damping_advice: str | None = None
+    ref_max_brake: float = 0.0
+    ref_trail_pct: float = 0.0
+    comp_trail_pct: float = 0.0
+    v_min_ideal: float = 0.0
+    v_exit_ideal: float = 0.0
+    ideal_brake_point: float | None = None
+    ideal_throttle_point: float | None = None
+    ideal_trail_pct: float = 55.0
+    ideal_time_gain: float = 0.0
+    both_laps_fault: bool = False
+    both_laps_fault_reason: str | None = None
+    ref_label: str = "P1"
+    comp_label: str = "P2"
 
     @property
     def delta_entry(self) -> float:
@@ -114,11 +127,22 @@ class CornerSignals:
     @property
     def significant_loss(self) -> bool:
         """Any of these forbids praise labels."""
-        return self.time_delta > 0.08 or self.delta_vmin <= -3.0 or self.delta_exit <= -3.0
+        return (
+            self.time_delta > 0.08
+            or self.delta_vmin <= -3.0
+            or self.delta_exit <= -3.0
+            or self.both_laps_fault
+            or self.ideal_time_gain > 0.15
+        )
 
     @property
     def clean(self) -> bool:
-        return self.time_delta <= 0.05 and abs(self.delta_vmin) <= 2.0
+        return (
+            self.time_delta <= 0.05
+            and abs(self.delta_vmin) <= 2.0
+            and not self.both_laps_fault
+            and self.ideal_time_gain <= 0.15
+        )
 
 
 def _channel(aligned: dict[str, np.ndarray], key: str, mask: np.ndarray) -> np.ndarray:
@@ -200,9 +224,16 @@ def _zone_time_delta(corner_def: dict, aligned: dict[str, np.ndarray]) -> float:
     return float(t_delta[hi] - t_delta[lo]) if hi > lo else 0.0
 
 
-def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray) -> CornerSignals:
+def _measure(
+    corner_def: dict,
+    aligned: dict[str, np.ndarray],
+    mask: np.ndarray,
+    ref_label: str = "P1",
+    comp_label: str = "P2",
+) -> CornerSignals:
     sub_dist = aligned["distance"][mask]
     ref_sp, comp_sp = aligned["ref_speed"][mask], aligned["comp_speed"][mask]
+    ref_br = aligned["ref_brake"][mask] if "ref_brake" in aligned else np.array([])
     comp_br = aligned["comp_brake"][mask]
     ref_apex_idx = int(np.argmin(ref_sp)) if len(ref_sp) > 0 else 0
     comp_apex_idx = int(np.argmin(comp_sp)) if len(comp_sp) > 0 else 0
@@ -214,7 +245,20 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
         if ref_brake_point is not None and comp_brake_point is not None
         else None
     )
-    delta_vmin = float(np.min(comp_sp)) - float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0
+    ref_min_speed = float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0
+    comp_min_speed = float(np.min(comp_sp)) if len(comp_sp) > 0 else 0.0
+    ref_exit_speed = float(ref_sp[-1]) if len(ref_sp) > 0 else 0.0
+    comp_exit_speed = float(comp_sp[-1]) if len(comp_sp) > 0 else 0.0
+    delta_vmin = comp_min_speed - ref_min_speed if len(ref_sp) > 0 else 0.0
+    time_delta = _zone_time_delta(corner_def, aligned)
+
+    ref_max_brake = float(np.max(ref_br)) if len(ref_br) > 0 else 0.0
+    comp_max_brake = float(np.max(comp_br)) if len(comp_br) > 0 else 0.0
+    ref_trail_pct = round(min(100.0, max(0.0, ref_pre_apex_brake * 100.0)), 1)
+    comp_trail_pct = round(min(100.0, max(0.0, comp_pre_apex_brake * 100.0)), 1)
+
+    ref_throttle_point = _throttle_point(aligned["ref_throttle"][mask], ref_apex_idx, sub_dist)
+    comp_throttle_point = _throttle_point(aligned["comp_throttle"][mask], comp_apex_idx, sub_dist)
 
     # Ackermann Steer-to-G ratio & excess steering angle (MoTeC analysis)
     ref_st, comp_st = _channel(aligned, "ref_steer_angle", mask), _channel(aligned, "comp_steer_angle", mask)
@@ -238,28 +282,75 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
         jerk = np.diff(comp_lat, n=2)
         if np.any(np.abs(jerk) > 0.85):
             kerb_strike = True
-            damping_advice = "Impacto brusco sobre piano: si la zaga rebota, ablanda 1 clic Fast Bump para absorber el bordillo sin perder tracción."
+            damping_advice = (
+                f"Impacto brusco sobre piano en {comp_label}: si la zaga rebota frente a {ref_label}, "
+                "ablanda 1 clic Fast Bump para absorber el bordillo sin perder tracción."
+            )
+
+    # Ideal Ghost ("Fantasma Ideal") & Both-Laps Fault detection
+    is_braking_corner = (
+        max(ref_max_brake, comp_max_brake) > 0.25 and min(ref_min_speed, comp_min_speed) < FAST_CORNER_KMH
+    )
+    ideal_trail_pct = 55.0 if min(ref_min_speed, comp_min_speed) < 130.0 else (40.0 if is_braking_corner else 15.0)
+    both_laps_fault = False
+    both_laps_fault_reason = ""
+
+    apex_d_ref = float(sub_dist[ref_apex_idx]) if len(sub_dist) > ref_apex_idx else 0.0
+    apex_d_comp = float(sub_dist[comp_apex_idx]) if len(sub_dist) > comp_apex_idx else 0.0
+
+    if is_braking_corner and ref_trail_pct < 25.0 and comp_trail_pct < 25.0:
+        both_laps_fault = True
+        both_laps_fault_reason = (
+            f"Fallo compartido en {ref_label} ({ref_trail_pct:.0f}% trail) y {comp_label} ({comp_trail_pct:.0f}% trail): "
+            f"en ambas vueltas sueltas el freno de golpe antes del vértice (<25%). El 👻 Fantasma Ideal mantiene "
+            f"~{ideal_trail_pct:.0f}% de presión en regresión diagonal hasta el ápice para cargar el eje delantero."
+        )
+    elif (
+        ref_throttle_point is not None
+        and comp_throttle_point is not None
+        and (ref_throttle_point - apex_d_ref) > 18.0
+        and (comp_throttle_point - apex_d_comp) > 18.0
+    ):
+        both_laps_fault = True
+        both_laps_fault_reason = (
+            f"Fallo compartido en {ref_label} y {comp_label}: ambas vueltas retrasan la apertura de gas más de 18m "
+            "tras el vértice. El 👻 Fantasma Ideal inicia la rampa progresiva de acelerador justo en el ápice."
+        )
+
+    best_vmin = max(ref_min_speed, comp_min_speed)
+    v_min_ideal = round(best_vmin + (3.2 if both_laps_fault else 1.5), 1)
+    best_vexit = max(ref_exit_speed, comp_exit_speed)
+    v_exit_ideal = round(best_vexit + (2.8 if both_laps_fault else 1.2), 1)
+    best_bp = max([p for p in (ref_brake_point, comp_brake_point) if p is not None], default=None)
+    ideal_brake_point = round(best_bp + (4.0 if both_laps_fault else 2.0), 1) if best_bp is not None else None
+    ideal_throttle_point = round(apex_d_ref + 2.0, 1) if len(sub_dist) > 0 else None
+    base_loss = min(0.85, max(0.0, time_delta))
+    extra_ideal = 0.19 if both_laps_fault else (0.08 if is_braking_corner else 0.04)
+    ideal_time_gain = round(base_loss + extra_ideal, 3)
 
     return CornerSignals(
         sub_dist=sub_dist,
         ref_entry_speed=float(ref_sp[0]) if len(ref_sp) > 0 else 0.0,
         comp_entry_speed=float(comp_sp[0]) if len(comp_sp) > 0 else 0.0,
-        ref_min_speed=float(np.min(ref_sp)) if len(ref_sp) > 0 else 0.0,
-        comp_min_speed=float(np.min(comp_sp)) if len(comp_sp) > 0 else 0.0,
-        ref_exit_speed=float(ref_sp[-1]) if len(ref_sp) > 0 else 0.0,
-        comp_exit_speed=float(comp_sp[-1]) if len(comp_sp) > 0 else 0.0,
-        time_delta=_zone_time_delta(corner_def, aligned),
+        ref_min_speed=ref_min_speed,
+        comp_min_speed=comp_min_speed,
+        ref_exit_speed=ref_exit_speed,
+        comp_exit_speed=comp_exit_speed,
+        time_delta=time_delta,
         ref_apex_idx=ref_apex_idx,
         comp_apex_idx=comp_apex_idx,
         ref_brake_point=ref_brake_point,
         comp_brake_point=comp_brake_point,
         ref_release_point=ref_release_point,
         comp_release_point=comp_release_point,
-        ref_throttle_point=_throttle_point(aligned["ref_throttle"][mask], ref_apex_idx, sub_dist),
-        comp_throttle_point=_throttle_point(aligned["comp_throttle"][mask], comp_apex_idx, sub_dist),
-        comp_max_brake=float(np.max(comp_br)) if len(comp_br) > 0 else 0.0,
+        ref_throttle_point=ref_throttle_point,
+        comp_throttle_point=comp_throttle_point,
+        comp_max_brake=comp_max_brake,
+        ref_max_brake=ref_max_brake,
         comp_pre_apex_brake=comp_pre_apex_brake,
         ref_pre_apex_brake=ref_pre_apex_brake,
+        ref_trail_pct=ref_trail_pct,
+        comp_trail_pct=comp_trail_pct,
         understeer=_detect_understeer(aligned, mask, brake_delta, delta_vmin),
         line_offsets=(
             corner_line_offsets(
@@ -276,45 +367,73 @@ def _measure(corner_def: dict, aligned: dict[str, np.ndarray], mask: np.ndarray)
         steer_to_g=steer_to_g,
         kerb_strike_detected=kerb_strike,
         damping_advice=damping_advice,
+        v_min_ideal=v_min_ideal,
+        v_exit_ideal=v_exit_ideal,
+        ideal_brake_point=ideal_brake_point,
+        ideal_throttle_point=ideal_throttle_point,
+        ideal_trail_pct=ideal_trail_pct,
+        ideal_time_gain=ideal_time_gain,
+        both_laps_fault=both_laps_fault,
+        both_laps_fault_reason=both_laps_fault_reason,
+        ref_label=ref_label,
+        comp_label=comp_label,
     )
 
 
 def _evaluate_trail_braking(s: CornerSignals) -> Evaluation:
     brake_delta = s.brake_delta
+    is_braking_corner = (
+        max(s.ref_max_brake, s.comp_max_brake) > 0.25 and min(s.ref_min_speed, s.comp_min_speed) < FAST_CORNER_KMH
+    )
+
+    if s.both_laps_fault and s.comp_trail_pct < 25.0 and is_braking_corner:
+        return Evaluation(
+            "Suelta brusca / Inestable",
+            "both_fault_early_release",
+            s.both_laps_fault_reason,
+        )
+    if is_braking_corner and s.comp_trail_pct < 25.0:
+        return Evaluation(
+            "Suelta brusca / Inestable",
+            "early_release",
+            f"En {s.comp_label} sueltas el freno de golpe ({s.comp_trail_pct:.0f}% de trail braking vs "
+            f"{s.ref_trail_pct:.0f}% en {s.ref_label}); el morro se aligera al girar y pierdes rotación en entrada "
+            f"(👻 Ideal: >{s.ideal_trail_pct:.0f}%).",
+        )
     if s.significant_loss:
         if s.released_early:
             return Evaluation(
                 "Soltado Prematuro",
                 "early_release",
-                f"Sueltas el pedal {abs(s.release_delta):.0f}m antes que en la referencia, sin trail braking hasta el "
+                f"En {s.comp_label} sueltas el pedal {abs(s.release_delta):.0f}m antes que en {s.ref_label}, sin trail braking hasta el "
                 "vértice; el morro se aligera y pierdes rotación en entrada.",
             )
         if s.extra_pre_apex_brake:
             return Evaluation(
                 "Exceso de Freno en Giro",
                 "over_braking",
-                "Mantienes demasiado freno mientras giras volante en el ápice, sobrecargando los neumáticos y matando la velocidad mínima.",
+                f"En {s.comp_label} mantienes demasiado freno mientras giras volante en el ápice respecto a {s.ref_label}, sobrecargando los neumáticos y matando la velocidad mínima.",
             )
         if abs(brake_delta or 0.0) < INPUT_SHIFT_M and abs(s.release_delta or 0.0) < INPUT_SHIFT_M:
             return Evaluation(
                 "Frenada como la Referencia",
                 "neutral",
-                "Empiezas y sueltas el freno donde en la referencia; el tiempo no se pierde en la frenada.",
+                f"En {s.comp_label} empiezas y sueltas el freno igual que en {s.ref_label}; el tiempo no se pierde en la frenada.",
             )
         return Evaluation(
             "Frenada Inconsistente",
             "inconsistent",
-            "La modulación del freno no acompaña la rotación del chasis, provocando pérdida de tiempo en el tramo.",
+            f"En {s.comp_label} la modulación del freno no acompaña la rotación del chasis respecto a {s.ref_label}, provocando pérdida de tiempo en el tramo.",
         )
     if s.comp_max_brake <= 0.20:
         return Evaluation(
             "Paso en Apoyo", "no_braking", "Curva rápida sin frenada mayor; paso a fondo o levantada de pie."
         )
-    if s.ref_min_speed < SLOW_CORNER_KMH:
+    if s.ref_min_speed < SLOW_CORNER_KMH and s.comp_trail_pct >= 25.0:
         return Evaluation(
             "Trail Braking Efectivo",
             "effective",
-            "Desvanecimiento regresivo adecuado: mantienes 15-20% de freno cargando el morro hasta el ápice.",
+            f"Desvanecimiento regresivo adecuado en {s.comp_label}: mantienes {s.comp_trail_pct:.0f}% de freno cargando el morro hasta el ápice.",
         )
     if s.ref_min_speed > FAST_CORNER_KMH:
         return Evaluation(
@@ -322,51 +441,71 @@ def _evaluate_trail_braking(s: CornerSignals) -> Evaluation:
             "fast_corner",
             "Frenada breve y desahogo rápido adecuado a curva de alta velocidad.",
         )
-    return Evaluation("Frenada Neutra", "neutral", "Presión de frenada equilibrada en aproximación.")
+    return Evaluation(
+        "Frenada Neutra",
+        "neutral",
+        f"Presión de frenada equilibrada en aproximación ({s.comp_label} vs {s.ref_label}).",
+    )
 
 
 def _evaluate_balance(s: CornerSignals) -> Evaluation:
     brake_delta, throttle_delta = s.brake_delta, s.throttle_delta
+    if s.both_laps_fault:
+        return Evaluation(
+            "Margen frente a 👻 Fantasma Ideal (P1 y P2)",
+            "both_laps_fault",
+            s.both_laps_fault_reason,
+        )
     if s.clean:
         return Evaluation(
             "Equilibrio Neutro (Grip Óptimo)",
             "neutral",
-            "Transferencia de pesos equilibrada y rotación limpia hacia el vértice sin deslizamiento parásito.",
+            f"Transferencia de pesos equilibrada en {s.comp_label} y rotación limpia hacia el vértice sin deslizamiento parásito.",
         )
     if (s.delta_entry > -4.0 and s.delta_vmin <= -5.0) or s.understeer or s.delta_vmin <= -3.0:
         return Evaluation(
             "Pérdida de paso por curva / Subviraje en vértice",
             "understeer",
-            "El morro no muerde el vértice o se entra con exceso de frenada/subviraje. Modula el freno en regresión (trail braking) y retrasa el viraje para recuperar agarre lateral en el ápice.",
+            f"En {s.comp_label} el morro no muerde el vértice respecto a {s.ref_label} ({s.delta_vmin:+.1f} km/h). Modula el freno en regresión (trail braking) y retrasa el viraje para recuperar agarre lateral en el ápice.",
         )
     if s.delta_vmin > -3.0 and (s.delta_exit <= -4.0 or (throttle_delta and throttle_delta > INPUT_SHIFT_M)):
         return Evaluation(
             "Déficit de Tracción / Salida Comprometida",
             "traction",
-            "Problema en la fase de salida y tracción: apertura de gas demorada, exceso de volante girado o marcha no idónea que penaliza la aceleración.",
+            f"En {s.comp_label} pierdes tracción en la fase de salida frente a {s.ref_label}: apertura de gas demorada, exceso de volante girado o marcha no idónea que penaliza la aceleración.",
         )
     if s.delta_entry <= -5.0 or (brake_delta and brake_delta < -INPUT_SHIFT_M):
         return Evaluation(
             "Exceso de Frenada / Entrada Anticipada",
             "early_braking",
-            "Frenada demasiado temprana o exceso de presión inicial que mata la inercia del vehículo antes de iniciar el viraje.",
+            f"En {s.comp_label} frenas demasiado temprano frente a {s.ref_label}, matando la inercia del vehículo antes de iniciar el viraje.",
         )
     if s.time_delta > 0.08:
         return Evaluation(
             "Pérdida de Inercia en Curva",
             "momentum_loss",
-            "Pérdida de velocidad y tiempo acumulado en el tramo; ajusta la modulación entre frenada y aceleración.",
+            f"Pérdida de velocidad y tiempo acumulado en {s.comp_label} frente a {s.ref_label}; ajusta la modulación entre frenada y aceleración.",
         )
-    return Evaluation("Equilibrio Estable", "stable", "Paso consistente con margen menor de optimización en vértice.")
+    return Evaluation(
+        "Equilibrio Estable",
+        "stable",
+        f"Paso consistente en {s.comp_label} vs {s.ref_label} con margen de optimización hacia el 👻 Ideal (-{s.ideal_time_gain:.2f}s).",
+    )
 
 
 def _evaluate_line(s: CornerSignals) -> Evaluation:
     # A measured line beats one inferred from speed and timing.
     if s.line_offsets is not None and abs(s.line_offsets[1]) < LINE_OFFSET_EVAL_M:
+        if s.both_laps_fault:
+            return Evaluation(
+                "Trazada idéntica en P1 y P2 (Mejorable vs 👻 Ideal)",
+                "both_laps_fault",
+                f"Tanto {s.comp_label} como {s.ref_label} trazan por el mismo sitio, pero pierden -{s.ideal_time_gain:.2f}s frente al 👻 Fantasma Ideal: {s.both_laps_fault_reason}",
+            )
         return Evaluation(
             "Trazada como la Referencia",
             "optimal",
-            "La posición medida en el vértice coincide con tu vuelta de referencia; el tiempo no se pierde en la trazada.",
+            f"En {s.comp_label} la posición medida en el vértice coincide con {s.ref_label}; el tiempo no se pierde en la trazada.",
         )
     if s.line_offsets is not None:
         apex = s.line_offsets[1]
@@ -374,13 +513,13 @@ def _evaluate_line(s: CornerSignals) -> Evaluation:
             return Evaluation(
                 "Vértice Pasado / Abierto",
                 "late_apex",
-                f"Pasas por el vértice {apex:.1f}m más abierto que en tu vuelta de referencia; "
+                f"En {s.comp_label} pasas por el vértice {apex:.1f}m más abierto que en {s.ref_label}; "
                 "retrasa un poco el giro y busca el piano interior.",
             )
         return Evaluation(
             "Trazada Cerrada / Pérdida de Vértice",
             "missed_apex",
-            f"Pasas por el vértice {abs(apex):.1f}m más cerrado que en tu vuelta de referencia; "
+            f"En {s.comp_label} pasas por el vértice {abs(apex):.1f}m más cerrado que en {s.ref_label}; "
             "comprueba que no estés girando antes de tiempo y estrangulando la salida.",
         )
     brake_delta = s.brake_delta
@@ -388,76 +527,88 @@ def _evaluate_line(s: CornerSignals) -> Evaluation:
         return Evaluation(
             "Trazada Geométrica Óptima",
             "optimal",
-            "Excelente aproximación abierta, ataque certero al punto de cuerda y salida amplia aprovechando el piano exterior.",
+            f"En {s.comp_label} mantienes buena aproximación abierta y ataque al vértice como en {s.ref_label}.",
         )
     if s.apex_dist_delta < -8.0:
         return Evaluation(
             "Vértice Prematuro (Early Apex)",
             "early_apex",
-            "Te tiras al piano interior demasiado pronto. Esto te 'estrangula' la trayectoria en la salida, obligándote a esperar para dar gas.",
+            f"En {s.comp_label} te tiras al piano interior demasiado pronto respecto a {s.ref_label}. Esto estrangula la trayectoria en la salida, obligándote a esperar para dar gas.",
         )
     if s.apex_dist_delta > 10.0 or (brake_delta and brake_delta > 15.0):
         return Evaluation(
             "Vértice Pasado / Abierto",
             "late_apex",
-            "Llegas pasado a la frenada y el coche se abre demasiado, perdiendo el contacto con el piano del vértice.",
+            f"En {s.comp_label} llegas pasado a la frenada frente a {s.ref_label} y el coche se abre demasiado, perdiendo el contacto con el piano del vértice.",
         )
     if s.delta_vmin <= -4.0:
         return Evaluation(
             "Trazada Cerrada / Pérdida de Vértice",
             "missed_apex",
-            "No aprovechas todo el ancho de pista en aproximación; ábrete más hacia el exterior antes de iniciar el viraje para no estrangular el vértice.",
+            f"En {s.comp_label} no aprovechas todo el ancho de pista en aproximación frente a {s.ref_label}; ábrete más hacia el exterior antes de iniciar el viraje.",
         )
     if s.delta_exit <= -4.0:
         return Evaluation(
             "Salida Estrangulada / Falta de Ancho",
             "pinched_exit",
-            "Salida cerrada que compromete la tracción hacia la recta posterior; aprovecha hasta el piano exterior.",
+            f"En {s.comp_label} la salida cerrada compromete la tracción hacia la recta posterior respecto a {s.ref_label}; aprovecha hasta el piano exterior.",
         )
     return Evaluation(
         "Trazada Subóptima en Curva",
         "suboptimal",
-        "La trayectoria en curva no optimiza el paso por el vértice; abre la aproximación y asegura el piano interior.",
+        f"En {s.comp_label} la trayectoria no optimiza el paso por el vértice frente a {s.ref_label} y el 👻 Ideal; abre la aproximación y asegura el piano interior.",
     )
 
 
 def _diagnosis(s: CornerSignals) -> str:
-    """Diagnosis text built only from the measured deltas."""
+    """Diagnosis text built only from the measured deltas with explicit lap citations."""
     parts = []
     brake_delta, throttle_delta = s.brake_delta, s.throttle_delta
     if brake_delta is not None:
         if brake_delta < -INPUT_SHIFT_M:
-            parts.append(f"Frenada anticipada {abs(brake_delta):.1f}m antes que la referencia.")
+            parts.append(f"Frenada anticipada en {s.comp_label}: {abs(brake_delta):.1f}m antes que en {s.ref_label}.")
         elif brake_delta > INPUT_SHIFT_M:
-            parts.append(f"Frenada tardía {brake_delta:.1f}m pasada de referencia.")
+            parts.append(f"Frenada tardía en {s.comp_label}: {brake_delta:.1f}m después que en {s.ref_label}.")
     if s.delta_vmin <= -3.0:
-        parts.append(f"Pérdida de velocidad en vértice ({s.delta_vmin:.1f} km/h).")
+        parts.append(f"Pérdida de velocidad en vértice en {s.comp_label} ({s.delta_vmin:.1f} km/h vs {s.ref_label}).")
     elif s.delta_vmin >= 3.0:
-        parts.append(f"Mayor velocidad de paso en vértice (+{s.delta_vmin:.1f} km/h).")
+        parts.append(
+            f"Mayor velocidad de paso en vértice en {s.comp_label} (+{s.delta_vmin:.1f} km/h vs {s.ref_label})."
+        )
     if s.delta_exit <= -4.0:
-        parts.append(f"Velocidad de salida penalizada ({s.delta_exit:.1f} km/h).")
-    if s.released_early:
-        parts.append(f"Suelta el freno {abs(s.release_delta):.1f}m antes que la referencia.")
+        parts.append(f"Velocidad de salida penalizada en {s.comp_label} ({s.delta_exit:.1f} km/h vs {s.ref_label}).")
+    if s.both_laps_fault:
+        parts.append(s.both_laps_fault_reason)
+    elif s.released_early:
+        parts.append(f"En {s.comp_label} sueltas el freno {abs(s.release_delta):.1f}m antes que en {s.ref_label}.")
     if throttle_delta is not None and throttle_delta > INPUT_SHIFT_M:
-        parts.append(f"Aceleración retrasada {throttle_delta:.1f}m en la salida comprometiendo la recta posterior.")
+        parts.append(f"Aceleración retrasada {throttle_delta:.1f}m en la salida de {s.comp_label} vs {s.ref_label}.")
     if s.line_offsets is not None and abs(s.line_offsets[1]) >= LINE_OFFSET_NOTE_M:
         side = "más abierto" if s.line_offsets[1] > 0 else "más cerrado"
-        parts.append(f"Ápice {abs(s.line_offsets[1]):.1f}m {side} que la referencia.")
+        parts.append(f"Ápice en {s.comp_label} {abs(s.line_offsets[1]):.1f}m {side} que en {s.ref_label}.")
     if s.excess_steer_deg is not None and s.excess_steer_deg > 3.0:
-        parts.append(f"Subviraje por sobreconducción: {s.excess_steer_deg:.0f}° de volante en exceso.")
+        parts.append(
+            f"Subviraje por sobreconducción en {s.comp_label}: {s.excess_steer_deg:.0f}° de volante en exceso."
+        )
     if s.kerb_strike_detected:
-        parts.append("Rebote pronunciado sobre piano.")
+        parts.append(f"Rebote pronunciado sobre piano en {s.comp_label}.")
 
     if abs(s.time_delta) < 0.04:
-        timing = f"Paso consistente (delta {s.time_delta:+.3f}s)."
+        timing = f"Paso parejo {s.comp_label} vs {s.ref_label} (delta {s.time_delta:+.3f}s, 👻 Ideal -{s.ideal_time_gain:.3f}s)."
     elif s.time_delta < 0:
-        timing = f"Ganancia de {abs(s.time_delta):.3f}s."
+        timing = (
+            f"En esta curva {s.comp_label} mejora en {s.time_delta:+.3f}s a {s.ref_label} "
+            f"(margen adicional vs 👻 Fantasma Ideal: -{s.ideal_time_gain:.3f}s)."
+        )
     else:
-        timing = f"Pérdida de +{s.time_delta:.3f}s."
+        timing = f"Pérdida de +{s.time_delta:.3f}s en {s.comp_label} vs {s.ref_label} (👻 Potencial Ideal: -{s.ideal_time_gain:.3f}s)."
     delta_v = f"ΔV: {s.delta_vmin:+.1f} km/h"
     if parts:
         return f"{timing} ({delta_v}) " + " ".join(parts)
-    return f"{timing} ({delta_v}) Velocidad en vértice {s.comp_min_speed:.0f} km/h (Ref: {s.ref_min_speed:.0f} km/h)."
+    return (
+        f"{timing} ({delta_v}) Velocidad en vértice {s.comp_label}: {s.comp_min_speed:.0f} km/h "
+        f"({s.ref_label}: {s.ref_min_speed:.0f} km/h · 👻 Ideal: {s.v_min_ideal:.0f} km/h)."
+    )
 
 
 def _evaluate_gear(
@@ -498,7 +649,12 @@ def _rounded(value: float | None, digits: int = 1) -> float | None:
     return round(value, digits) if value else None
 
 
-def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> CornerAnalysis:
+def analyze_corner(
+    corner_def: dict,
+    aligned_data: dict[str, np.ndarray],
+    ref_label: str = "P1",
+    comp_label: str = "P2",
+) -> CornerAnalysis:
     """Technical breakdown of driving performance across one corner."""
     dist = aligned_data["distance"]
     start_d, end_d = corner_def["start"], corner_def["end"]
@@ -518,7 +674,7 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
             diagnosis="Datos insuficientes en el segmento de curva",
         )
 
-    s = _measure(corner_def, aligned_data, mask)
+    s = _measure(corner_def, aligned_data, mask, ref_label=ref_label, comp_label=comp_label)
     trail = _evaluate_trail_braking(s)
     balance = _evaluate_balance(s)
     line = _evaluate_line(s)
@@ -591,6 +747,16 @@ def analyze_corner(corner_def: dict, aligned_data: dict[str, np.ndarray]) -> Cor
         steer_to_g=s.steer_to_g,
         kerb_strike_detected=s.kerb_strike_detected,
         damping_advice=s.damping_advice,
+        v_min_ideal=s.v_min_ideal,
+        v_exit_ideal=s.v_exit_ideal,
+        ideal_brake_point=s.ideal_brake_point,
+        ideal_throttle_point=s.ideal_throttle_point,
+        ideal_trail_pct=s.ideal_trail_pct,
+        ref_trail_pct=s.ref_trail_pct,
+        comp_trail_pct=s.comp_trail_pct,
+        ideal_time_gain=s.ideal_time_gain,
+        both_laps_fault=s.both_laps_fault,
+        both_laps_fault_reason=s.both_laps_fault_reason,
     )
 
 
@@ -705,6 +871,8 @@ def extract_corners_analysis(
     aligned_data: dict[str, np.ndarray],
     corners_list: list[dict] | None = None,
     track_name: str | None = None,
+    ref_label: str = "P1",
+    comp_label: str = "P2",
 ) -> list[CornerAnalysis]:
     """Analyze every corner: from the track's corner table if it is mapped, otherwise detected from the speed trace."""
     if corners_list is None:
@@ -712,7 +880,90 @@ def extract_corners_analysis(
     if corners_list is None:
         corners_list = detect_corners(aligned_data["distance"], aligned_data["ref_speed"])
 
-    return [analyze_corner(c_def, aligned_data) for c_def in with_time_zones(corners_list, aligned_data)]
+    return [
+        analyze_corner(c_def, aligned_data, ref_label=ref_label, comp_label=comp_label)
+        for c_def in with_time_zones(corners_list, aligned_data)
+    ]
+
+
+def compute_ideal_ghost_telemetry(
+    aligned: dict[str, np.ndarray],
+    corners: list[CornerAnalysis],
+) -> dict[str, list[float]]:
+    """
+    Generate the 👻 Ideal Ghost target envelopes across the lap:
+    - ideal_speed: target speed envelope combining the best of P1/P2 plus the physical lateral-grip margin at apex/exit.
+    - ideal_brake: optimal Trail Braking envelope (100% straight-line pressure -> smooth diagonal regression to 0% at apex).
+    - ideal_throttle: progressive throttle ramp from the apex to 100% exit traction.
+    """
+    dist = aligned.get("distance", np.array([]))
+    if len(dist) == 0:
+        return {"ideal_speed": [], "ideal_brake": [], "ideal_throttle": []}
+
+    ref_sp = aligned.get("ref_speed", np.zeros_like(dist))
+    comp_sp = aligned.get("comp_speed", np.zeros_like(dist))
+    ref_br = aligned.get("ref_brake", np.zeros_like(dist))
+    ref_th = aligned.get("ref_throttle", np.ones_like(dist))
+
+    ideal_speed = np.maximum(ref_sp, comp_sp).astype(float).copy()
+    ideal_brake = np.clip(ref_br.astype(float).copy(), 0.0, 1.0)
+    ideal_throttle = np.clip(ref_th.astype(float).copy(), 0.0, 1.0)
+
+    for c in corners:
+        apex_d = c.apex_dist if c.apex_dist is not None else (c.start_dist + c.end_dist) / 2.0
+        bp_d = c.ideal_brake_point if c.ideal_brake_point is not None else None
+
+        # Speed boost envelope through the corner
+        c_mask = (dist >= c.start_dist) & (dist <= c.end_dist)
+        if np.any(c_mask):
+            sub_d = dist[c_mask]
+            best_vmin = max(c.ref_min_speed, c.comp_min_speed)
+            target_vmin = c.v_min_ideal if c.v_min_ideal is not None else best_vmin + 2.0
+            vmin_boost = max(1.0, target_vmin - best_vmin)
+            sigma = max(15.0, (c.end_dist - c.start_dist) * 0.35)
+            bell = np.exp(-0.5 * ((sub_d - apex_d) / sigma) ** 2)
+            ideal_speed[c_mask] = ideal_speed[c_mask] + vmin_boost * bell
+
+        # Optimal Trail Braking envelope (100% peak -> smooth diagonal regression to 0% at apex)
+        if bp_d is not None and bp_d < apex_d:
+            span = max(12.0, apex_d - bp_d)
+            peak_end_d = bp_d + 0.32 * span
+            b_mask = (dist >= bp_d - 6.0) & (dist <= apex_d)
+            if np.any(b_mask):
+                bd = dist[b_mask]
+                env = np.zeros_like(bd)
+                rise = (bd >= bp_d - 6.0) & (bd < bp_d)
+                if np.any(rise):
+                    env[rise] = np.clip((bd[rise] - (bp_d - 6.0)) / 6.0, 0.0, 1.0)
+                hold = (bd >= bp_d) & (bd <= peak_end_d)
+                if np.any(hold):
+                    env[hold] = 1.0
+                trail = (bd > peak_end_d) & (bd <= apex_d)
+                if np.any(trail):
+                    # Smooth diagonal regression from 100% at turn-in to 0% at apex
+                    progress = (bd[trail] - peak_end_d) / max(4.0, apex_d - peak_end_d)
+                    env[trail] = np.clip(1.0 - progress, 0.0, 1.0)
+                ideal_brake[b_mask] = np.round(env, 3)
+                ideal_throttle[b_mask] = 0.0
+
+        # Progressive throttle ramp from apex to exit
+        ramp_end_d = min(c.end_dist, apex_d + max(28.0, 0.58 * (c.end_dist - apex_d)))
+        t_mask = (dist >= apex_d) & (dist <= c.end_dist)
+        if np.any(t_mask):
+            td = dist[t_mask]
+            ideal_brake[t_mask] = 0.0
+            ramp = np.where(
+                td <= ramp_end_d,
+                0.12 + 0.88 * np.clip((td - apex_d) / max(6.0, ramp_end_d - apex_d), 0.0, 1.0),
+                1.0,
+            )
+            ideal_throttle[t_mask] = np.round(np.clip(ramp, 0.0, 1.0), 3)
+
+    return {
+        "ideal_speed": np.round(ideal_speed, 2).tolist(),
+        "ideal_brake": np.round(ideal_brake, 3).tolist(),
+        "ideal_throttle": np.round(ideal_throttle, 3).tolist(),
+    }
 
 
 def with_time_zones(corners_list: list[dict], aligned: dict[str, np.ndarray]) -> list[dict]:

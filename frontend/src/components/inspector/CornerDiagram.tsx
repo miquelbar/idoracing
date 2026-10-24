@@ -14,7 +14,12 @@ interface CornerDiagramProps {
 
 /** Measured real trajectory zoom of reference and driven lines through the corner. */
 export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, staticTrack: _staticTrack, comparison, onSelectCorner: _onSelectCorner }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const isEn = lang === 'en';
+  const refNum = comparison?.ref_lap_id.replace('Lap ', '') || '1';
+  const compNum = comparison?.comp_lap_id.replace('Lap ', '') || '2';
+  const p1Label = `P1 (${isEn ? 'L' : 'V'}${refNum})`;
+  const p2Label = `P2 (${isEn ? 'L' : 'V'}${compNum})`;
   const cornerSvgData = selectedCorner.racing_line_svg;
   const isLeft = cornerSvgData?.turn_dir === 'left';
   const hasUndersteer = cornerSvgData?.has_understeer || selectedCorner.balance_code === 'understeer';
@@ -29,10 +34,6 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
     const dists = comparison.distance || [];
     const xs = comparison.track_x;
     const ys = comparison.track_y;
-    const refX = comparison.ref_x && comparison.ref_x.length === xs.length ? comparison.ref_x : xs;
-    const refY = comparison.ref_y && comparison.ref_y.length === ys.length ? comparison.ref_y : ys;
-    const compX = comparison.comp_x && comparison.comp_x.length === xs.length ? comparison.comp_x : xs;
-    const compY = comparison.comp_y && comparison.comp_y.length === ys.length ? comparison.comp_y : ys;
 
     const startDist = Math.max(0, selectedCorner.start_distance - 25);
     const endDist = selectedCorner.end_distance + 25;
@@ -202,56 +203,48 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       };
     });
 
-    // Check if comp telemetry has distinct, valid on-track GPS data (< 7m difference)
-    let compLinePts = refLinePts;
-    let hasDistinctCompGPS = false;
+    // Synthesize or project the comparison line relative to the reference racing line on the ribbon
+    // using measured lateral offsets (entry_offset_m, apex_offset_m, exit_offset_m) when available.
+    const measuredApexOffsetM =
+      selectedCorner.line_offset_apex_m !== undefined &&
+      selectedCorner.line_offset_apex_m !== null &&
+      Math.abs(selectedCorner.line_offset_apex_m) <= 10.0
+        ? selectedCorner.line_offset_apex_m
+        : null;
 
-    if (comparison.comp_x && comparison.ref_x) {
-      let maxDeltaM = 0;
-      indices.forEach((i) => {
-        const d = Math.hypot(compX[i] - refX[i], compY[i] - refY[i]);
-        maxDeltaM = Math.max(maxDeltaM, d);
-      });
-      // Valid if between 0.15m and 7.0m from reference
-      if (maxDeltaM >= 0.15 && maxDeltaM <= 7.0) {
-        hasDistinctCompGPS = true;
-        compLinePts = indices.map((i) => toSvg(compX[i], compY[i]));
+    const compLinePts = trackPts.map((p, i) => {
+      const t = i / (n - 1 || 1);
+      const apexT = isEarlyApex ? Math.max(0.15, (apexIdx / (n - 1)) - 0.14) : apexIdx / (n - 1 || 1);
+      const ratio = t < apexT ? t / (apexT || 0.01) : (1 - t) / (1 - apexT || 0.01);
+      const factor = (1 - Math.cos(ratio * Math.PI)) / 2;
+
+      let apexOffset = 0.82 * W;
+      let exitOffset = -0.72 * W;
+
+      if (measuredApexOffsetM !== null) {
+        // Positive apex_offset_m = wider (towards outside = smaller inX multiplier)
+        const shiftPx = Math.max(-1.1 * W, Math.min(0.6 * W, -(measuredApexOffsetM / 6.0) * W));
+        apexOffset = Math.max(-0.5 * W, Math.min(0.92 * W, 0.82 * W + shiftPx));
+        exitOffset = Math.max(-0.95 * W, Math.min(0.2 * W, -0.72 * W + shiftPx * 0.5));
+      } else if (hasUndersteer) {
+        apexOffset = 0.25 * W;
+        exitOffset = -0.92 * W;
+      } else if (isEarlyApex) {
+        apexOffset = 0.70 * W;
+        exitOffset = -0.90 * W;
+      } else if (selectedCorner.delta_v_min < -3.0) {
+        apexOffset = 0.45 * W;
+      } else {
+        apexOffset = 0.65 * W;
       }
-    }
 
-    if (!hasDistinctCompGPS) {
-      // Synthesize realistic driven line from corner driving diagnosis
-      compLinePts = trackPts.map((p, i) => {
-        const t = i / (n - 1 || 1);
-        const apexT = isEarlyApex ? Math.max(0.15, (apexIdx / (n - 1)) - 0.18) : apexIdx / (n - 1 || 1);
-        const ratio = t < apexT ? t / (apexT || 0.01) : (1 - t) / (1 - apexT || 0.01);
-        const factor = (1 - Math.cos(ratio * Math.PI)) / 2;
-
-        let apexOffset = 0.82 * W;
-        let exitOffset = -0.72 * W;
-
-        if (hasUndersteer) {
-          // Understeer: misses the apex by 2-3m, washes wide on exit
-          apexOffset = 0.25 * W;
-          exitOffset = -0.92 * W;
-        } else if (isEarlyApex) {
-          // Early apex: clips early and runs wide
-          apexOffset = 0.70 * W;
-          exitOffset = -0.90 * W;
-        } else if (selectedCorner.delta_v_min < -3.0) {
-          apexOffset = 0.50 * W;
-        } else {
-          apexOffset = 0.78 * W;
-        }
-
-        const offset = -0.72 * W + factor * (apexOffset - (-0.72 * W));
-        const finalOffset = t > apexT ? offset + (t - apexT) * (exitOffset - (-0.72 * W)) : offset;
-        return {
-          x: p.x + inX[i] * finalOffset,
-          y: p.y + inY[i] * finalOffset,
-        };
-      });
-    }
+      const offset = -0.72 * W + factor * (apexOffset - (-0.72 * W));
+      const finalOffset = t > apexT ? offset + (t - apexT) * (exitOffset - (-0.72 * W)) : offset;
+      return {
+        x: p.x + inX[i] * finalOffset,
+        y: p.y + inY[i] * finalOffset,
+      };
+    });
 
     const ptsToPath = (pts: Array<{ x: number; y: number }>) =>
       pts.length
@@ -315,14 +308,14 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
       </div>
 
       {/* Legend */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-2 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-telemetry shadow-md select-none">
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-2.5 px-2.5 py-1 rounded bg-black/80 backdrop-blur-md border border-white/10 text-[9.5px] font-telemetry shadow-md select-none">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-0.5 bg-gain border-b border-dashed border-gain" />
-          <span className="text-gray-300 font-medium">{t('optimal_badge')}</span>
+          <span className="text-[#00D2BE] font-bold">REF · {p1Label}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-0.5 bg-comp" />
-          <span className="text-gray-300 font-medium">{t('your_line')}</span>
+          <span className="text-[#D8B4FE] font-bold">COMP · {p2Label}</span>
         </div>
       </div>
 
@@ -463,18 +456,19 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
               <circle r="4.5" fill={COLORS.gain} />
               <circle r="8" fill="none" stroke={COLORS.gain} strokeWidth="1" opacity="0.5" />
               <text
-                y="-13"
-                textAnchor="middle"
+                x="-14"
+                y="-15"
+                textAnchor="end"
                 fill={COLORS.gain}
-                fontSize="9px"
+                fontSize="9.5px"
                 fontFamily="monospace"
                 fontWeight="bold"
                 paintOrder="stroke"
                 stroke={COLORS.night1}
-                strokeWidth="3px"
+                strokeWidth="3.5px"
                 strokeLinejoin="round"
               >
-                Ref {selectedCorner.v_min_ref.toFixed(0)} km/h
+                {p1Label}: {selectedCorner.v_min_ref.toFixed(0)} km/h
               </text>
             </g>
 
@@ -489,18 +483,19 @@ export const CornerDiagram: React.FC<CornerDiagramProps> = ({ selectedCorner, st
                 strokeDasharray="2 2"
               />
               <text
-                y="18"
-                textAnchor="middle"
+                x="14"
+                y="21"
+                textAnchor="start"
                 fill={hasUndersteer ? COLORS.lossSoft : '#E9D5FF'}
-                fontSize="9px"
+                fontSize="9.5px"
                 fontFamily="monospace"
                 fontWeight="bold"
                 paintOrder="stroke"
                 stroke={COLORS.night1}
-                strokeWidth="3px"
+                strokeWidth="3.5px"
                 strokeLinejoin="round"
               >
-                Tú {selectedCorner.v_min_comp.toFixed(0)} km/h
+                {p2Label}: {selectedCorner.v_min_comp.toFixed(0)} km/h
               </text>
             </g>
 

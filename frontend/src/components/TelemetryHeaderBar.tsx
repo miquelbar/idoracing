@@ -18,6 +18,8 @@ interface TelemetryHeaderBarProps {
   reportAvailable?: boolean;
   onOpenCarSetup?: () => void;
   onOpenStint?: () => void;
+  showIdealGhost?: boolean;
+  onToggleIdealGhost?: () => void;
 }
 
 function formatDelta(seconds: number): string {
@@ -40,8 +42,11 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   reportAvailable = false,
   onOpenCarSetup,
   onOpenStint,
+  showIdealGhost = true,
+  onToggleIdealGhost,
 }) => {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
+  const isEn = lang === 'en';
   const badge = simBadge(gameName);
 
   const refS1 = comparison?.ref_sectors?.['S1'] ?? 0;
@@ -55,11 +60,13 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   const deltaS1 = compS1 && refS1 ? compS1 - refS1 : 0;
   const deltaS2 = compS2 && refS2 ? compS2 - refS2 : 0;
   const deltaS3 = compS3 && refS3 ? compS3 - refS3 : 0;
+  const hasRealSectors =
+    Math.abs(deltaS1) >= 0.001 || Math.abs(deltaS2) >= 0.001 || Math.abs(deltaS3) >= 0.001;
 
   return (
-    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm z-30">
-      {/* Left: Context Ribbon ([Badge ACC] Track · Car | Vueltas | [Cambiar Pista]) */}
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 text-xs font-telemetry shrink-0 shadow-sm z-30">
+      {/* Left: Context Ribbon ([Badge ACC] Track · [🔧 Car] | Vueltas | [Sesiones] | [Stint]) */}
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
         {/* Game Pill */}
         <span
           className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 border ${badge.className}`}
@@ -68,23 +75,23 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
           {badge.label}
         </span>
 
-        {/* Track & Car */}
-        <div className="flex items-baseline gap-1.5 min-w-0 truncate">
-          <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide truncate">
+        {/* Track & Clickable Car Button (never truncated!) */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="font-brand font-bold text-white text-xs sm:text-sm tracking-wide whitespace-nowrap shrink-0">
             {trackName}
           </span>
-          <span className="text-gray-500 hidden md:inline">·</span>
+          <span className="text-gray-500">·</span>
           {onOpenCarSetup ? (
             <button
               onClick={onOpenCarSetup}
               title={t('open_setup_modal')}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand font-bold text-xs truncate transition cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand font-bold text-xs whitespace-nowrap shrink-0 transition cursor-pointer"
             >
               <SlidersHorizontal className="w-3 h-3 text-brand shrink-0" />
-              <span className="truncate">{carName}</span>
+              <span>{carName}</span>
             </button>
           ) : (
-            <span className="text-brand font-bold text-xs truncate hidden md:inline">
+            <span className="text-brand font-bold text-xs whitespace-nowrap shrink-0">
               {carName}
             </span>
           )}
@@ -92,7 +99,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
 
         {/* Lap Count Pill */}
         {lapCount !== undefined && lapCount > 0 && (
-          <span className="text-gray-400 text-[11px] hidden lg:inline whitespace-nowrap pl-2 border-l border-white/10">
+          <span className="text-gray-400 text-[11px] hidden xl:inline whitespace-nowrap pl-2 border-l border-white/10 shrink-0">
             {lapCount} {t('laps_label')}
           </span>
         )}
@@ -120,15 +127,15 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         )}
       </div>
 
-      {/* Right: Timing & AI Action Strip */}
-      <div className="flex items-center gap-2.5 sm:gap-4 shrink-0">
+      {/* Right: Timing, Ideal Ghost Metrics & AI Action Strip */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Lap Times */}
         {comparison ? (
           <>
-            <div className="flex items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1">
                 <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand font-bold text-[10px] border border-brand/30">
-                  P1 V{refLapNumber}
+                  P1 {isEn ? 'L' : 'V'}{refLapNumber}
                 </span>
                 <span className="text-white font-bold tracking-tight">
                   {formatLapTime(comparison.ref_lap_time)}
@@ -137,9 +144,9 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
 
               <span className="text-gray-600 text-[10px]">vs</span>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <span className="px-1.5 py-0.5 rounded bg-comp/20 text-[#D8B4FE] font-bold text-[10px] border border-comp/30">
-                  P2 V{compLapNumber}
+                  P2 {isEn ? 'L' : 'V'}{compLapNumber}
                 </span>
                 <span className="text-white font-bold tracking-tight">
                   {formatLapTime(comparison.comp_lap_time)}
@@ -148,7 +155,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
 
               {/* GAP Pill */}
               <span
-                className={`px-2 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
+                className={`px-1.5 py-0.5 rounded font-extrabold text-[11px] shadow-sm ${
                   comparison.delta_time_total > 0
                     ? 'bg-accent/20 text-[#FF453A] border border-accent/40'
                     : 'bg-brand/20 text-brand border border-brand/40'
@@ -158,29 +165,75 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
               </span>
             </div>
 
-            {/* Micro-Sectors */}
-            <div className="hidden xl:flex items-center gap-2 text-[11px] border-l border-white/10 pl-3">
-              <span className="text-gray-400">
-                S1:{' '}
-                <strong className={deltaS1 <= 0 ? 'text-brand' : 'text-amber-400'}>
-                  {formatDelta(deltaS1)}
-                </strong>
-              </span>
-              <span className="text-gray-600">•</span>
-              <span className="text-gray-400">
-                S2:{' '}
-                <strong className={deltaS2 <= 0 ? 'text-brand' : 'text-amber-400'}>
-                  {formatDelta(deltaS2)}
-                </strong>
-              </span>
-              <span className="text-gray-600">•</span>
-              <span className="text-gray-400">
-                S3:{' '}
-                <strong className={deltaS3 <= 0 ? 'text-brand' : 'text-amber-400'}>
-                  {formatDelta(deltaS3)}
-                </strong>
-              </span>
-            </div>
+            {/* Rolling Best & Ideal Ghost Potential + Toggle */}
+            {comparison.has_telemetry !== false && (
+              <div className="hidden lg:flex items-center gap-1.5 border-l border-white/10 pl-2">
+                {comparison.optimal_lap_time && (
+                  <span
+                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] whitespace-nowrap"
+                    title={isEn ? 'Combined Rolling Best across corners' : 'Vuelta Óptima Combinada (Rolling Best)'}
+                  >
+                    {isEn ? 'Optimal:' : 'Óptima:'} {formatLapTime(comparison.optimal_lap_time)}
+                  </span>
+                )}
+                {comparison.ideal_potential_gain && comparison.ideal_potential_gain > 0 && (
+                  <span
+                    className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/35 text-amber-300 font-bold text-[10px] whitespace-nowrap"
+                    title={
+                      isEn
+                        ? 'Physical potential gain vs 👻 Ideal Ghost'
+                        : 'Potencial físico total frente al 👻 Fantasma Ideal'
+                    }
+                  >
+                    👻 {isEn ? 'Potential:' : 'Potencial:'} -{comparison.ideal_potential_gain.toFixed(2)}s
+                  </span>
+                )}
+                {onToggleIdealGhost && (
+                  <button
+                    type="button"
+                    onClick={onToggleIdealGhost}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer border whitespace-nowrap ${
+                      showIdealGhost
+                        ? 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-sm'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+                    }`}
+                    title={
+                      isEn
+                        ? 'Toggle 👻 Ideal Ghost target curves on telemetry charts'
+                        : 'Mostrar/ocultar curvas objetivo del 👻 Fantasma Ideal en las gráficas'
+                    }
+                  >
+                    👻 {isEn ? 'Ideal Guide' : 'Guía Ideal'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Micro-Sectors (only shown when non-zero) */}
+            {hasRealSectors && (
+              <div className="hidden 2xl:flex items-center gap-1.5 text-[10.5px] border-l border-white/10 pl-2">
+                <span className="text-gray-400">
+                  S1:{' '}
+                  <strong className={deltaS1 <= 0 ? 'text-brand' : 'text-amber-400'}>
+                    {formatDelta(deltaS1)}
+                  </strong>
+                </span>
+                <span className="text-gray-600">•</span>
+                <span className="text-gray-400">
+                  S2:{' '}
+                  <strong className={deltaS2 <= 0 ? 'text-brand' : 'text-amber-400'}>
+                    {formatDelta(deltaS2)}
+                  </strong>
+                </span>
+                <span className="text-gray-600">•</span>
+                <span className="text-gray-400">
+                  S3:{' '}
+                  <strong className={deltaS3 <= 0 ? 'text-brand' : 'text-amber-400'}>
+                    {formatDelta(deltaS3)}
+                  </strong>
+                </span>
+              </div>
+            )}
           </>
         ) : bestLapTime && bestLapTime > 0 ? (
           <div className="flex items-center gap-2 text-xs">

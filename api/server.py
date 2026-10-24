@@ -21,11 +21,11 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from analysis.alignment import align_laps_by_distance
+from analysis.corners import compute_ideal_ghost_telemetry
 from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
 from analysis.setup_advisor import generate_setup_advice
 from analysis.stint_analysis import analyze_session_stint
-from analysis.telemetry_generator import ensure_session_telemetry
 from analysis.tire_thermal import analyze_all_tyres
 from analysis.tracks import generate_track_coordinates
 from coach.advisor import CoachAdvisor
@@ -33,7 +33,16 @@ from coach.knowledge_base import knowledge_base
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
-from domain.session import CoachReport, CornerAnalysis, Lap, Session, SetupAdviceReport, SetupAdviceReview
+from domain.session import (
+    CoachReport,
+    CornerAnalysis,
+    Lap,
+    Session,
+    SetupAdviceReport,
+    SetupAdviceReview,
+    normalize_car_name,
+    normalize_track_name,
+)
 from importers.acevo_importer import ACEVOImporter
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
@@ -183,13 +192,14 @@ async def lifespan(app: FastAPI):
         synth = create_synthetic_session()
         storage.save_session(synth)
 
-    # Auto-import ALL telemetry files from every supported simulator
-    imported_sources = _already_imported_source_files()
-    results = _auto_import_all(imported_sources)
-    total = sum(results.values())
-    if total:
-        parts = ", ".join(f"{v} {k}" for k, v in results.items() if v)
-        logger.info("Auto-import complete: %d new sessions (%s)", total, parts)
+    # Auto-import ALL telemetry files from every supported simulator unless skipped in tests
+    if not os.environ.get("IDORACING_SKIP_AUTO_IMPORT"):
+        imported_sources = _already_imported_source_files()
+        results = _auto_import_all(imported_sources)
+        total = sum(results.values())
+        if total:
+            parts = ", ".join(f"{v} {k}" for k, v in results.items() if v)
+            logger.info("Auto-import complete: %d new sessions (%s)", total, parts)
     yield
 
 
@@ -251,6 +261,10 @@ class CornerDTO(BaseModel):
     delta_time: float
     braking_point_delta: float
     throttle_pickup_delta: float
+    ref_brake_point: float | None = None
+    comp_brake_point: float | None = None
+    ref_throttle_point: float | None = None
+    comp_throttle_point: float | None = None
     diagnosis: str
     severity: str
     trail_braking_eval: str | None
@@ -275,6 +289,16 @@ class CornerDTO(BaseModel):
     steer_to_g: float | None = None
     kerb_strike_detected: bool = False
     damping_advice: str | None = None
+    v_min_ideal: float | None = None
+    v_exit_ideal: float | None = None
+    ideal_brake_point: float | None = None
+    ideal_throttle_point: float | None = None
+    ideal_trail_pct: float | None = None
+    ref_trail_pct: float | None = None
+    comp_trail_pct: float | None = None
+    ideal_time_gain: float | None = None
+    both_laps_fault: bool = False
+    both_laps_fault_reason: str | None = None
 
 
 class ComparisonResponse(BaseModel):
@@ -313,7 +337,15 @@ class ComparisonResponse(BaseModel):
     ref_sectors: dict[str, float]
     comp_sectors: dict[str, float]
     corners: list[CornerDTO]
-    telemetry_source: Literal["recorded", "synthetic"]
+    telemetry_source: Literal["recorded", "synthetic", "none"]
+    has_telemetry: bool = True
+    is_demo: bool = False
+    optimal_lap_time: float | None = None
+    ideal_lap_time: float | None = None
+    ideal_potential_gain: float | None = None
+    ideal_speed: list[float] = []
+    ideal_brake: list[float] = []
+    ideal_throttle: list[float] = []
 
 
 class CarSetupDTO(BaseModel):
@@ -439,6 +471,7 @@ def list_sessions():
 class SessionGroupDTO(BaseModel):
     simulator: str
     track: str
+    cars: list[str] = []
     sessions: list[dict[str, Any]]
     total_laps: int
     best_lap_time: float
@@ -446,22 +479,26 @@ class SessionGroupDTO(BaseModel):
 
 @app.get("/api/session-groups", response_model=list[SessionGroupDTO])
 def list_session_groups():
-    """Group sessions by (simulator, track) so the UI can offer cross-session comparison."""
+    """Group sessions by (simulator, canonical track) with canonical car names so the UI can offer cross-session comparison."""
     sessions = storage.list_sessions()
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for s in sessions:
         sim = s.simulator or "Unknown"
-        key = (sim, s.track)
+        norm_track = normalize_track_name(s.track)
+        norm_car = normalize_car_name(s.car)
+        key = (sim, norm_track)
         groups.setdefault(key, []).append(
             {
                 "session_id": s.session_id,
-                "car": s.car,
-                "track": s.track,
+                "car": norm_car,
+                "track": norm_track,
                 "date": s.date.isoformat() if hasattr(s.date, "isoformat") else str(s.date),
                 "best_lap_time": s.best_lap_time,
                 "lap_count": s.lap_count,
                 "simulator": s.simulator,
                 "source_file": getattr(s, "source_file", None),
+                "has_telemetry": getattr(s, "has_telemetry", True),
+                "is_demo": getattr(s, "is_demo", False),
                 "laps": storage.get_lap_summaries(s.session_id),
             }
         )
@@ -471,10 +508,12 @@ def list_session_groups():
         sess_list.sort(key=lambda x: x["date"], reverse=True)
         total_laps = sum(s["lap_count"] for s in sess_list)
         best = min((s["best_lap_time"] for s in sess_list if s["best_lap_time"] > 0), default=0.0)
+        cars = sorted({s["car"] for s in sess_list if s.get("car")})
         result.append(
             SessionGroupDTO(
                 simulator=sim,
                 track=track,
+                cars=cars,
                 sessions=sess_list,
                 total_laps=total_laps,
                 best_lap_time=best,
@@ -499,12 +538,15 @@ def generate_demo_session():
 
 
 def _load_session(session_id: str | None) -> Session:
-    """The requested session, or the most recent one when no id is given."""
+    """The requested session, or the most recent one (preferring recorded 50Hz sessions) when no id is given."""
     if not session_id:
         sessions = storage.list_sessions()
         if not sessions:
             raise HTTPException(status_code=404, detail="No telemetry sessions found")
-        session_id = sessions[0].session_id
+        recorded = [s for s in sessions if s.has_telemetry and not s.is_demo]
+        with_telem = [s for s in sessions if s.has_telemetry]
+        chosen = recorded[0] if recorded else (with_telem[0] if with_telem else sessions[0])
+        session_id = chosen.session_id
     session = storage.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -515,7 +557,9 @@ def _find_lap(session: Session, lap_id: str) -> Lap | None:
     return next((l for l in session.laps if lap_id in (f"Lap {l.lap_number}", str(l.lap_number))), None)
 
 
-def _severity(time_delta: float) -> str:
+def _severity(time_delta: float, both_laps_fault: bool = False) -> str:
+    if both_laps_fault:
+        return "warning"
     if time_delta < -0.05:
         return "success"
     if time_delta > 0.30:
@@ -544,8 +588,12 @@ def _corner_dto(c: CornerAnalysis) -> CornerDTO:
         delta_time=round(c.time_delta_corner, 3),
         braking_point_delta=round(c.brake_delta_dist or 0.0, 1),
         throttle_pickup_delta=round(c.throttle_delta_dist or 0.0, 1),
+        ref_brake_point=c.ref_brake_point,
+        comp_brake_point=c.comp_brake_point,
+        ref_throttle_point=c.ref_throttle_point,
+        comp_throttle_point=c.comp_throttle_point,
         diagnosis=c.diagnosis or "Trazada óptima en el segmento.",
-        severity=_severity(c.time_delta_corner),
+        severity=_severity(c.time_delta_corner, c.both_laps_fault),
         trail_braking_eval=c.trail_eval,
         trail_braking_code=c.trail_code,
         trail_braking_advice=c.trail_advice,
@@ -568,7 +616,30 @@ def _corner_dto(c: CornerAnalysis) -> CornerDTO:
         steer_to_g=c.steer_to_g,
         kerb_strike_detected=c.kerb_strike_detected,
         damping_advice=c.damping_advice,
+        v_min_ideal=c.v_min_ideal,
+        v_exit_ideal=c.v_exit_ideal,
+        ideal_brake_point=c.ideal_brake_point,
+        ideal_throttle_point=c.ideal_throttle_point,
+        ideal_trail_pct=c.ideal_trail_pct,
+        ref_trail_pct=c.ref_trail_pct,
+        comp_trail_pct=c.comp_trail_pct,
+        ideal_time_gain=c.ideal_time_gain,
+        both_laps_fault=c.both_laps_fault,
+        both_laps_fault_reason=c.both_laps_fault_reason,
     )
+
+
+def _lap_has_valid_telemetry(session: Session, lap: Lap) -> bool:
+    """
+    A lap has usable 50Hz telemetry ONLY if:
+    1) The session is the explicit Demo Valencia (`synth_*`), OR
+    2) The lap is NOT synthetic and contains recorded speed/distance channels.
+    Never invent or accept synthetic traces for real sessions!
+    """
+    is_demo_sess = session.session_id.startswith("synth_")
+    if not is_demo_sess and lap.synthetic:
+        return False
+    return lap.has_telemetry
 
 
 @app.get("/api/comparison", response_model=ComparisonResponse)
@@ -580,12 +651,13 @@ def get_lap_comparison(
     comp_session_id: str | None = Query(None),
 ):
     # When cross-session comparison is requested, load each lap from its own session.
+    # NEVER call ensure_session_telemetry on real sessions (Bloque 2 honesty rule).
     if ref_session_id or comp_session_id:
-        ref_session = ensure_session_telemetry(_load_session(ref_session_id or session_id))
-        comp_session = ensure_session_telemetry(_load_session(comp_session_id or session_id))
+        ref_session = _load_session(ref_session_id or session_id)
+        comp_session = _load_session(comp_session_id or session_id)
 
         # Both sessions must be on the same track for a meaningful comparison.
-        if ref_session.track != comp_session.track:
+        if normalize_track_name(ref_session.track) != normalize_track_name(comp_session.track):
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot compare laps from different tracks: {ref_session.track} vs {comp_session.track}",
@@ -598,14 +670,16 @@ def get_lap_comparison(
 
             def _has_enough_data(lap: Lap) -> bool:
                 t = lap.telemetry or {}
-                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0 and lap.lap_time <= 150.0
 
             if not ref_lap:
                 candidates = [l for l in ref_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
                 if not candidates:
                     candidates = [l for l in ref_session.laps if l.lap_time > 0 and _has_enough_data(l)]
                 if not candidates:
-                    candidates = [l for l in ref_session.laps if l.lap_time > 0]
+                    candidates = [l for l in ref_session.laps if 0 < l.lap_time <= 150.0] or [
+                        l for l in ref_session.laps if l.lap_time > 0
+                    ]
                 if candidates:
                     ref_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
             if not comp_lap:
@@ -613,7 +687,9 @@ def get_lap_comparison(
                 if not candidates:
                     candidates = [l for l in comp_session.laps if l.lap_time > 0 and _has_enough_data(l)]
                 if not candidates:
-                    candidates = [l for l in comp_session.laps if l.lap_time > 0]
+                    candidates = [l for l in comp_session.laps if 0 < l.lap_time <= 150.0] or [
+                        l for l in comp_session.laps if l.lap_time > 0
+                    ]
                 if candidates:
                     comp_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
 
@@ -621,41 +697,102 @@ def get_lap_comparison(
             raise HTTPException(status_code=404, detail="Could not find laps in the selected sessions")
 
         matched_session = ref_session  # for track name and map generation
-        ref_car = ref_session.car
-        comp_car = comp_session.car
+        ref_car = normalize_car_name(ref_session.car)
+        comp_car = normalize_car_name(comp_session.car)
         ref_date = ref_session.date
         comp_date = comp_session.date
     else:
-        matched_session = ensure_session_telemetry(_load_session(session_id))
+        matched_session = _load_session(session_id)
         ref_lap = _find_lap(matched_session, ref_lap_id) if ref_lap_id else None
         comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
 
         if not ref_lap or not comp_lap:
-            # Prefer valid laps with enough samples; fall back to any lap with a
-            # minimum amount of data so a 23-sample partial lap is never picked.
+            # Prefer valid flying laps (<= 150s) with enough samples so out-laps (> 2:30) and partial laps are avoided.
             def _has_enough_data(lap: Lap) -> bool:
                 t = lap.telemetry or {}
-                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0
+                return len(t.get("speed", [])) >= 100 and 5.0 < lap.lap_time <= 150.0
 
             candidates = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
             if not candidates:
                 candidates = [l for l in matched_session.laps if l.lap_time > 0 and _has_enough_data(l)]
             if not candidates:
-                candidates = [l for l in matched_session.laps if l.lap_time > 0]
+                candidates = [l for l in matched_session.laps if 0 < l.lap_time <= 150.0] or [
+                    l for l in matched_session.laps if l.lap_time > 0
+                ]
             ranked = sorted(candidates, key=lambda x: x.lap_time)
             if not ranked:
                 raise HTTPException(status_code=404, detail="Session has no laps")
             ref_lap = ranked[0]
             comp_lap = ranked[1] if len(ranked) > 1 else ranked[0]
 
-        ref_car = matched_session.car
-        comp_car = matched_session.car
+        ref_car = normalize_car_name(matched_session.car)
+        comp_car = normalize_car_name(matched_session.car)
         ref_date = matched_session.date
         comp_date = matched_session.date
         ref_session = matched_session
         comp_session = matched_session
 
-    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
+    canonical_track = normalize_track_name(matched_session.track)
+    ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
+    comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
+
+    detected_game = matched_session.simulator
+    if detected_game is None and "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower():
+        detected_game = "iRacing"
+
+    is_demo = matched_session.session_id.startswith("synth_")
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(comp_session, comp_lap)
+
+    if not has_telem:
+        # Honest "Sin Telemetría Grabada" response: zero invented charts or corner diagnoses.
+        return ComparisonResponse(
+            session_id=matched_session.session_id,
+            ref_lap_id=f"Lap {ref_lap.lap_number}",
+            comp_lap_id=f"Lap {comp_lap.lap_number}",
+            ref_lap_time=ref_lap.lap_time,
+            comp_lap_time=comp_lap.lap_time,
+            delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
+            track_name=canonical_track,
+            car_name=ref_car,
+            game_name=detected_game,
+            ref_session_id=ref_session.session_id if ref_session_id or comp_session_id else None,
+            comp_session_id=comp_session.session_id if ref_session_id or comp_session_id else None,
+            ref_car_name=ref_car,
+            comp_car_name=comp_car,
+            ref_date=ref_date.strftime("%d/%m/%Y %H:%M") if hasattr(ref_date, "strftime") else str(ref_date),
+            comp_date=comp_date.strftime("%d/%m/%Y %H:%M") if hasattr(comp_date, "strftime") else str(comp_date),
+            distance=[],
+            ref_speed=[],
+            comp_speed=[],
+            delta_speed=[],
+            delta_time=[],
+            ref_throttle=[],
+            comp_throttle=[],
+            ref_brake=[],
+            comp_brake=[],
+            ref_gear=[],
+            comp_gear=[],
+            track_x=[],
+            track_y=[],
+            ref_x=None,
+            ref_y=None,
+            comp_x=None,
+            comp_y=None,
+            ref_sectors=ref_sectors,
+            comp_sectors=comp_sectors,
+            corners=[],
+            telemetry_source="none",
+            has_telemetry=False,
+            is_demo=False,
+            optimal_lap_time=min(ref_lap.lap_time, comp_lap.lap_time),
+            ideal_lap_time=None,
+            ideal_potential_gain=None,
+            ideal_speed=[],
+            ideal_brake=[],
+            ideal_throttle=[],
+        )
+
+    comparison = compare_laps(ref_lap, comp_lap, track_name=canonical_track)
     aligned = align_laps_by_distance(ref_lap.telemetry or {}, comp_lap.telemetry or {}, step_m=2.0)
 
     # Build telemetry arrays
@@ -671,16 +808,21 @@ def get_lap_comparison(
     ref_gr = [int(g) for g in aligned["ref_gear"].tolist()]
     comp_gr = [int(g) for g in aligned["comp_gear"].tolist()]
 
-    track_x, track_y = generate_track_coordinates(matched_session.track, aligned["distance"], aligned)
+    track_x, track_y = generate_track_coordinates(canonical_track, aligned["distance"], aligned)
 
     corners_dto = [_corner_dto(c) for c in comparison.corners]
+    ideal_ghost = compute_ideal_ghost_telemetry(aligned, comparison.corners)
 
-    ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
-    comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
+    # Optimal combined lap (Rolling Best of P1 & P2 corners) + Physical Ideal Potential
+    comp_wins_sum = sum(abs(c.time_delta_corner) for c in comparison.corners if c.time_delta_corner < -0.01)
+    ref_wins_sum = sum(abs(c.time_delta_corner) for c in comparison.corners if c.time_delta_corner > 0.01)
+    if ref_lap.lap_time <= comp_lap.lap_time:
+        optimal_lap_time = round(max(10.0, ref_lap.lap_time - comp_wins_sum), 3)
+    else:
+        optimal_lap_time = round(max(10.0, comp_lap.lap_time - ref_wins_sum), 3)
 
-    detected_game = matched_session.simulator
-    if detected_game is None and "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower():
-        detected_game = "iRacing"
+    ideal_potential_gain = round(sum(c.ideal_time_gain or 0.06 for c in comparison.corners), 3)
+    ideal_lap_time = round(max(10.0, comp_lap.lap_time - ideal_potential_gain), 3)
 
     return ComparisonResponse(
         session_id=matched_session.session_id,
@@ -689,7 +831,7 @@ def get_lap_comparison(
         ref_lap_time=ref_lap.lap_time,
         comp_lap_time=comp_lap.lap_time,
         delta_time_total=round(comp_lap.lap_time - ref_lap.lap_time, 3),
-        track_name=matched_session.track,
+        track_name=canonical_track,
         car_name=ref_car,
         game_name=detected_game,
         ref_session_id=ref_session.session_id if ref_session_id or comp_session_id else None,
@@ -718,7 +860,15 @@ def get_lap_comparison(
         ref_sectors=ref_sectors,
         comp_sectors=comp_sectors,
         corners=corners_dto,
-        telemetry_source="synthetic" if (ref_lap.synthetic or comp_lap.synthetic) else "recorded",
+        telemetry_source="synthetic" if is_demo else "recorded",
+        has_telemetry=True,
+        is_demo=is_demo,
+        optimal_lap_time=optimal_lap_time,
+        ideal_lap_time=ideal_lap_time,
+        ideal_potential_gain=ideal_potential_gain,
+        ideal_speed=ideal_ghost["ideal_speed"],
+        ideal_brake=ideal_ghost["ideal_brake"],
+        ideal_throttle=ideal_ghost["ideal_throttle"],
     )
 
 
@@ -880,18 +1030,21 @@ class SetupAdviceRequest(BaseModel):
 @app.post("/api/setup-advice", response_model=SetupAdviceReport)
 def get_setup_advice(req: SetupAdviceRequest):
     """Generate structured setup recommendations from a lap comparison."""
-    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    matched_session = _load_session(req.session_id)
     ref_lap = _find_lap(matched_session, req.ref_lap_id)
     comp_lap = _find_lap(matched_session, req.comp_lap_id)
     if not ref_lap or not comp_lap:
         raise HTTPException(status_code=404, detail="Laps not found for setup advice")
 
+    has_telem = _lap_has_valid_telemetry(matched_session, ref_lap) and _lap_has_valid_telemetry(
+        matched_session, comp_lap
+    )
     comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     return generate_setup_advice(
         comparison,
-        car=matched_session.car,
-        track=matched_session.track,
-        synthetic=ref_lap.synthetic or comp_lap.synthetic,
+        car=normalize_car_name(matched_session.car),
+        track=normalize_track_name(matched_session.track),
+        synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
     )
 
 
@@ -1031,18 +1184,21 @@ def _fallback_review(report: SetupAdviceReport, lang: str) -> str:
 @app.post("/api/setup-advice/review", response_model=SetupAdviceReview)
 def get_setup_advice_review(req: SetupAdviceReviewRequest):
     """Generate structured setup advice and enrich it with Pep's natural-language review."""
-    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    matched_session = _load_session(req.session_id)
     ref_lap = _find_lap(matched_session, req.ref_lap_id)
     comp_lap = _find_lap(matched_session, req.comp_lap_id)
     if not ref_lap or not comp_lap:
         raise HTTPException(status_code=404, detail="Laps not found for setup advice review")
 
+    has_telem = _lap_has_valid_telemetry(matched_session, ref_lap) and _lap_has_valid_telemetry(
+        matched_session, comp_lap
+    )
     comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     report = generate_setup_advice(
         comparison,
-        car=matched_session.car,
-        track=matched_session.track,
-        synthetic=ref_lap.synthetic or comp_lap.synthetic,
+        car=normalize_car_name(matched_session.car),
+        track=normalize_track_name(matched_session.track),
+        synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
     )
 
     lang = req.lang or "es"
@@ -1077,7 +1233,7 @@ def get_setup_advice_review(req: SetupAdviceReviewRequest):
 
 @app.post("/api/coach/report", response_model=CoachReport)
 def generate_coach_report(req: AIAdviceRequest):
-    matched_session = ensure_session_telemetry(_load_session(req.session_id))
+    matched_session = _load_session(req.session_id)
     ref_lap = _find_lap(matched_session, req.ref_lap_id)
     comp_lap = _find_lap(matched_session, req.comp_lap_id)
     if not ref_lap or not comp_lap:
@@ -1088,12 +1244,15 @@ def generate_coach_report(req: AIAdviceRequest):
         if cached:
             return cached
 
+    has_telem = _lap_has_valid_telemetry(matched_session, ref_lap) and _lap_has_valid_telemetry(
+        matched_session, comp_lap
+    )
     comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
     report = advisor.generate_report(
         comparison,
-        car=matched_session.car,
-        track=matched_session.track,
-        synthetic=ref_lap.synthetic or comp_lap.synthetic,
+        car=normalize_car_name(matched_session.car),
+        track=normalize_track_name(matched_session.track),
+        synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
     )
     storage.save_coach_report(matched_session.session_id, ref_lap.lap_number, comp_lap.lap_number, report)
     return report
@@ -1285,6 +1444,18 @@ def autodiscover_files():
         "ac1_path": AC1_MOTEC_DIR,
         "ac1_found": len(ac1_files),
         "ac1_files": ac1_files,
+    }
+
+
+@app.post("/api/autodiscover/rescan")
+def rescan_simulator_folders():
+    """Rescan Steam / MoTeC / Recorder telemetry folders and import any newly recorded sessions."""
+    imported_sources = _already_imported_source_files()
+    results = _auto_import_all(imported_sources)
+    return {
+        "status": "ok",
+        "imported": sum(results.values()),
+        "details": results,
     }
 
 

@@ -41,7 +41,9 @@ class CoachAdvisor:
 
         metrics = _metrics(comparison, sector_str, primary)
         facts = _facts(comparison, primary, synthetic)
-        hypotheses, exercises = _hypotheses_and_exercises(primary)
+        hypotheses, exercises = _hypotheses_and_exercises(
+            primary, ref_lap=comparison.reference_lap, comp_lap=comparison.comparison_lap
+        )
         verification_indicator = _verification_indicator(comparison, primary)
 
         llm_report = None
@@ -110,53 +112,70 @@ def _metrics(comparison: LapComparison, sector_str: str, primary: CornerAnalysis
 def _facts(comparison: LapComparison, primary: CornerAnalysis | None, synthetic: bool) -> list[str]:
     side = "más lenta" if comparison.time_difference > 0 else "más rápida"
     facts = [
-        f"La vuelta analizada (Vuelta {comparison.comparison_lap}) es {abs(comparison.time_difference):.3f}s {side} "
-        f"que la vuelta de referencia (Vuelta {comparison.reference_lap})."
+        f"La vuelta comparada P2 (V{comparison.comparison_lap}) es {abs(comparison.time_difference):.3f}s {side} "
+        f"que la vuelta de referencia P1 (V{comparison.reference_lap})."
     ]
     for s_name, s_diff in comparison.sector_differences.items():
         sign = "+" if s_diff > 0 else ""
-        facts.append(f"Diferencia en {s_name.replace('sector', 'Sector ')}: {sign}{s_diff:.3f}s.")
-    if primary:
+        facts.append(f"Diferencia en {s_name.replace('sector', 'Sector ')} (P2 vs P1): {sign}{s_diff:.3f}s.")
+    if primary and not synthetic:
         facts.append(
             f"Mayor pérdida focalizada en {primary.corner_name} (Curva {primary.corner_number}): "
-            f"+{primary.time_delta_corner:.3f}s perdidos en el tramo."
+            f"+{primary.time_delta_corner:.3f}s perdidos en P2 (V{comparison.comparison_lap}) frente a P1 (V{comparison.reference_lap}) "
+            f"(👻 Potencial Ideal: -{primary.ideal_time_gain or 0.15:.3f}s)."
         )
-    if synthetic:
+    if synthetic or not comparison.corners:
         facts.append(
-            "Estas vueltas solo incluyen tiempos: las trazas y el análisis por curva son una simulación, no datos medidos."
+            "⚠️ Estas vueltas solo contienen tiempos cronometrados (sin canales de telemetría a 50Hz). "
+            "Activa la exportación de telemetría (.ld / .csv) en tu simulador para obtener el diagnóstico real por curva."
         )
     return facts
 
 
-def _hypotheses_and_exercises(primary: CornerAnalysis | None) -> tuple[list[str], list[str]]:
+def _hypotheses_and_exercises(
+    primary: CornerAnalysis | None,
+    ref_lap: str = "1",
+    comp_lap: str = "2",
+) -> tuple[list[str], list[str]]:
     if primary is None:
-        return [], ["Mantener la consistencia actual en puntos de frenada y ápices."]
+        return [
+            "Sesión sin canales de telemetría a 50Hz grabados: solo disponemos de los tiempos cronometrados de vuelta y sectores."
+        ], [
+            "Activa la grabación de telemetría MoTeC (.ld) o CSV en el simulador para analizar puntos de frenada, trail braking y trazada GPS sin inventar datos."
+        ]
     name, number = primary.corner_name, primary.corner_number
+    p1 = f"P1 (V{ref_lap})"
+    p2 = f"P2 (V{comp_lap})"
+    if primary.both_laps_fault and primary.both_laps_fault_reason:
+        return [primary.both_laps_fault_reason], [
+            f"Curva {number} ({name}): En tanto {p1} como {p2}, mantén presión regresiva de freno (~{primary.ideal_trail_pct or 50:.0f}% -> 0%) "
+            f"hasta el vértice siguiendo al 👻 Fantasma Ideal para ganar -{primary.ideal_time_gain or 0.20:.3f}s."
+        ]
     if primary.brake_delta_dist and primary.brake_delta_dist < -15.0:
         return [
-            f"En {name}, el piloto inicia la frenada {abs(primary.brake_delta_dist):.1f}m antes "
-            f"de la referencia. Esto provoca una reducción excesiva de velocidad antes del vértice "
-            f"({primary.comp_min_speed:.1f} km/h vs {primary.ref_min_speed:.1f} km/h de la referencia)."
+            f"En {name}, en {p2} inicias la frenada {abs(primary.brake_delta_dist):.1f}m antes "
+            f"que en {p1}. Esto provoca una reducción excesiva de velocidad antes del vértice "
+            f"({primary.comp_min_speed:.1f} km/h en {p2} vs {primary.ref_min_speed:.1f} km/h en {p1})."
         ], [
-            f"Curva {number} ({name}): Retrasar la referencia de frenada "
-            f"progresivamente 10-15 metros, manteniendo mayor presión inicial de freno y soltando progresivamente (trail braking) "
+            f"Curva {number} ({name}): En {p2}, retrasa la referencia de frenada "
+            f"progresivamente 10-15 metros hacia la marca de {p1}, soltando en regresión diagonal (trail braking) "
             f"para transportar más velocidad hasta el ápice."
         ]
     if primary.throttle_delta_dist and primary.throttle_delta_dist > 15.0:
         return [
-            f"En {name}, la velocidad mínima es aceptable ({primary.comp_min_speed:.1f} km/h), "
-            f"pero la aplicación del acelerador se demora {primary.throttle_delta_dist:.1f}m respecto a la referencia, "
-            f"restando velocidad en toda la recta o tramo posterior."
+            f"En {name}, la velocidad mínima en {p2} es {primary.comp_min_speed:.1f} km/h, "
+            f"pero la aplicación del acelerador se demora {primary.throttle_delta_dist:.1f}m respecto a {p1}, "
+            f"restando velocidad en toda la recta posterior."
         ], [
-            f"Curva {number} ({name}): Abrir dirección antes en la salida "
-            f"para poder aplicar el 50-70% de acelerador antes del piano de salida sin desestabilizar el eje trasero."
+            f"Curva {number} ({name}): En {p2}, abre dirección antes en la salida "
+            f"para iniciar la rampa progresiva de acelerador junto a {p1} y el 👻 Fantasma Ideal."
         ]
     return [
-        f"Diferencia de trazada y velocidad de paso en {name}: la velocidad mínima en vértice "
-        f"es {primary.speed_delta_min:.1f} km/h inferior a la referencia."
+        f"Diferencia de trazada y velocidad de paso en {name}: la velocidad mínima en vértice en {p2} "
+        f"es {primary.speed_delta_min:.1f} km/h respecto a {p1} ({primary.comp_min_speed:.1f} vs {primary.ref_min_speed:.1f} km/h)."
     ], [
-        f"Curva {number} ({name}): Centrarse en la velocidad mínima en el ápice, "
-        f"apuntando a aproximarse a {primary.ref_min_speed:.1f} km/h."
+        f"Curva {number} ({name}): En {p2}, apunta a alcanzar los {primary.ref_min_speed:.1f} km/h de {p1} "
+        f"(y los {primary.v_min_ideal or primary.ref_min_speed + 2.0:.1f} km/h del 👻 Fantasma Ideal) en el vértice."
     ]
 
 
@@ -202,9 +221,9 @@ def _llm_prompt(comparison: LapComparison, car: str, track: str, sector_str: str
 
 
 def _confidence_level(comparison: LapComparison, synthetic: bool) -> str:
-    if synthetic:
+    if synthetic or not comparison.corners:
         return "Baja"
-    return "Alta" if comparison.corners else "Media"
+    return "Alta"
 
 
 def _rules_report(
@@ -223,11 +242,13 @@ def _rules_report(
         if comparison.sector_differences
         else "No disponible"
     )
+    p1 = f"P1 (V{comparison.reference_lap})"
+    p2 = f"P2 (V{comparison.comparison_lap})"
     report = f"""# Informe Técnico de Conducción — IdoRacing Analytics
 
 - **Vehículo:** {car}
 - **Circuito:** {track}
-- **Comparativa:** Vuelta {comparison.comparison_lap} frente a Vuelta {comparison.reference_lap} (Referencia)
+- **Comparativa:** {p2} frente a {p1} (Referencia)
 - **Diferencia de tiempo:** {comparison.time_difference:+.3f}s
 
 ---
@@ -236,7 +257,7 @@ def _rules_report(
 {chr(10).join(f"- {fact}" for fact in facts)}
 
 ### 2. Datos y métricas que sustentan la conclusión
-- **Diferencia total de vuelta:** {comparison.time_difference:+.3f}s
+- **Diferencia total de vuelta ({p2} vs {p1}):** {comparison.time_difference:+.3f}s
 - **Desglose por sectores:** {sectors}
 """
     if loss_corners:
@@ -244,8 +265,9 @@ def _rules_report(
         for c in loss_corners[:3]:
             b_info = f", punto de frenada {c.brake_delta_dist:+.1f}m" if c.brake_delta_dist else ""
             report += (
-                f"- **{c.corner_name} (T{c.corner_number}):** Pérdida de **{c.time_delta_corner:.3f}s**. "
-                f"Vértice: {c.comp_min_speed:.1f} km/h frente a {c.ref_min_speed:.1f} km/h ({c.speed_delta_min:+.1f} km/h){b_info}.\n"
+                f"- **{c.corner_name} (T{c.corner_number}):** Pérdida de **{c.time_delta_corner:.3f}s** en {p2} vs {p1} "
+                f"(👻 Potencial Ideal: -{c.ideal_time_gain or 0.15:.3f}s). "
+                f"Vértice: {c.comp_min_speed:.1f} km/h ({p2}) frente a {c.ref_min_speed:.1f} km/h ({p1}) ({c.speed_delta_min:+.1f} km/h){b_info}.\n"
                 f"  *Diagnóstico técnico:* {c.diagnosis}\n"
             )
     report += f"""
@@ -258,5 +280,7 @@ def _rules_report(
 ### 5. Indicador numérico de comprobación y Confianza
 - **Indicador de validación en telemetría:** {verification_indicator}
 - **Nivel de confianza del análisis:** {confidence}
+
+*— Pep · Ingeniero de Pista*
 """
     return report

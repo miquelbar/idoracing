@@ -53,7 +53,10 @@ export const UnifiedTrackInspector: React.FC<UnifiedTrackInspectorProps> = ({
     () => (selectedCorner ? computePhaseMetrics(selectedCorner, comparison) : null),
     [selectedCorner, comparison]
   );
-  const actionPlan = useMemo(() => (phaseMetrics ? buildActionPlan(phaseMetrics, lang) : null), [phaseMetrics, lang]);
+  const actionPlan = useMemo(
+    () => (phaseMetrics ? buildActionPlan(phaseMetrics, lang, selectedCorner?.delta_time || 0) : null),
+    [phaseMetrics, lang, selectedCorner]
+  );
 
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full gap-2 overflow-hidden">

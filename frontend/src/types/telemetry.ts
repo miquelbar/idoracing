@@ -25,6 +25,7 @@ export interface ChatMessage {
 
 export type TrailBrakingCode =
   | 'early_release'
+  | 'both_fault_early_release'
   | 'over_braking'
   | 'inconsistent'
   | 'effective'
@@ -32,9 +33,9 @@ export type TrailBrakingCode =
   | 'neutral'
   | 'no_braking';
 
-export type BalanceCode = 'neutral' | 'understeer' | 'traction' | 'early_braking' | 'momentum_loss' | 'stable';
+export type BalanceCode = 'neutral' | 'understeer' | 'traction' | 'early_braking' | 'momentum_loss' | 'stable' | 'both_laps_fault';
 
-export type RacingLineCode = 'optimal' | 'early_apex' | 'late_apex' | 'missed_apex' | 'pinched_exit' | 'suboptimal';
+export type RacingLineCode = 'optimal' | 'early_apex' | 'late_apex' | 'missed_apex' | 'pinched_exit' | 'suboptimal' | 'both_laps_fault';
 
 export interface CornerDTO {
   corner_number: number;
@@ -54,6 +55,10 @@ export interface CornerDTO {
   delta_time: number;
   braking_point_delta: number;
   throttle_pickup_delta: number;
+  ref_brake_point?: number | null;
+  comp_brake_point?: number | null;
+  ref_throttle_point?: number | null;
+  comp_throttle_point?: number | null;
   diagnosis: string;
   severity: 'info' | 'warning' | 'critical' | 'success';
   trail_braking_eval?: string;
@@ -76,6 +81,16 @@ export interface CornerDTO {
   steer_to_g?: number | null;
   kerb_strike_detected?: boolean;
   damping_advice?: string | null;
+  v_min_ideal?: number | null;
+  v_exit_ideal?: number | null;
+  ideal_brake_point?: number | null;
+  ideal_throttle_point?: number | null;
+  ideal_trail_pct?: number | null;
+  ref_trail_pct?: number | null;
+  comp_trail_pct?: number | null;
+  ideal_time_gain?: number | null;
+  both_laps_fault?: boolean;
+  both_laps_fault_reason?: string | null;
   racing_line_advice?: string;
   racing_line_svg?: {
     corner_number: number;
@@ -129,7 +144,15 @@ export interface ComparisonResponse {
   ref_sectors: Record<string, number>;
   comp_sectors: Record<string, number>;
   corners: CornerDTO[];
-  telemetry_source: 'recorded' | 'synthetic';
+  telemetry_source: 'recorded' | 'synthetic' | 'none';
+  has_telemetry?: boolean;
+  is_demo?: boolean;
+  optimal_lap_time?: number | null;
+  ideal_lap_time?: number | null;
+  ideal_potential_gain?: number | null;
+  ideal_speed?: number[];
+  ideal_brake?: number[];
+  ideal_throttle?: number[];
 }
 
 export interface CoachReport {
@@ -150,6 +173,8 @@ export interface LapSummary {
   sector_times?: number[];
   is_valid: boolean;
   synthetic?: boolean;
+  has_telemetry?: boolean;
+  is_outlap?: boolean;
 }
 
 export interface SessionDetail {
@@ -197,12 +222,17 @@ export interface SessionSummary {
   lap_count: number;
   laps?: LapSummary[];
   simulator?: string | null;
+  has_telemetry?: boolean;
+  is_demo?: boolean;
 }
 
 export interface SessionGroupLap {
   lap_number: number;
   lap_time: number;
+  sector_times?: number[];
   is_valid: boolean;
+  has_telemetry?: boolean;
+  is_outlap?: boolean;
 }
 
 export interface SessionGroupSession {
@@ -214,12 +244,15 @@ export interface SessionGroupSession {
   lap_count: number;
   simulator?: string | null;
   source_file?: string | null;
+  has_telemetry?: boolean;
+  is_demo?: boolean;
   laps: SessionGroupLap[];
 }
 
 export interface SessionGroup {
   simulator: string;
   track: string;
+  cars?: string[];
   sessions: SessionGroupSession[];
   total_laps: number;
   best_lap_time: number;
