@@ -925,10 +925,20 @@ def compute_ideal_ghost_telemetry(
             bell = np.exp(-0.5 * ((sub_d - apex_d) / sigma) ** 2)
             ideal_speed[c_mask] = ideal_speed[c_mask] + vmin_boost * bell
 
-        # Optimal Trail Braking envelope (100% peak -> smooth diagonal regression to 0% at apex)
+        # Optimal Trail Braking envelope (clean approach -> peak brake -> smooth diagonal regression to 0% at apex)
         if bp_d is not None and bp_d < apex_d:
+            # Clear any earlier braking artifacts from ref_br between the earliest braking point and bp_d
+            earliest_bp = min(
+                [p for p in (c.ref_brake_point, c.comp_brake_point, bp_d, c.start_dist) if p is not None],
+                default=bp_d,
+            )
+            pre_mask = (dist >= earliest_bp - 45.0) & (dist < bp_d - 6.0)
+            if np.any(pre_mask):
+                ideal_brake[pre_mask] = 0.0
+                ideal_throttle[pre_mask] = 1.0
+
             span = max(12.0, apex_d - bp_d)
-            peak_end_d = bp_d + 0.32 * span
+            peak_end_d = bp_d + 0.28 * span
             b_mask = (dist >= bp_d - 6.0) & (dist <= apex_d)
             if np.any(b_mask):
                 bd = dist[b_mask]
@@ -955,7 +965,7 @@ def compute_ideal_ghost_telemetry(
             ideal_brake[t_mask] = 0.0
             ramp = np.where(
                 td <= ramp_end_d,
-                0.12 + 0.88 * np.clip((td - apex_d) / max(6.0, ramp_end_d - apex_d), 0.0, 1.0),
+                0.15 + 0.85 * np.clip((td - apex_d) / max(6.0, ramp_end_d - apex_d), 0.0, 1.0),
                 1.0,
             )
             ideal_throttle[t_mask] = np.round(np.clip(ramp, 0.0, 1.0), 3)

@@ -118,10 +118,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     deltaFillPath,
     thrRefPath,
     thrCompPath,
+    thrCompFillPath,
     thrIdealPath,
+    thrIdealFillPath,
     brkRefPath,
     brkCompPath,
     brkIdealPath,
+    brkIdealFillPath,
     brkCompFillPath,
     gearRefPath,
     gearCompPath,
@@ -153,10 +156,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         deltaFillPath: '',
         thrRefPath: '',
         thrCompPath: '',
+        thrCompFillPath: '',
         thrIdealPath: '',
+        thrIdealFillPath: '',
         brkRefPath: '',
         brkCompPath: '',
         brkIdealPath: '',
+        brkIdealFillPath: '',
         brkCompFillPath: '',
         gearRefPath: '',
         gearCompPath: '',
@@ -225,16 +231,83 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     let dFill = '';
     let tR = '';
     let tC = '';
+    let tC_Fill = '';
     let tI = '';
+    let tI_Fill = '';
     let bR = '';
     let bC = '';
     let bI = '';
+    let bI_Fill = '';
     let bC_Fill = '';
     let gR = '';
     let gC = '';
 
     const yDeltaZero = toYDelta(0);
     const yPedalZero = toYPedal(0);
+
+    const activeCorners = selectedCorner ? [selectedCorner] : comparison.corners || [];
+
+    const evalIdealPedals = (d: number, idx: number): { brk: number; thr: number } => {
+      if (activeCorners.length === 0) {
+        return {
+          brk: idealBrk[idx] ?? refBrk[idx] ?? 0,
+          thr: idealThr[idx] ?? refThr[idx] ?? 0,
+        };
+      }
+      for (const c of activeCorners) {
+        const apexD = c.apex_distance ?? (c.start_distance + c.end_distance) / 2;
+        const bpD =
+          c.ideal_brake_point ??
+          (c.ref_brake_point != null || c.comp_brake_point != null
+            ? Math.max(c.ref_brake_point ?? c.start_distance, c.comp_brake_point ?? c.start_distance) + 6
+            : null);
+
+        // 1. Optimal Trail Braking wedge: [bpD - 6, apexD]
+        if (bpD != null && bpD < apexD && d >= bpD - 6 && d <= apexD) {
+          const span = Math.max(12, apexD - bpD);
+          const peakEnd = bpD + 0.28 * span;
+          let brk = 0;
+          if (d < bpD) {
+            brk = Math.max(0, Math.min(1, (d - (bpD - 6)) / 6));
+          } else if (d <= peakEnd) {
+            brk = 1.0;
+          } else {
+            brk = Math.max(0, Math.min(1, 1.0 - (d - peakEnd) / Math.max(4, apexD - peakEnd)));
+          }
+          return { brk, thr: 0 };
+        }
+
+        // 2. Optimal Exit Traction ramp: [apexD, holdEnd]
+        const rampEnd = Math.min(c.end_distance, apexD + Math.max(28, 0.58 * (c.end_distance - apexD)));
+        const holdEnd = Math.min(c.end_distance + 12, rampEnd + 22);
+        if (d >= apexD && d <= holdEnd) {
+          const thr =
+            d <= rampEnd
+              ? 0.15 + 0.85 * Math.max(0, Math.min(1, (d - apexD) / Math.max(6, rampEnd - apexD)))
+              : 1.0;
+          return { brk: 0, thr };
+        }
+      }
+      return { brk: 0, thr: 0 };
+    };
+
+    const appendPedalStroke = (
+      path: string,
+      x: string,
+      y: string,
+      val: number,
+      prevVal: number,
+      nextVal: number,
+      isFirst: boolean,
+    ): string => {
+      const active = val > 0.005 || prevVal > 0.005 || nextVal > 0.005;
+      if (!active) return path;
+      const continuing = !isFirst && (prevVal > 0.005 || val > 0.005);
+      if (path === '' || !continuing) {
+        return `${path}${path ? ' ' : ''}M ${x} ${y}`;
+      }
+      return `${path} L ${x} ${y}`;
+    };
 
     filteredIndices.forEach((idx, i) => {
       const d = dists[idx];
@@ -244,14 +317,26 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       const ySpC = toYSpeed(compSp[idx]).toFixed(1);
       const ySpI = toYSpeed(idealSp[idx] ?? Math.max(refSp[idx], compSp[idx])).toFixed(1);
       const yDt = toYDelta(deltaT[idx]).toFixed(1);
-      const yTr = toYPedal(refThr[idx]).toFixed(1);
-      const yTc = toYPedal(compThr[idx]).toFixed(1);
-      const yTi = toYPedal(idealThr[idx] ?? refThr[idx]).toFixed(1);
-      const yBr = toYPedal(refBrk[idx]).toFixed(1);
-      const yBc = toYPedal(compBrk[idx]).toFixed(1);
-      const yBi = toYPedal(idealBrk[idx] ?? refBrk[idx]).toFixed(1);
+
+      const valTr = refThr[idx] ?? 0;
+      const valTc = compThr[idx] ?? 0;
+      const valBr = refBrk[idx] ?? 0;
+      const valBc = compBrk[idx] ?? 0;
+
+      const prevIdx = i > 0 ? filteredIndices[i - 1] : idx;
+      const nextIdx = i < filteredIndices.length - 1 ? filteredIndices[i + 1] : idx;
+
+      const yTr = toYPedal(valTr).toFixed(1);
+      const yTc = toYPedal(valTc).toFixed(1);
+      const yBr = toYPedal(valBr).toFixed(1);
+      const yBc = toYPedal(valBc).toFixed(1);
       const yGr = toYGear(refGr[idx]).toFixed(1);
       const yGc = toYGear(compGr[idx]).toFixed(1);
+
+      tR = appendPedalStroke(tR, x, yTr, valTr, refThr[prevIdx] ?? 0, refThr[nextIdx] ?? 0, i === 0);
+      tC = appendPedalStroke(tC, x, yTc, valTc, compThr[prevIdx] ?? 0, compThr[nextIdx] ?? 0, i === 0);
+      bR = appendPedalStroke(bR, x, yBr, valBr, refBrk[prevIdx] ?? 0, refBrk[nextIdx] ?? 0, i === 0);
+      bC = appendPedalStroke(bC, x, yBc, valBc, compBrk[prevIdx] ?? 0, compBrk[nextIdx] ?? 0, i === 0);
 
       if (i === 0) {
         spR += `M ${x} ${ySpR}`;
@@ -259,12 +344,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         spI += `M ${x} ${ySpI}`;
         dLine += `M ${x} ${yDt}`;
         dFill += `M ${x} ${yDeltaZero} L ${x} ${yDt}`;
-        tR += `M ${x} ${yTr}`;
-        tC += `M ${x} ${yTc}`;
-        tI += `M ${x} ${yTi}`;
-        bR += `M ${x} ${yBr}`;
-        bC += `M ${x} ${yBc}`;
-        bI += `M ${x} ${yBi}`;
+        tC_Fill += `M ${x} ${yPedalZero} L ${x} ${yTc}`;
         bC_Fill += `M ${x} ${yPedalZero} L ${x} ${yBc}`;
         gR += `M ${x} ${yGr}`;
         gC += `M ${x} ${yGc}`;
@@ -274,22 +354,64 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         spI += ` L ${x} ${ySpI}`;
         dLine += ` L ${x} ${yDt}`;
         dFill += ` L ${x} ${yDt}`;
-        tR += ` L ${x} ${yTr}`;
-        tC += ` L ${x} ${yTc}`;
-        tI += ` L ${x} ${yTi}`;
-        bR += ` L ${x} ${yBr}`;
-        bC += ` L ${x} ${yBc}`;
-        bI += ` L ${x} ${yBi}`;
+        tC_Fill += ` L ${x} ${yTc}`;
         bC_Fill += ` L ${x} ${yBc}`;
         gR += ` L ${x} ${yGr}`;
         gC += ` L ${x} ${yGc}`;
       }
     });
 
-    // Close delta fill & brake fill
+    // Build clean per-corner Ideal Trail Braking wedges and Ideal Exit Throttle ramps (no vertical drop at holdEnd)
+    for (const c of activeCorners) {
+      const apexD = c.apex_distance ?? (c.start_distance + c.end_distance) / 2;
+      const bpD =
+        c.ideal_brake_point ??
+        (c.ref_brake_point != null || c.comp_brake_point != null
+          ? Math.max(c.ref_brake_point ?? c.start_distance, c.comp_brake_point ?? c.start_distance) + 6
+          : null);
+
+      if (bpD != null && bpD < apexD) {
+        const brkIdxs = filteredIndices.filter((idx) => dists[idx] >= bpD - 6 && dists[idx] <= apexD);
+        if (brkIdxs.length >= 2) {
+          const xFirst = toX(dists[brkIdxs[0]]).toFixed(1);
+          const xLast = toX(dists[brkIdxs[brkIdxs.length - 1]]).toFixed(1);
+          bI += `${bI ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
+          bI_Fill += `${bI_Fill ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
+          for (const idx of brkIdxs) {
+            const x = toX(dists[idx]).toFixed(1);
+            const y = toYPedal(evalIdealPedals(dists[idx], idx).brk).toFixed(1);
+            bI += ` L ${x} ${y}`;
+            bI_Fill += ` L ${x} ${y}`;
+          }
+          bI += ` L ${xLast} ${yPedalZero.toFixed(1)}`;
+          bI_Fill += ` L ${xLast} ${yPedalZero.toFixed(1)} Z`;
+        }
+      }
+
+      const rampEnd = Math.min(c.end_distance, apexD + Math.max(28, 0.58 * (c.end_distance - apexD)));
+      const holdEnd = Math.min(c.end_distance + 12, rampEnd + 22);
+      const thrIdxs = filteredIndices.filter((idx) => dists[idx] >= apexD && dists[idx] <= holdEnd);
+      if (thrIdxs.length >= 2) {
+        const xFirst = toX(dists[thrIdxs[0]]).toFixed(1);
+        const xLast = toX(dists[thrIdxs[thrIdxs.length - 1]]).toFixed(1);
+        tI += `${tI ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
+        tI_Fill += `${tI_Fill ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
+        for (const idx of thrIdxs) {
+          const x = toX(dists[idx]).toFixed(1);
+          const y = toYPedal(evalIdealPedals(dists[idx], idx).thr).toFixed(1);
+          tI += ` L ${x} ${y}`;
+          tI_Fill += ` L ${x} ${y}`;
+        }
+        // Close area fill down to baseline without drawing a vertical stroke drop at holdEnd
+        tI_Fill += ` L ${xLast} ${yPedalZero.toFixed(1)} Z`;
+      }
+    }
+
+    // Close area fills
     if (filteredIndices.length > 0) {
       const lastX = toX(dists[filteredIndices[filteredIndices.length - 1]]).toFixed(1);
       dFill += ` L ${lastX} ${yDeltaZero} Z`;
+      tC_Fill += ` L ${lastX} ${yPedalZero} Z`;
       bC_Fill += ` L ${lastX} ${yPedalZero} Z`;
     }
 
@@ -305,6 +427,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           closestIdx = i;
         }
       }
+      const idealAtHover = evalIdealPedals(dists[closestIdx], closestIdx);
       hData = {
         distance: dists[closestIdx],
         refSpeed: refSp[closestIdx],
@@ -314,10 +437,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         deltaTime: deltaT[closestIdx],
         refThr: toPct(refThr[closestIdx]),
         compThr: toPct(compThr[closestIdx]),
-        idealThr: toPct(idealThr[closestIdx] ?? refThr[closestIdx]),
+        idealThr: toPct(idealAtHover.thr),
         refBrk: toPct(refBrk[closestIdx]),
         compBrk: toPct(compBrk[closestIdx]),
-        idealBrk: toPct(idealBrk[closestIdx] ?? refBrk[closestIdx]),
+        idealBrk: toPct(idealAtHover.brk),
         refGear: refGr[closestIdx],
         compGear: compGr[closestIdx],
         x: toX(dists[closestIdx]),
@@ -332,10 +455,13 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       deltaFillPath: dFill,
       thrRefPath: tR,
       thrCompPath: tC,
+      thrCompFillPath: tC_Fill,
       thrIdealPath: tI,
+      thrIdealFillPath: tI_Fill,
       brkRefPath: bR,
       brkCompPath: bC,
       brkIdealPath: bI,
+      brkIdealFillPath: bI_Fill,
       brkCompFillPath: bC_Fill,
       gearRefPath: gR,
       gearCompPath: gC,
@@ -344,7 +470,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       maxSpeed: maxSpeedVal,
       maxDelta: maxDeltaVal,
     };
-  }, [comparison, filteredIndices, toX, hoverDistance, hSpeed, hDelta, hPedals, hGear]);
+  }, [comparison, selectedCorner, filteredIndices, toX, hoverDistance, hSpeed, hDelta, hPedals, hGear]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -459,7 +585,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               onClick={onToggleIdealGhost}
               className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition cursor-pointer ${
                 showIdealGhost
-                  ? 'bg-amber-500/20 border-amber-400/50 text-amber-200'
+                  ? 'bg-[#FFE600]/20 border-[#FFE600]/70 text-[#FFE600] shadow-sm'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
               }`}
               title={
@@ -469,7 +595,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               }
             >
               <svg width="14" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="14" y2="2" stroke="#F59E0B" strokeWidth="2.2" strokeDasharray="4,2" />
+                <line x1="0" y1="2" x2="14" y2="2" stroke="#FFE600" strokeWidth="2.5" strokeDasharray="4,2" />
               </svg>
               <span className="font-bold">👻 Ideal</span>
             </button>
@@ -535,33 +661,39 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               {t('pedals_ch')}
             </span>
             {!hoverData && (
-              <span className="hidden lg:flex items-center gap-2 text-[9px] text-gray-400 font-telemetry bg-black/40 px-2 py-0.5 rounded border border-white/5">
+              <span className="hidden lg:flex items-center gap-2.5 text-[9.5px] text-gray-300 font-telemetry bg-black/55 px-2.5 py-0.5 rounded border border-white/10">
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FF1801" strokeWidth="2" /></svg>
-                  <span className="text-red-400">Freno P2</span>
+                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FF1744" strokeWidth="2.8" /></svg>
+                  <span className="text-[#FF4D6D] font-bold">Freno P2</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FB923C" strokeWidth="1.8" strokeDasharray="2,2" /></svg>
-                  <span className="text-orange-400">Freno P1 (Puntos)</span>
+                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FF66C4" strokeWidth="2.2" strokeDasharray="3,2" /></svg>
+                  <span className="text-[#FF85D0] font-bold">Freno P1</span>
                 </span>
                 <span className="text-gray-600">|</span>
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00FF66" strokeWidth="2" /></svg>
-                  <span className="text-emerald-400">Gas P2</span>
+                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#00E676" strokeWidth="2.8" /></svg>
+                  <span className="text-[#00E676] font-bold">Gas P2</span>
                 </span>
                 <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#FACC15" strokeWidth="1.8" strokeDasharray="2,2" /></svg>
-                  <span className="text-yellow-400">Gas P1 (Puntos)</span>
+                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#00D4FF" strokeWidth="2.2" strokeDasharray="3,2" /></svg>
+                  <span className="text-[#38E2FF] font-bold">Gas P1</span>
+                </span>
+                <span className="text-gray-600">|</span>
+                <span className="flex items-center gap-1">
+                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FFE600" strokeWidth="2.6" strokeDasharray="4,2" /></svg>
+                  <span className="text-[#FFE600] font-extrabold">👻 Ideal (Freno & Gas)</span>
                 </span>
               </span>
             )}
           </div>
           {hoverData && (
-            <span className="text-[10px] font-telemetry text-gray-300 bg-black/60 px-2 py-0.5 rounded border border-white/5">
-              Gas: <strong className="text-gain">{Math.round(hoverData.compThr)}%</strong>{' '}
-              <span className="text-gray-500">(Ref: {Math.round(hoverData.refThr)}%)</span> • Freno:{' '}
-              <strong className="text-loss">{Math.round(hoverData.compBrk)}%</strong>{' '}
-              <span className="text-gray-500">(Ref: {Math.round(hoverData.refBrk)}%)</span>
+            <span className="text-[10px] font-telemetry text-gray-300 bg-black/75 px-2.5 py-0.5 rounded border border-white/10">
+              Gas: <strong className="text-[#00E676]">P2 {Math.round(hoverData.compThr)}%</strong>{' '}
+              <span className="text-[#38E2FF]">(P1 {Math.round(hoverData.refThr)}%)</span> • Freno:{' '}
+              <strong className="text-[#FF4D6D]">P2 {Math.round(hoverData.compBrk)}%</strong>{' '}
+              <span className="text-[#FF85D0]">(P1 {Math.round(hoverData.refBrk)}%)</span>{' '}
+              <span className="text-[#FFE600] font-bold">• 👻 Ideal: Freno {Math.round(hoverData.idealBrk)}% / Gas {Math.round(hoverData.idealThr)}%</span>
             </span>
           )}
         </div>
@@ -607,6 +739,25 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               <stop offset="50%" stopColor={COLORS.brand} stopOpacity="0.1" />
               <stop offset="100%" stopColor={COLORS.gain} stopOpacity="0.4" />
             </linearGradient>
+            <linearGradient id="brake-comp-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF1744" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#FF1744" stopOpacity="0.04" />
+            </linearGradient>
+            <linearGradient id="thr-comp-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#00E676" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#00E676" stopOpacity="0.02" />
+            </linearGradient>
+            <linearGradient id="ideal-brake-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FFE600" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#FFE600" stopOpacity="0.05" />
+            </linearGradient>
+            <linearGradient id="ideal-thr-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FFE600" stopOpacity="0.16" />
+              <stop offset="100%" stopColor="#FFE600" stopOpacity="0.02" />
+            </linearGradient>
+            <filter id="glow-ideal" x="-10%" y="-10%" width="120%" height="120%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#FFE600" floodOpacity="0.75" />
+            </filter>
           </defs>
 
           {/* Vertical Gridlines */}
@@ -649,16 +800,17 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={(laneHeaderH + hSpeed - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
             <text x={padLeft - 6} y={hSpeed - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
-            <path d={speedRefPath} fill="none" stroke={COLORS.brand} strokeWidth="2" strokeOpacity="0.85" />
-            <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.5" />
+            <path d={speedRefPath} fill="none" stroke="#00E5FF" strokeWidth="2" strokeDasharray="5,3" strokeOpacity="0.92" />
+            <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.6" />
             {showIdealGhost && speedIdealPath && (
               <path
                 d={speedIdealPath}
                 fill="none"
-                stroke="#F59E0B"
-                strokeWidth="2"
+                stroke="#FFE600"
+                strokeWidth="2.3"
                 strokeDasharray="6,3"
-                strokeOpacity="0.95"
+                filter="url(#glow-ideal)"
+                strokeOpacity="0.98"
               />
             )}
           </g>
@@ -695,34 +847,43 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={(laneHeaderH + hPedals - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
             <text x={padLeft - 6} y={hPedals - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
 
-            {/* Brake translucent fill under comp braking curve */}
-            <path d={brkCompFillPath} fill="rgba(255, 24, 1, 0.18)" />
+            {/* Area fills for Pedals: Throttle P2, Brake P2, and 👻 Ideal Ghost */}
+            <path d={thrCompFillPath} fill="url(#thr-comp-gradient)" />
+            <path d={brkCompFillPath} fill="url(#brake-comp-gradient)" />
+            {showIdealGhost && thrIdealFillPath && (
+              <path d={thrIdealFillPath} fill="url(#ideal-thr-gradient)" />
+            )}
+            {showIdealGhost && brkIdealFillPath && (
+              <path d={brkIdealFillPath} fill="url(#ideal-brake-gradient)" />
+            )}
 
-            {/* Throttle traces: Ref (dashed gold/yellow), Comp (solid neon green), & 👻 Ideal Ramp */}
-            <path d={thrRefPath} fill="none" stroke="#FACC15" strokeWidth="1.6" strokeDasharray="4,3" strokeOpacity="0.85" />
-            <path d={thrCompPath} fill="none" stroke={COLORS.gain} strokeWidth="2.2" />
+            {/* Throttle traces: Ref P1 (dashed electric cyan-blue #00D4FF), Comp P2 (solid emerald #00E676), & 👻 Ideal (#FFE600) */}
+            <path d={thrRefPath} fill="none" stroke="#00D4FF" strokeWidth="2.1" strokeDasharray="5,3" strokeOpacity="0.95" />
+            <path d={thrCompPath} fill="none" stroke="#00E676" strokeWidth="2.5" />
             {showIdealGhost && thrIdealPath && (
               <path
                 d={thrIdealPath}
                 fill="none"
-                stroke="#A3E635"
-                strokeWidth="1.8"
+                stroke="#FFE600"
+                strokeWidth="2.3"
                 strokeDasharray="6,3"
-                strokeOpacity="0.9"
+                filter="url(#glow-ideal)"
+                strokeOpacity="0.96"
               />
             )}
 
-            {/* Brake traces: Ref (dashed coral/orange), Comp (solid red), & 👻 Ideal Trail Braking Envelope */}
-            <path d={brkRefPath} fill="none" stroke="#FB923C" strokeWidth="1.6" strokeDasharray="4,3" strokeOpacity="0.9" />
-            <path d={brkCompPath} fill="none" stroke={COLORS.loss} strokeWidth="2.4" />
+            {/* Brake traces: Ref P1 (dashed hot pink/magenta #FF66C4), Comp P2 (solid crimson #FF1744), & 👻 Ideal Trail Braking (#FFE600) */}
+            <path d={brkRefPath} fill="none" stroke="#FF66C4" strokeWidth="2.2" strokeDasharray="5,3" strokeOpacity="0.95" />
+            <path d={brkCompPath} fill="none" stroke="#FF1744" strokeWidth="2.7" />
             {showIdealGhost && brkIdealPath && (
               <path
                 d={brkIdealPath}
                 fill="none"
-                stroke="#F59E0B"
-                strokeWidth="2.3"
+                stroke="#FFE600"
+                strokeWidth="2.7"
                 strokeDasharray="6,3"
-                strokeOpacity="0.98"
+                filter="url(#glow-ideal)"
+                strokeOpacity="1"
               />
             )}
           </g>
