@@ -22,6 +22,7 @@ type kunosAdapter struct {
 	gbuf     []byte
 	sbuf     []byte
 	lastID   int32
+	dist     distanceTracker
 }
 
 func newACAdapter() *kunosAdapter {
@@ -119,7 +120,9 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 	info := decodeStatic(a.sbuf)
 
 	a.lastID = p.PacketID
-	sample := p.toSample(g, info.TrackSplineLength)
+	x, y, ok := g.playerPosition()
+	lapDist := a.dist.step(x, y, ok, p.SpeedKmh, g.NormalizedCarPosition, info.TrackSplineLength, g.CompletedLaps+1, now)
+	sample := p.toSample(g, lapDist)
 	meta := info.toMetadata(a.Name(), a.SimPrefix())
 	return sample, meta, g.Status == statusLive, nil
 }

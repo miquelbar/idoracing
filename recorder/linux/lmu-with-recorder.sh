@@ -12,7 +12,13 @@ here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 recorder="${IDORACING_RECORDER:-$here/idoracing-recorder.exe}"
 delay="${IDORACING_RECORDER_DELAY:-10}"
 log="${IDORACING_RECORDER_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/idoracing-recorder.log}"
-game_exe="Le Mans Ultimate.exe"
+game_exe="Le Mans Ultimate.exe,start_protected_game.exe"
+
+# Optional local user environment overrides (e.g. SDL_GAMECONTROLLER_IGNORE_DEVICES)
+if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/idoracing/env" ]; then
+	# shellcheck disable=SC1090
+	. "${XDG_CONFIG_HOME:-$HOME/.config}/idoracing/env"
+fi
 
 proton=""
 rec_cmd=()

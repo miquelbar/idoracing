@@ -42,8 +42,6 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   reportAvailable = false,
   onOpenCarSetup,
   onOpenStint,
-  showIdealGhost = false,
-  onToggleIdealGhost,
 }) => {
   const { lang, t } = useLanguage();
   const isEn = lang === 'en';
@@ -64,9 +62,9 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
     Math.abs(deltaS1) >= 0.001 || Math.abs(deltaS2) >= 0.001 || Math.abs(deltaS3) >= 0.001;
 
   return (
-    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 text-xs font-telemetry shrink-0 shadow-sm z-30">
-      {/* Left: Context Ribbon ([Badge ACC] Track · [🔧 Car] | Vueltas | [Sesiones] | [Stint]) */}
-      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+    <div className="w-full bg-[#0B0E17]/95 border-b border-[#1E2638] px-3 sm:px-4 py-2 flex items-center justify-between gap-3 text-xs font-telemetry shrink-0 shadow-sm z-30 flex-wrap">
+      {/* Fila 1 (Izquierda — Identidad): Badge Sim + Circuito + Badge Coche + Meta-info */}
+      <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap shrink-0">
         {/* Game Pill */}
         <span
           className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase shrink-0 border ${badge.className}`}
@@ -85,13 +83,13 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
             <button
               onClick={onOpenCarSetup}
               title={t('open_setup_modal')}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand font-bold text-xs whitespace-nowrap shrink-0 transition cursor-pointer"
+              className="car-badge flex items-center gap-1.5 px-2 py-0.5 rounded bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand font-bold text-xs whitespace-nowrap shrink-0 transition cursor-pointer"
             >
               <SlidersHorizontal className="w-3 h-3 text-brand shrink-0" />
               <span>{carName}</span>
             </button>
           ) : (
-            <span className="text-brand font-bold text-xs whitespace-nowrap shrink-0">
+            <span className="car-badge text-brand font-bold text-xs whitespace-nowrap shrink-0">
               {carName}
             </span>
           )}
@@ -99,7 +97,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
 
         {/* Lap Count Pill */}
         {lapCount !== undefined && lapCount > 0 && (
-          <span className="text-gray-400 text-[11px] hidden xl:inline whitespace-nowrap pl-2 border-l border-white/10 shrink-0">
+          <span className="text-gray-400 text-[11px] whitespace-nowrap pl-2 border-l border-white/10 shrink-0 hidden sm:inline">
             {lapCount} {t('laps_label')}
           </span>
         )}
@@ -107,7 +105,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         {/* Switch Track Button */}
         <button
           onClick={onNavigateToSessions}
-          className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-gray-300 hover:text-white text-[11px] font-semibold transition cursor-pointer shrink-0 hidden sm:flex items-center gap-1"
+          className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-gray-300 hover:text-white text-[11px] font-semibold transition cursor-pointer shrink-0 flex items-center gap-1"
           title={t('change_track_hint')}
         >
           <span>{t('sessions_btn')}</span>
@@ -127,14 +125,14 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         )}
       </div>
 
-      {/* Right: Timing, 👻 Bubota Metrics & AI Action Strip */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      {/* Fila 2 (o Derecha — Comparador y Métricas con separación real de 16px) */}
+      <div className="flex items-center gap-3 sm:gap-4 flex-wrap shrink-0">
         {/* Lap Times */}
         {comparison ? (
           <>
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs whitespace-nowrap">
               <div className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 rounded bg-brand/20 text-brand font-bold text-[10px] border border-brand/30">
+                <span className="lap-p1-badge px-1.5 py-0.5 rounded bg-brand/20 text-brand font-bold text-[10px] border border-brand/30">
                   P1 {isEn ? 'L' : 'V'}{refLapNumber}
                 </span>
                 <span className="text-white font-bold tracking-tight">
@@ -165,9 +163,12 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
               </span>
             </div>
 
-            {/* Rolling Best & 👻 Bubota Potential + Toggle */}
+            {/* Separador vertical (|) */}
+            <div className="h-4 w-px bg-white/10 hidden sm:block shrink-0" />
+
+            {/* Badges de potencial: Óptima y Potencial Bubota */}
             {comparison.has_telemetry !== false && (
-              <div className="hidden lg:flex items-center gap-1.5 border-l border-white/10 pl-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {comparison.optimal_lap_time && (
                   <span
                     className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] whitespace-nowrap"
@@ -187,20 +188,6 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                   >
                     {t('bubota_badge')} -{comparison.ideal_potential_gain.toFixed(2)}s
                   </span>
-                )}
-                {onToggleIdealGhost && (
-                  <button
-                    type="button"
-                    onClick={onToggleIdealGhost}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer border whitespace-nowrap ${
-                      showIdealGhost
-                        ? 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-sm'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-                    }`}
-                    title={t('bubota_toggle_hint')}
-                  >
-                    {t('bubota_toggle')}
-                  </button>
                 )}
               </div>
             )}
@@ -253,11 +240,11 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
         {onOpenDebrief && (
           <button
             onClick={onOpenDebrief}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 hover:border-brand text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-brand/20 hover:bg-brand text-brand hover:text-black border border-brand/40 hover:border-brand text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
             title={t('open_debrief_hint')}
           >
             <Bot className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('debrief_radio')}</span>
+            <span className="inline">{t('debrief_radio')}</span>
             {reportAvailable && <span className="w-1.5 h-1.5 rounded-full bg-brand animate-ping" />}
           </button>
         )}

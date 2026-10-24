@@ -1,13 +1,14 @@
 import React from 'react';
 import {
-  Cpu,
   Gauge,
+  Headphones,
   Layers,
   MessageSquare,
   Settings,
   Wrench,
 } from 'lucide-react';
-import type { SystemStatus } from '../types/telemetry';
+import type { SpotterConfigDTO, SystemStatus } from '../types/telemetry';
+import { fetchSpotterConfig, updateSpotterConfig } from '../services/api';
 import { useLanguage } from '../i18n';
 
 export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'settings';
@@ -24,6 +25,41 @@ export const Header: React.FC<HeaderProps> = ({
   status,
 }) => {
   const { lang, setLanguage, t } = useLanguage();
+  const [spotterConfig, setSpotterConfig] = React.useState<SpotterConfigDTO>({
+    enabled: true,
+    language: 'es',
+    volume: 85,
+  });
+
+  React.useEffect(() => {
+    fetchSpotterConfig()
+      .then((cfg) => {
+        setSpotterConfig(cfg);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleToggleSpotter = () => {
+    const nextEnabled = !spotterConfig.enabled;
+    setSpotterConfig((prev) => ({ ...prev, enabled: nextEnabled }));
+    updateSpotterConfig({ enabled: nextEnabled }).catch(() => {});
+
+    // Immediate audio feedback on toggle
+    const clip = nextEnabled ? 'radio_on' : 'radio_off';
+    try {
+      const audio = new Audio(`/api/spotter/audio/${clip}?lang=${lang}`);
+      audio.volume = Math.max(0.1, Math.min(1.0, (spotterConfig.volume || 85) / 100));
+      audio.play().catch(() => {});
+    } catch {
+      // Handled silently if autoplay restricted
+    }
+  };
+
+  const handleLanguageChange = (newLang: 'es' | 'en') => {
+    setLanguage(newLang);
+    setSpotterConfig((prev) => ({ ...prev, language: newLang }));
+    updateSpotterConfig({ language: newLang }).catch(() => {});
+  };
 
   const tabs = [
     { id: 'sessions', label: t('sessions_tab'), icon: Layers },
@@ -34,10 +70,10 @@ export const Header: React.FC<HeaderProps> = ({
   ] as const;
 
   return (
-    <header className="border-b border-[#1E2638] bg-[#0A0C12]/95 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 py-2.5">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+    <header className="border-b border-[#1E2638] bg-[#0A0C12]/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-4 py-2">
+      <div className="flex items-center justify-between gap-2.5 flex-wrap xl:flex-nowrap">
         {/* Brand */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 shrink-0">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-accent via-[#C00000] to-[#121824] text-white font-bold shadow-md border border-accent/40">
             <span className="font-brand text-sm italic tracking-tighter">IR</span>
           </div>
@@ -50,14 +86,17 @@ export const Header: React.FC<HeaderProps> = ({
                 ANALYTICS
               </span>
             </div>
-            <span className="text-[9px] text-gray-400 font-telemetry -mt-0.5 hidden sm:inline">
+            <span className="text-[9px] text-gray-400 font-telemetry -mt-0.5 hidden xl:inline">
               {t('app_slogan')}
             </span>
           </div>
         </div>
 
         {/* Section Navigation Tabs */}
-        <nav className="flex items-center gap-1 bg-night-8 p-1 rounded-xl border border-white/5 overflow-x-auto max-w-full">
+        <nav
+          className="nav-tabs flex items-center gap-1 bg-night-8 p-1 rounded-xl border border-white/5 whitespace-nowrap shrink-0 overflow-visible"
+          style={{ scrollbarWidth: 'none' }}
+        >
           {tabs.map((tItem) => {
             const Icon = tItem.icon;
             const isActive = currentTab === tItem.id;
@@ -65,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={tItem.id}
                 onClick={() => onSelectTab(tItem.id)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                   isActive
                     ? 'bg-[#1E2738] text-white shadow-sm border border-white/10'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'
@@ -79,27 +118,43 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Status Pill & Language Selector */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Model Status Badge */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-night-8 border border-[#232B3E] text-xs">
-            <Cpu className="w-3.5 h-3.5 text-brand" />
-            <span className="text-gray-400 text-[11px]">{t('model')}:</span>
-            {status?.ai_available ? (
-              <span className="font-telemetry font-bold text-brand text-xs">
-                {status.active_model}
-              </span>
-            ) : (
-              <span className="font-telemetry text-best text-xs">
-                {t('rules_engine')}
-              </span>
-            )}
+          <div
+            className="model-badge flex items-center gap-1.5 px-2.5 h-[32px] rounded-full text-xs font-telemetry font-bold whitespace-nowrap shrink-0"
+            style={{
+              background: 'rgba(20, 184, 166, 0.08)',
+              border: '1px solid rgba(20, 184, 166, 0.25)',
+              color: '#2dd4bf',
+            }}
+            title={status?.ai_available ? `AI Model: ${status.active_model}` : t('rules_engine')}
+          >
+            <span>
+              ⚙️ {status?.ai_available ? status.active_model : t('rules_engine')}
+            </span>
           </div>
 
+          {/* Live Spotter Radio Toggle: [ 🎧 Radio: ON / OFF ] */}
+          <button
+            onClick={handleToggleSpotter}
+            className={`radio-toggle flex items-center gap-1.5 px-2.5 h-[32px] rounded-lg text-[0.8rem] font-telemetry font-bold transition cursor-pointer border whitespace-nowrap shrink-0 ${
+              spotterConfig.enabled
+                ? 'bg-brand/15 border-brand/60 text-brand shadow-[0_0_12px_rgba(230,57,70,0.2)] hover:bg-brand/25'
+                : 'bg-night-8 border-[#232B3E] text-gray-400 hover:text-gray-300 hover:border-gray-600'
+            }`}
+            title={t('spotter_radio_hint')}
+          >
+            <Headphones className={`w-3.5 h-3.5 ${spotterConfig.enabled ? 'text-brand animate-pulse' : 'text-gray-500'}`} />
+            <span>
+              🎧 Radio: {spotterConfig.enabled ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
           {/* Language Switcher Selector */}
-          <div className="flex items-center rounded-lg bg-night-8 border border-[#232B3E] p-0.5 text-xs font-telemetry">
+          <div className="lang-switcher flex items-center rounded-lg bg-night-8 border border-[#232B3E] p-0.5 text-xs font-telemetry h-[32px] shrink-0">
             <button
-              onClick={() => setLanguage('es')}
-              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] ${
+              onClick={() => handleLanguageChange('es')}
+              className={`px-2 h-full rounded font-bold transition cursor-pointer text-[11px] flex items-center justify-center ${
                 lang === 'es'
                   ? 'bg-brand text-black shadow-sm'
                   : 'text-gray-400 hover:text-white'
@@ -109,8 +164,8 @@ export const Header: React.FC<HeaderProps> = ({
               ES
             </button>
             <button
-              onClick={() => setLanguage('en')}
-              className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] ${
+              onClick={() => handleLanguageChange('en')}
+              className={`px-2 h-full rounded font-bold transition cursor-pointer text-[11px] flex items-center justify-center ${
                 lang === 'en'
                   ? 'bg-brand text-black shadow-sm'
                   : 'text-gray-400 hover:text-white'

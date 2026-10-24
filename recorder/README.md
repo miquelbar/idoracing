@@ -133,10 +133,10 @@ You can instruct the recorder to exit automatically as soon as your game closes 
 
 ```cmd
 # Assetto Corsa Competizione (ACC)
-idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe
+idoracing-recorder.exe -exit-with "AC2-Win64-Shipping.exe,acc.exe"
 
 # Le Mans Ultimate (LMU)
-idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"
+idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe,start_protected_game.exe"
 
 # Assetto Corsa 1 & AC Rally
 idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"

@@ -650,3 +650,53 @@ def test_all_tracks_render_closed_complete_loops():
         expected_tbl = known_track_corners(resp.track_name)
         if expected_tbl is not None:
             assert len(resp.corners) == len(expected_tbl)
+
+
+def test_rally_point_to_point_stage_vs_closed_circuit():
+    """
+    Regression test ensuring that:
+    1. A closed circuit lap is verified as closed (gap < 5m) and is_complete_track_lap returns True.
+    2. A point-to-point rally stage (open road from A to B) is NOT forced to close into a loop,
+       preserving the true linear stage geometry where start != finish (gap >> 100m).
+    """
+    from analysis.tracks import generate_track_coordinates, is_complete_track_lap
+
+    # 1. Closed circuit simulation (circle loop of ~4005m for Valencia)
+    dist_circuit = np.linspace(0.0, 4005.0, 500)
+    theta = 2.0 * np.pi * dist_circuit / 4005.0
+    r = 4005.0 / (2.0 * np.pi)
+    x_circuit = r * np.cos(theta)
+    y_circuit = r * np.sin(theta)
+    circuit_telemetry = {
+        "distance": dist_circuit,
+        "x": x_circuit,
+        "y": y_circuit,
+        "speed": np.full(500, 150.0),
+        "lat_accel": np.zeros(500),
+    }
+
+    assert is_complete_track_lap(circuit_telemetry, "Ricardo Tormo de Valencia") is True
+    tx_circ, ty_circ = generate_track_coordinates("Ricardo Tormo de Valencia", dist_circuit, circuit_telemetry)
+    circuit_gap = float(np.hypot(tx_circ[-1] - tx_circ[0], ty_circ[-1] - ty_circ[0]))
+    assert circuit_gap < 5.0, f"Closed circuit must close into a loop, got gap={circuit_gap:.2f}m"
+
+    # 2. Point-to-Point rally stage simulation (e.g. 5km hillclimb from Point A to Point B)
+    dist_rally = np.linspace(0.0, 5000.0, 500)
+    # Open road moving across the landscape
+    x_rally = np.linspace(0.0, 4000.0, 500)
+    y_rally = np.linspace(0.0, 3000.0, 500) + 150.0 * np.sin(dist_rally / 300.0)
+    rally_telemetry = {
+        "distance": dist_rally,
+        "x": x_rally,
+        "y": y_rally,
+        "speed": np.full(500, 100.0),
+        "lat_accel": np.zeros(500),
+    }
+
+    # An open rally stage should NOT be classified as a closed circuit lap
+    assert is_complete_track_lap(rally_telemetry, "Rally Stage Monte Carlo") is False
+
+    # Track coordinates must preserve open stage layout without forcing loop closure
+    tx_rally, ty_rally = generate_track_coordinates("Rally Stage Monte Carlo", dist_rally, rally_telemetry)
+    rally_gap = float(np.hypot(tx_rally[-1] - tx_rally[0], ty_rally[-1] - ty_rally[0]))
+    assert rally_gap > 1000.0, f"Rally stage must NOT be artificially closed into a loop, got gap={rally_gap:.2f}m"

@@ -23,6 +23,7 @@ import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse, Corner
 import { fetchCarSetup } from '../services/api';
 import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 import { renderFormattedMarkdown } from '../utils/markdown';
+import { SpotterInfoCard } from './SpotterInfoCard';
 
 interface AIDebriefDrawerProps {
   isOpen: boolean;
@@ -351,6 +352,9 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
           {activeTab === 'debrief' && (
             <>
+              <div className="mb-4">
+                <SpotterInfoCard />
+              </div>
               {loadingReport && (
                 <div className="p-5 rounded-xl bg-night-7 border border-brand/30 text-center space-y-3.5 mb-4 shadow-xl shadow-brand/5 animate-in fade-in duration-200">
                   <div className="flex items-center justify-center gap-2.5">

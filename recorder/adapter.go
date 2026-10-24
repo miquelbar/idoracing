@@ -29,6 +29,8 @@ type TelemetrySample struct {
 	Y           float32
 	InPit       int32 // 0 or 1
 	LapValid    int32 // 0 or 1
+	WheelsPressure [4]float32 // Tyre pressures in PSI (FL, FR, RL, RR)
+	LastLapTimeMs  int32      // Last completed lap time in ms
 }
 
 // SimAdapter abstracts live telemetry access for any racing simulator.

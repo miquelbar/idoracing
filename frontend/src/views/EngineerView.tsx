@@ -19,6 +19,7 @@ import { useLanguage } from '../i18n';
 import { useWaitingChatter } from '../i18n/waitingChatter';
 import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
 import { formatMetricKey, formatMetricValue, errorMessage } from '../utils/formatters';
+import { SpotterInfoCard } from '../components/SpotterInfoCard';
 
 interface EngineerViewProps {
   comparison: ComparisonResponse | null;
@@ -147,7 +148,9 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     : `🔧 Setup Diff: ${setupDiffItems.slice(0, 3).join(', ')}`;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="space-y-6">
+      <SpotterInfoCard />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Left Column: Official Structured Debrief (7 cols) */}
       <div className="lg:col-span-7 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -393,6 +396,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
           </button>
         </form>
       </div>
+    </div>
     </div>
   );
 };

@@ -15,6 +15,7 @@ import type {
   SettingsDTO,
   SetupAdviceReport,
   SetupAdviceReview,
+  SpotterConfigDTO,
   StintAnalysisData,
   SystemStatus,
 } from '../types/telemetry';
@@ -263,5 +264,22 @@ export async function fetchSetupAdviceReview(
   if (!res.ok) await failure(res, 'Failed to fetch setup advice review');
   return res.json();
 }
+
+export async function fetchSpotterConfig(): Promise<SpotterConfigDTO> {
+  const res = await fetch(`${API_BASE}/spotter/config`);
+  if (!res.ok) await failure(res, 'Failed to fetch spotter config');
+  return res.json();
+}
+
+export async function updateSpotterConfig(cfg: Partial<SpotterConfigDTO>): Promise<SpotterConfigDTO> {
+  const res = await fetch(`${API_BASE}/spotter/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg),
+  });
+  if (!res.ok) await failure(res, 'Failed to update spotter config');
+  return res.json();
+}
+
 
 

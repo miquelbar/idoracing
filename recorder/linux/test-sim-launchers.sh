@@ -29,14 +29,14 @@ fail() {
 IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/acc-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/acc/AC2-Win64-Shipping.exe"
 sleep 0.5
-grep -qx "run $work/idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe -log $work/log" "$CALLS" || fail "acc-with-recorder.sh failed"
+grep -qx "run $work/idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe,acc.exe -log $work/log" "$CALLS" || fail "acc-with-recorder.sh failed"
 
 # 2. LMU
 : >"$CALLS"
 IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/lmu-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/lmu/Le Mans Ultimate.exe"
 sleep 0.5
-grep -qx "run $work/idoracing-recorder.exe -sim lmu -exit-with Le Mans Ultimate.exe -log $work/log" "$CALLS" || fail "lmu-with-recorder.sh failed"
+grep -qx "run $work/idoracing-recorder.exe -sim lmu -exit-with Le Mans Ultimate.exe,start_protected_game.exe -log $work/log" "$CALLS" || fail "lmu-with-recorder.sh failed"
 
 # 3. AC
 : >"$CALLS"
@@ -65,16 +65,23 @@ IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDO
 	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/dr2/dirtrally2.exe"
 sleep 0.5
 grep -qx "run $work/idoracing-recorder.exe -sim dr2 -exit-with dirtrally2.exe,WRC.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-dr2 failed"
+
 : >"$CALLS"
 IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/lmu/Le Mans Ultimate.exe"
 sleep 0.5
-grep -qx "run $work/idoracing-recorder.exe -sim lmu -exit-with Le Mans Ultimate.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-lmu failed"
+grep -qx "run $work/idoracing-recorder.exe -sim lmu -exit-with Le Mans Ultimate.exe,start_protected_game.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-lmu failed"
+
+: >"$CALLS"
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/steamapps/common/Le Mans Ultimate/start_protected_game.exe"
+sleep 0.5
+grep -qx "run $work/idoracing-recorder.exe -sim lmu -exit-with Le Mans Ultimate.exe,start_protected_game.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-lmu-eac failed"
 
 : >"$CALLS"
 IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/acc/AC2-Win64-Shipping.exe"
 sleep 0.5
-grep -qx "run $work/idoracing-recorder.exe -sim acc -exit-with AC2-Win64-Shipping.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-acc failed"
+grep -qx "run $work/idoracing-recorder.exe -sim acc -exit-with AC2-Win64-Shipping.exe,acc.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-acc failed"
 
 echo "All sim launcher tests passed ok!"

@@ -36,7 +36,7 @@ type recorder struct {
 // step records one snapshot from ACC structures for backwards-compatibility.
 func (r *recorder) step(p physicsPage, g graphicsPage, info staticInfo, now time.Time) (live bool, err error) {
 	meta := info.toMetadata("Assetto Corsa Competizione", "acc")
-	sample := p.toSample(g, info.TrackSplineLength)
+	sample := p.toSample(g, g.NormalizedCarPosition*info.TrackSplineLength)
 	return r.stepSample(sample, meta, g.Status == statusLive, now)
 }
 
@@ -151,7 +151,7 @@ func (r *recorder) formatSampleRow(s TelemetrySample, now time.Time) []byte {
 }
 
 func (r *recorder) formatRow(p physicsPage, g graphicsPage, now time.Time) []byte {
-	return r.formatSampleRow(p.toSample(g, r.meta.TrackSplineLength), now)
+	return r.formatSampleRow(p.toSample(g, g.NormalizedCarPosition*r.meta.TrackSplineLength), now)
 }
 
 func appendFloat(b []byte, v float64, decimals int) []byte {

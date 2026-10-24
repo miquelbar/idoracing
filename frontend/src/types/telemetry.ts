@@ -436,4 +436,12 @@ export interface SetupAdviceReview {
   reviewed_at?: string;
 }
 
+export interface SpotterConfigDTO {
+  enabled: boolean;
+  language: 'es' | 'en';
+  volume: number;
+  toggle_key?: string;
+}
+
+
 

@@ -11,6 +11,7 @@ import {
 import { fetchSettings, saveSettings } from '../services/api';
 import type { SystemStatus } from '../types/telemetry';
 import { useLanguage } from '../i18n';
+import { SpotterInfoCard } from '../components/SpotterInfoCard';
 
 interface SettingsViewProps {
   status: SystemStatus | null;
@@ -86,6 +87,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
           {t('ai_engine_subtitle')}
         </p>
       </div>
+
+      <SpotterInfoCard />
 
       {savedSuccess && (
         <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700 text-emerald-200 text-xs flex items-center gap-2">

@@ -1,0 +1,117 @@
+"""Unit tests for Live Spotter (Pep) configuration, manifest export, and audio cues."""
+
+import json
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from analysis.spotter import get_track_slug
+from analysis.tracks import get_track_length
+from api.server import app
+
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as c:
+        yield c
+
+
+def test_spotter_config_api(client):
+    # GET default config
+    res = client.get("/api/spotter/config")
+    assert res.status_code == 200
+    data = res.json()
+    assert "enabled" in data
+    assert "language" in data
+    assert "volume" in data
+
+    # POST updated config
+    update_payload = {"enabled": False, "language": "en", "volume": 75}
+    res_post = client.post("/api/spotter/config", json=update_payload)
+    assert res_post.status_code == 200
+    post_data = res_post.json()
+    assert post_data["enabled"] is False
+    assert post_data["language"] == "en"
+    assert post_data["volume"] == 75
+
+    # Verify persistence via GET
+    res_get2 = client.get("/api/spotter/config")
+    assert res_get2.status_code == 200
+    assert res_get2.json()["enabled"] is False
+    assert res_get2.json()["language"] == "en"
+
+    # Restore to enabled = True, es
+    client.post("/api/spotter/config", json={"enabled": True, "language": "es", "volume": 85, "toggle_key": "F9"})
+
+
+def test_spotter_audio_endpoint(client):
+    res_on = client.get("/api/spotter/audio/radio_on?lang=es")
+    assert res_on.status_code == 200
+    assert res_on.headers["content-type"].startswith("audio/ogg")
+    assert len(res_on.content) > 1000
+
+    res_off = client.get("/api/spotter/audio/radio_off?lang=en")
+    assert res_off.status_code == 200
+    assert res_off.headers["content-type"].startswith("audio/ogg")
+
+    res_missing = client.get("/api/spotter/audio/non_existent_clip")
+    assert res_missing.status_code == 404
+
+
+def test_track_slug_normalization():
+    assert get_track_slug("Ricardo Tormo de Valencia") == "valencia"
+    assert get_track_slug("Valencia") == "valencia"
+    assert get_track_slug("Circuit Ricardo Tormo") == "valencia"
+    assert get_track_slug("Sebring International Raceway") == "sebring"
+    assert get_track_slug("Autodromo Nazionale Monza") == "monza"
+
+
+def test_comparison_exports_spotter_manifest(client):
+    # Ensure demo sessions are initialized
+    client.get("/api/sessions")
+
+    # Calling comparison on a session with corners must export the spotter manifest
+    res = client.get("/api/comparison", params={"session_id": "synth_valencia_992_gt3"})
+    assert res.status_code == 200
+    resp_data = res.json()
+    assert resp_data["has_telemetry"] is True
+    assert len(resp_data["corners"]) >= 3
+
+    manifest_path = Path("recorder/voices/tracks/valencia/manifest.json")
+    assert manifest_path.exists(), "Manifest was not exported"
+
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest["track_slug"] == "valencia"
+    assert isinstance(manifest["pb_lap_ms"], int)
+    assert isinstance(manifest["bubota_lap_ms"], int)
+    assert manifest["pb_lap_ms"] > 0
+    assert manifest["bubota_lap_ms"] > 0
+
+    hotspots = manifest["hotspots"]
+    assert len(hotspots) == 3
+
+    track_len = get_track_length("Ricardo Tormo de Valencia")
+    for idx, h in enumerate(hotspots):
+        slot = idx + 1
+        assert h["slot"] == slot
+        assert h["clip_id"] == f"hotspot_{slot}"
+        assert isinstance(h["corner_id"], int)
+        assert isinstance(h["corner_name"], str)
+        assert isinstance(h["trigger_dist_m"], (int, float))
+        assert isinstance(h["corner_start_m"], (int, float))
+        assert isinstance(h["corner_end_m"], (int, float))
+        assert isinstance(h["target_brake_m"], int)
+        assert isinstance(h["target_vmin_kmh"], (int, float))
+
+        # Check modulo 250m trigger formula
+        expected_trigger = round((h["corner_start_m"] - 250.0) % track_len, 1)
+        assert abs(h["trigger_dist_m"] - expected_trigger) < 0.2
+
+        # Check that hotspot audio clips exist on disk in both languages
+        for lang in ("es", "en"):
+            clip_path = Path(f"recorder/voices/tracks/valencia/{lang}/hotspot_{slot}.ogg")
+            assert clip_path.exists(), f"Missing audio clip: {clip_path}"
+            assert clip_path.stat().st_size > 1000, f"Audio clip {clip_path} is too small"

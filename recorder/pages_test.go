@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 	"testing"
+	"time"
 	"unicode/utf16"
 )
 
@@ -82,5 +83,80 @@ func TestStaticInfo(t *testing.T) {
 	s := decodeStatic(b)
 	if s.CarModel != "amr_v8_vantage_gt3" || s.Track != "spa" || s.TrackSplineLength != 7004 {
 		t.Fatalf("static = %+v", s)
+	}
+}
+
+func TestDistanceTrackerRallyPointToPoint(t *testing.T) {
+	var dt distanceTracker
+	now := time.Now()
+
+	// Simulate a 5 km rally stage from Point A to Point B
+	// Lap remains 1 throughout, splineLen is 0 (point-to-point stage)
+	totalSteps := 500
+	stepDist := float32(10.0) // 10 meters per step
+	var currentDist float32
+
+	for i := 0; i <= totalSteps; i++ {
+		// Moving diagonally along the ground plane
+		x := float32(i) * 8.0
+		y := float32(i) * 6.0 // hypot(8, 6) = 10m
+		speedKmh := float32(120.0)
+		tStep := now.Add(time.Duration(i*100) * time.Millisecond)
+
+		currentDist = dt.step(x, y, true, speedKmh, 0.0, 0.0, 1, tStep)
+	}
+
+	expectedDist := float32(totalSteps) * stepDist // 5000m
+	if math.Abs(float64(currentDist-expectedDist)) > 20.0 {
+		t.Fatalf("rally stage distance = %v; want ~%v", currentDist, expectedDist)
+	}
+
+	// Verify the stage is point-to-point (open track): start != finish
+	startX, startY := float32(0.0), float32(0.0)
+	finishX := float32(totalSteps) * 8.0
+	finishY := float32(totalSteps) * 6.0
+	gap := math.Hypot(float64(finishX-startX), float64(finishY-startY))
+	if gap < 4000.0 {
+		t.Fatalf("expected open rally stage with start != finish, got gap = %v", gap)
+	}
+}
+
+func TestDistanceTrackerClosedCircuit(t *testing.T) {
+	var dt distanceTracker
+	now := time.Now()
+
+	// Lap 1: Drive an uncalibrated circuit loop (e.g. Valencia with splineLen = 0)
+	// Circle of circumference ~4000m -> radius R = 4000 / (2 * pi) ~ 636.62m
+	circumference := float64(4000.0)
+	radius := circumference / (2.0 * math.Pi)
+	steps := 400
+
+	for i := 0; i < steps; i++ {
+		angle := (float64(i) / float64(steps)) * 2.0 * math.Pi
+		x := float32(radius * math.Cos(angle))
+		y := float32(radius * math.Sin(angle))
+		tStep := now.Add(time.Duration(i*100) * time.Millisecond)
+
+		dt.step(x, y, true, 144.0, float32(i)/float32(steps), 0.0, 1, tStep)
+	}
+
+	// Lap 2 begins: crossing start/finish line, lap increments to 2
+	tLap2 := now.Add(time.Duration(steps*100) * time.Millisecond)
+	// Start of lap 2 at normPos = 0.0
+	d0 := dt.step(float32(radius), 0, true, 144.0, 0.0, 0.0, 2, tLap2)
+	if d0 != 0.0 {
+		t.Fatalf("lap 2 start distance = %v; want 0.0", d0)
+	}
+
+	// Learned length must be approximately 4000m
+	if math.Abs(float64(dt.learnedLen-4000.0)) > 50.0 {
+		t.Fatalf("circuit learnedLen = %v; want ~4000m", dt.learnedLen)
+	}
+
+	// Mid-lap on lap 2: normPos = 0.5 should report ~2000m
+	tMid := tLap2.Add(50 * time.Second)
+	dMid := dt.step(0, float32(radius), true, 144.0, 0.5, 0.0, 2, tMid)
+	if math.Abs(float64(dMid-2000.0)) > 30.0 {
+		t.Fatalf("lap 2 mid-lap distance = %v; want ~2000m", dMid)
 	}
 }

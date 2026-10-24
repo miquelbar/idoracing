@@ -14,17 +14,24 @@ from typing import Any, Literal
 
 import numpy as np
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import FileResponse, Response
 
 from analysis.alignment import align_laps_by_distance
 from analysis.corners import compute_ideal_ghost_telemetry
 from analysis.demo_session import create_synthetic_session
 from analysis.lap_comparison import compare_laps
 from analysis.setup_advisor import generate_setup_advice
+from analysis.spotter import (
+    VOICES_DIR,
+    export_track_spotter_manifest,
+    get_track_slug,
+    load_spotter_config,
+    save_spotter_config,
+)
 from analysis.stint_analysis import analyze_session_stint
 from analysis.tire_thermal import analyze_all_tyres
 from analysis.tracks import generate_track_coordinates, get_track_length, is_complete_track_lap
@@ -252,6 +259,13 @@ class SettingsDTO(BaseModel):
     openai_base_url: str | None = "https://api.openai.com/v1"
     openai_model: str | None = "gpt-4o-mini"
     chat_timeout: float = 120.0
+
+
+class SpotterConfigDTO(BaseModel):
+    enabled: bool = True
+    language: str = "es"
+    volume: int = 85
+    toggle_key: str = "F9"
 
 
 class CornerDTO(BaseModel):
@@ -497,6 +511,49 @@ def update_settings(cfg: SettingsDTO):
         llm_client.openai_model = cfg.openai_model.strip()
 
     return {"status": "ok", "provider": llm_client.provider, "active_model": llm_client.active_model}
+
+
+@app.get("/api/spotter/config", response_model=SpotterConfigDTO)
+def get_spotter_config():
+    cfg = load_spotter_config()
+    return SpotterConfigDTO(**cfg)
+
+
+@app.post("/api/spotter/config", response_model=SpotterConfigDTO)
+def update_spotter_config_endpoint(cfg: SpotterConfigDTO):
+    saved = save_spotter_config(cfg.model_dump())
+    return SpotterConfigDTO(**saved)
+
+
+@app.get("/api/spotter/audio/{clip_id}")
+def get_spotter_audio(clip_id: str, lang: str | None = None, track: str | None = None):
+    """Serve pre-generated OGG audio clips for spotter cues in web UI preview."""
+    import re
+
+    if not lang:
+        cfg = load_spotter_config()
+        lang = cfg.get("language", "es")
+    clean_lang = "en" if str(lang).lower().startswith("en") else "es"
+    clean_clip = re.sub(r"[^a-zA-Z0-9_-]", "", clip_id)
+
+    # 1. Search in track directory if track specified
+    if track:
+        slug = get_track_slug(track)
+        track_ogg = VOICES_DIR / "tracks" / slug / clean_lang / f"{clean_clip}.ogg"
+        if track_ogg.exists():
+            return FileResponse(track_ogg, media_type="audio/ogg")
+
+    # 2. Search in base voices
+    base_ogg = VOICES_DIR / clean_lang / f"{clean_clip}.ogg"
+    if base_ogg.exists():
+        return FileResponse(base_ogg, media_type="audio/ogg")
+
+    # 3. Search in any track directory
+    for match in VOICES_DIR.glob(f"tracks/*/{clean_lang}/{clean_clip}.ogg"):
+        if match.exists():
+            return FileResponse(match, media_type="audio/ogg")
+
+    raise HTTPException(status_code=404, detail=f"Audio clip '{clean_clip}' not found for language '{clean_lang}'")
 
 
 @app.get("/api/sessions")
@@ -776,11 +833,12 @@ def _find_sibling_flying_lap(base_session: Session) -> tuple[Session, Lap] | Non
 
 @app.get("/api/comparison", response_model=ComparisonResponse)
 def get_lap_comparison(
-    ref_lap_id: str | None = Query(None),
-    comp_lap_id: str | None = Query(None),
-    session_id: str | None = Query(None),
-    ref_session_id: str | None = Query(None),
-    comp_session_id: str | None = Query(None),
+    ref_lap_id: str | None = None,
+    comp_lap_id: str | None = None,
+    session_id: str | None = None,
+    ref_session_id: str | None = None,
+    comp_session_id: str | None = None,
+    background_tasks: BackgroundTasks = None,
 ):
     # When cross-session comparison is requested, load each lap from its own session.
     # NEVER call ensure_session_telemetry on real sessions (Bloque 2 honesty rule).
@@ -956,6 +1014,18 @@ def get_lap_comparison(
 
     ideal_potential_gain = round(sum(c.ideal_time_gain or 0.06 for c in comparison.corners), 3)
     ideal_lap_time = round(max(10.0, comp_lap.lap_time - ideal_potential_gain), 3)
+
+    if comparison.corners:
+        try:
+            export_track_spotter_manifest(
+                track_name=canonical_track,
+                pb_lap_time=min(ref_lap.lap_time, comp_lap.lap_time),
+                bubota_lap_time=ideal_lap_time,
+                corners=comparison.corners,
+                background_tasks=background_tasks,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to export spotter manifest for track %s: %s", canonical_track, exc)
 
     return ComparisonResponse(
         session_id=matched_session.session_id,

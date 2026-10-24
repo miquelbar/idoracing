@@ -88,9 +88,9 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 	}
 
 	lowerExe := strings.ToLower(exitWith)
-	if strings.Contains(lowerExe, "ac2-win64-shipping.exe") {
+	if strings.Contains(lowerExe, "ac2-win64-shipping.exe") || strings.Contains(lowerExe, "acc.exe") {
 		return newACCAdapter()
-	} else if strings.Contains(lowerExe, "le mans ultimate.exe") {
+	} else if strings.Contains(lowerExe, "le mans ultimate") || strings.Contains(lowerExe, "start_protected_game") {
 		return newLMUAdapter()
 	} else if strings.Contains(lowerExe, "assettocorsaevo") {
 		return newACEVOAdapter()
@@ -104,16 +104,16 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 	if running, _ := processRunning("dirtrally2.exe,wrc.exe"); running {
 		return newDR2Adapter()
 	}
-	if running, _ := processRunning("Le Mans Ultimate.exe"); running {
+	if running, _ := processRunning("Le Mans Ultimate.exe,start_protected_game.exe"); running {
 		return newLMUAdapter()
 	}
 	if running, _ := processRunning("AssettoCorsaEVO.exe"); running {
 		return newACEVOAdapter()
 	}
-	if running, _ := processRunning("acs.exe"); running {
+	if running, _ := processRunning("acs.exe,AssettoCorsa.exe"); running {
 		return newACAdapter()
 	}
-	if running, _ := processRunning("AC2-Win64-Shipping.exe"); running {
+	if running, _ := processRunning("AC2-Win64-Shipping.exe,acc.exe"); running {
 		return newACCAdapter()
 	}
 
@@ -136,12 +136,15 @@ func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.D
 	}
 	defer adapter.Close()
 
+	spot := NewSpotter()
+
 	for {
 		now := time.Now()
 		sample, meta, live, err := adapter.Read(now)
 		if err != nil {
 			return err
 		}
+		spot.Step(sample, meta, live, now)
 		live, err = rec.stepSample(sample, meta, live, now)
 		if err != nil {
 			return err

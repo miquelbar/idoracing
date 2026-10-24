@@ -68,6 +68,22 @@ Supports:
 - **Strict Mathematical Coherence**: `delta = comp - ref`, trail braking `< 25%` is flagged as abrupt release (`Suelta brusca`), and zero false praise is ever given when losing time or apex speed.
 - **Local (Ollama)** or **cloud** (any OpenAI-compatible API: OpenAI, OpenRouter, DeepSeek...), with an instant deterministic rule-based engine when offline.
 
+### 5. 📻 Pep Live Spotter (Zero-Daemon Track Radio)
+**Pep Live Spotter** delivers real-time voice coaching over your GT3 pit-wall radio while driving, running at **0% CPU / 0% GPU overhead** and requiring **zero background Python services or web servers** during your race.
+
+#### 🔄 The 3-Phase Intelligent Spotter Cycle:
+1. **Phase 1 · First Stint (Quiet Calibration)**:
+   When driving on a circuit for the first time, Pep doesn't have your historical corner baseline yet. He announces *"Copy. No Bubota baseline for this track yet"* on pit exit, records your laps quietly, and only calls out personal best laps (`lap_pb`) and critical tyre pressure warnings (`> 27.3 psi`).
+2. **Phase 2 · Creating the Plan against 👻 Bubota (Offline Analysis)**:
+   When you open IdoRacing Analytics after driving, the backend identifies the **3 critical corners where you lose the most time against 👻 Bubota** (Hotspots 1, 2, and 3), saves `recorder/voices/tracks/<track_slug>/manifest.json`, and pre-generates walkie-talkie filtered `.ogg` audio cues in Spanish and English with `edge-tts` + `ffmpeg`.
+3. **Phase 3 · Live Track Radio (Zero-Daemon / 0% CPU)**:
+   In your subsequent driving sessions (with Python backend and browser **completely closed**), `idoracing-recorder.exe` monitors track metres in memory and pipes events to your native audio player (`pw-play` / `paplay`):
+   - **Pit Exit**: Confirms frequency with *"Idò, Pep al habla. Te leo en el muro"* (*"Idò, Pep on the radio. Reading you on the pit wall"*).
+   - **Corner Pre-Warning**: Exactly 250m before each critical corner, Pep cues you: *"Atento en la curva {id}, frena en el {brake_m} y alarga el trail braking."*
+   - **Post-Corner Evaluation**: Compares minimum apex speed at corner exit: acknowledges gains (*"Buena salida, ahí le has recortado tiempo a la Bubota"*) or roasts late braking.
+   - **Strict 10s Cooldown**: Prevents audio clutter in rapid chicane sequences.
+   - **In-Game Toggle (`F9`)**: Press **`F9`** anytime while driving inside the simulator to instantly mute (*"Copiado. Pep se va, no te molesto"*) or unmute without touching other controls. Configurable via `"toggle_key"` in `data/spotter_config.json`.
+
 ---
 
 ## 🎮 How to Record Telemetry in Your Sim
@@ -100,8 +116,8 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
   Double-click `idoracing-recorder.exe` before driving.
 - **Option C: Auto-Exit with Specific Game**:
   ```cmd
-  idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe
-  idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"
+  idoracing-recorder.exe -exit-with "AC2-Win64-Shipping.exe,acc.exe"
+  idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe,start_protected_game.exe"
   idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"
   idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe
   idoracing-recorder.exe -sim dr2 -exit-with "dirtrally2.exe,WRC.exe"
@@ -122,7 +138,7 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
 - **Automatic Live Recorder (50Hz + GPS coords)**:
   - Requires `rFactor2SharedMemoryMapPlugin64.dll` inside `<Le Mans Ultimate>/Plugins/` and `" Enabled": 1` in `<Le Mans Ultimate>/UserData/player/CustomPluginVariables.JSON`.
   - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `lmu-with-recorder.sh %command%`).
-  - **Windows**: Run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"` (or use `-sim auto`).
+  - **Windows**: Run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe,start_protected_game.exe"` (or use `-sim auto`).
   - **Data Captured**: Real-time 50Hz telemetry (`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$`), speed, pedals, steering, G-forces, and world $(x, y)$ position.
 - **Session Results XML (Fallback)**:
   - LMU automatically writes practice, qualifying, and race XML results to `UserData/Log/Results/`.

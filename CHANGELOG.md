@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Pep Live Spotter (Zero-Daemon Track Radio)**: in-game voice spotter that cues critical braking points 250m before corners, personal bests, tyre pressure warnings, and apex gain evaluation with 0% CPU/0% GPU overhead during race sessions.
+- In-game pit-wall radio toggle via **F9** hotkey with authentic bilingual voice confirmations ("Idò, Pep al habla" / "Pep se va").
+- Pre-recorded OGG track voice generator (`tools/generate_pep_voices.py`) and automatic spotter manifest export (`analysis/spotter.py`) based on delta deficit against Bubota.
+- Generic, universal physics distance tracking (`distanceTracker` in `recorder/pages.go`) accumulating Euclidean ground displacement $(\Delta d = \sqrt{\Delta x^2 + \Delta y^2})$ and speed integration $(\int v \, dt)$ supporting both closed circuits and linear point A-to-B rally stages without pinned track lists.
+- Regression tests for closed circuit loop closure and open point A-to-B rally stages (`TestDistanceTrackerRallyPointToPoint`, `TestDistanceTrackerClosedCircuit`, `test_rally_point_to_point_stage_vs_closed_circuit`).
+- Automated Playwright visual regression test (`tests/test_header_visual.py`) verifying bounding box non-overlap across desktop (1080p) and laptop (1366x768) resolutions.
 - Added automated documentation consistency test (`tests/test_docs_consistency.py`) and pre-commit hook validation ensuring all supported simulators and launch scripts are always documented across `README.md` and `recorder/README.md`.
 - Expanded `README.md` with dedicated, comprehensive sections and an auto-discovery directory reference table for all 8 supported simulators (ACC, LMU, AC1, AC Rally, AC EVO, DR2, WRC, iRacing).
 - Clarified Le Mans Ultimate shared memory setup with exact plugin folder requirements and configuration paths in root and recorder documentation.
@@ -38,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The car setup modal (opened from the telemetry header) now includes the structured setup advice panel below the setup inspector, so recommendations and Pep's review are accessible without leaving the telemetry view.
 
 ### Changed
+- Replaced hardcoded personal hardware IDs with standard XDG environment loader (`~/.config/idoracing/env`).
+- Re-architected telemetry session context bar into responsive, fluid flex-wrap layout preventing car badge and P1 lap badge overlap.
+- Redesigned AI engine chip (`.model-badge`) to compact single line (`⚙️ Reglas Numéricas` / `⚙️ qwen3.8:27b`) with translucent background.
+- Compacted central navigation tabs and renamed Race Engineer tab to "Pep · Ingeniero" to prevent horizontal scrollbars across all viewports.
 - Sessions workspace redesign: group sessions primarily by track with per-car rows and right-hand workspace for comparing laps across different sessions.
 - Consolidated project brand identity across UI, internationalization, and documentation: IdoRacing, Pep (Race Engineer), and Bubota (Ideal Ghost).
 - The structured setup advisor no longer emits contradictory recommendations for the same parameter: corners with early braking are classified as a driving technique issue and excluded from understeer detection, and a deduplication pass keeps only the strongest recommendation per category.
