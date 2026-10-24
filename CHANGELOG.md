@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Multi-simulator support expanded to **DiRT Rally 2.0** and **EA SPORTS WRC** via 100Hz Codemasters UDP telemetry stream (`dr2-with-recorder.sh`), capturing stage times, distance, inputs, G-forces, and point-to-point $(x, y)$ stage geometries.
+- Added full support and in-app activation guides for **Assetto Corsa Rally** point-to-point stages alongside circuits using `ac-with-recorder.sh`.
 - Standardized Le Mans Ultimate, AC1, and AC EVO recorder support across root README, CI testing (`test-sim-launchers.sh`), and end-to-end CSV importer test suite (`test_recorder_csv.py`).
 - Added end-to-end Wine integration test for LMU recorder (`test-lmu-integration.sh`) running `fakelmu.exe` and `idoracing-recorder.exe`.
 - Added in-app telemetry activation and recording guides for Le Mans Ultimate (LMU), Assetto Corsa 1, and Steam launch options in both SessionsView and TelemetryView.

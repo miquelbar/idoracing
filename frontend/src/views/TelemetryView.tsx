@@ -224,6 +224,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   const isIRacing = gameUpper.includes('IRACING');
   const isACEvo = gameUpper.includes('EVO');
   const isAC1 = gameUpper.includes('ASSETTO') && !isACEvo && !gameUpper.includes('COMPETIZIONE');
+  const isDR2 = gameUpper.includes('DIRT') || gameUpper.includes('WRC');
 
   const s1Ref = comparison.ref_sectors?.['S1'] || 0;
   const s1Comp = comparison.comp_sectors?.['S1'] || 0;
@@ -398,6 +399,24 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                   </li>
                   <li>
                     También puedes usar el grabador integrado en Steam: <code className="text-brand">acevo-with-recorder.sh %command%</code>.
+                  </li>
+                </ol>
+              ) : isDR2 ? (
+                <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-200 leading-relaxed">
+                  <li>
+                    En <strong>DiRT Rally 2.0 / EA SPORTS WRC</strong>, abre <code className="text-brand">hardware_settings_config.xml</code> y activa UDP:
+                    <code className="block mt-1 p-1 bg-black/40 rounded font-mono text-[11px] text-amber-300 select-all">
+                      &lt;udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" /&gt;
+                    </code>
+                  </li>
+                  <li>
+                    En los Parámetros de Lanzamiento de Steam pon:
+                    <code className="block mt-1 p-1 bg-black/40 rounded font-mono text-[11px] text-brand select-all">
+                      /path/to/recorder/linux/dr2-with-recorder.sh %command%
+                    </code>
+                  </li>
+                  <li>
+                    El grabador escuchará la telemetría en localhost (velocidad, volante, aceleración, frenada y coordenadas del tramo).
                   </li>
                 </ol>
               ) : isAC1 ? (

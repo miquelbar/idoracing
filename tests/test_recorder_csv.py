@@ -119,3 +119,24 @@ def test_acevo_and_ac_recorder_csv(tmp_path):
         assert session.track == "Imola"
         assert session.car == car
         assert len(session.laps) == 1
+
+
+def test_dr2_recorder_csv(tmp_path):
+    header = (
+        "# simulator: DiRT Rally 2.0\n"
+        "# track: Ribadelles\n"
+        "# car: Lancia Delta Integrale\n"
+        "# track_length_m: 8500.0\n"
+        "# recorder: idoracing-recorder 0.1.0\n"
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid\n"
+    )
+    rows, _ = _oval_lap(1, 200.0, 0.0)
+    path = tmp_path / "dr2_Ribadelles_Lancia-Delta_20261024-180000.csv"
+    path.write_text(header + "".join(rows))
+
+    session = CSVImporter(str(path)).parse()
+    assert session.simulator == "DiRT Rally 2.0"
+    assert session.track == "Ribadelles"
+    assert session.car == "Lancia Delta Integrale"
+    assert len(session.laps) == 1
+    assert session.laps[0].is_valid

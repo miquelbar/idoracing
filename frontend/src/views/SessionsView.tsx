@@ -1089,11 +1089,11 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               {t('how_to_record_title')}
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 pt-2 text-xs text-gray-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-2 text-xs text-gray-300">
               <div className="p-4 rounded-xl bg-night-3 border border-accent/20 space-y-1.5">
                 <span className="font-bold text-accent block text-sm">Assetto Corsa Competizione</span>
                 <p className="text-gray-400">
-                  Abre el setup del coche en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99) para generar archivos <code className="text-gray-300">.ld</code> en MoTeC.
+                  Abre el setup en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> para generar archivos <code className="text-gray-300">.ld</code> en MoTeC.
                 </p>
                 <p className="text-[11px] text-gray-400">
                   Para registrar trazada GPS: lanza en Steam con <code className="text-brand">acc-with-recorder.sh %command%</code>.
@@ -1103,10 +1103,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               <div className="p-4 rounded-xl bg-night-3 border border-blue-500/20 space-y-1.5">
                 <span className="font-bold text-blue-400 block text-sm">Le Mans Ultimate</span>
                 <p className="text-gray-300">
-                  <strong>Grabador IdoRacing (50Hz + GPS):</strong> Lanza LMU en Steam con <code className="text-brand">lmu-with-recorder.sh %command%</code> (activa el plugin en <code className="text-gray-300">CustomPluginVariables.json</code>).
+                  <strong>Grabador IdoRacing (50Hz + GPS):</strong> Lanza LMU en Steam con <code className="text-brand">lmu-with-recorder.sh %command%</code>.
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  Resultados XML: se importan solos desde <code className="text-gray-300">UserData/Log/Results</code>.
+                  Resultados XML: se importan automáticamente desde <code className="text-gray-300">UserData/Log/Results</code>.
                 </p>
               </div>
 
@@ -1121,12 +1121,23 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               </div>
 
               <div className="p-4 rounded-xl bg-night-3 border border-orange-500/20 space-y-1.5">
-                <span className="font-bold text-orange-400 block text-sm">Assetto Corsa 1</span>
+                <span className="font-bold text-orange-400 block text-sm">Assetto Corsa 1 & AC Rally</span>
                 <p className="text-gray-400">
-                  Lanza en Steam con el grabador integrado: <code className="text-brand">ac-with-recorder.sh %command%</code> para capturar 50Hz y posición.
+                  Tanto en circuito como en tramos de rally: lanza en Steam con <code className="text-brand">ac-with-recorder.sh %command%</code> para capturar 50Hz, pedales y trazada abierta.
                 </p>
                 <p className="text-[11px] text-gray-400">
                   O exporta telemetría MoTeC con Content Manager / ACTIR a archivos .ld.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-night-3 border border-amber-500/20 space-y-1.5">
+                <span className="font-bold text-amber-400 block text-sm">DiRT Rally 2.0 & EA WRC</span>
+                <p className="text-gray-300">
+                  En <code className="text-gray-300">hardware_settings_config.xml</code> activa:
+                  <code className="block mt-1 p-1 bg-black/40 rounded text-amber-300 text-[10px] select-all">&lt;udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" /&gt;</code>
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  Lanza en Steam con <code className="text-brand">dr2-with-recorder.sh %command%</code>.
                 </p>
               </div>
 

@@ -35,6 +35,10 @@ if [ "$sim" = "auto" ] && [ -z "$game_exe" ]; then
 		sim="ac"
 		game_exe="acs.exe,AssettoCorsa.exe"
 		;;
+	*"dirtrally2.exe"*|*"WRC.exe"*)
+		sim="dr2"
+		game_exe="dirtrally2.exe,WRC.exe"
+		;;
 	esac
 fi
 

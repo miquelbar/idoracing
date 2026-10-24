@@ -79,10 +79,12 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 		return newACCAdapter()
 	case "lmu":
 		return newLMUAdapter()
-	case "ac":
+	case "ac", "acrally", "assetto":
 		return newACAdapter()
 	case "acevo":
 		return newACEVOAdapter()
+	case "dr2", "dirt", "dirtrally", "dirtrally2", "wrc":
+		return newDR2Adapter()
 	}
 
 	lowerExe := strings.ToLower(exitWith)
@@ -94,9 +96,14 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 		return newACEVOAdapter()
 	} else if strings.Contains(lowerExe, "acs.exe") || strings.Contains(lowerExe, "assettocorsa.exe") {
 		return newACAdapter()
+	} else if strings.Contains(lowerExe, "dirtrally2.exe") || strings.Contains(lowerExe, "wrc.exe") {
+		return newDR2Adapter()
 	}
 
 	// Probe running processes
+	if running, _ := processRunning("dirtrally2.exe,wrc.exe"); running {
+		return newDR2Adapter()
+	}
 	if running, _ := processRunning("Le Mans Ultimate.exe"); running {
 		return newLMUAdapter()
 	}

@@ -119,9 +119,14 @@ Like ACC, IdoRacing's [`idoracing-recorder`](recorder/README.md) captures LMU te
 2. IdoRacing Analytics auto-detects these XML session files and imports your lap times and sector deltas instantly.
 3. If using DAMPlugin, place or upload the generated `.ld` file from `UserData/Log/MoTeC/` to view traces.
 
-### 🏎️ Assetto Corsa & Assetto Corsa EVO
+### 🏎️ Assetto Corsa, AC Rally & Assetto Corsa EVO
+- **Assetto Corsa 1 & AC Rally**: Use `recorder/linux/ac-with-recorder.sh %command%` in Steam for real-time 50Hz capture across circuit and rally stages.
 - **Assetto Corsa EVO**: Set **Telemetry Laps > 0** in the garage menu for `.ld` files, or use `recorder/linux/acevo-with-recorder.sh %command%` in Steam.
-- **Assetto Corsa 1**: Use `recorder/linux/ac-with-recorder.sh %command%` in Steam for real-time 50Hz capture.
+
+### 🌲 DiRT Rally 2.0 & EA SPORTS WRC
+1. Enable UDP output in `hardware_settings_config.xml` (`<udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />`).
+2. Add `recorder/linux/dr2-with-recorder.sh %command%` to Steam Launch Options.
+3. Captures stage run times, distance, speed, inputs, G-forces, and $(x, y)$ stage geometry automatically.
 
 ### 🏁 iRacing
 1. While in the car, press **`Alt + L`** to start/stop telemetry recording (or set automatic logging in iRacing Options).

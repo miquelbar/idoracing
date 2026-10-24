@@ -10,8 +10,9 @@ It runs on its own; the IdoRacing app does not need to be open while you drive.
 | :--- | :--- | :--- | :--- |
 | **Assetto Corsa Competizione** | `acc` (default) | `AC2-Win64-Shipping.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/acc-with-recorder.sh` |
 | **Le Mans Ultimate** | `lmu` | `Le Mans Ultimate.exe`<br>`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$` | `linux/lmu-with-recorder.sh` |
-| **Assetto Corsa 1** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
+| **Assetto Corsa 1 & AC Rally** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
 | **Assetto Corsa EVO** | `acevo` | `AssettoCorsaEVO.exe`<br>`Local\acevo_pmf_*` (fallback `Local\acpmf_*`) | `linux/acevo-with-recorder.sh` |
+| **DiRT Rally 2.0 / EA WRC** | `dr2` | `dirtrally2.exe`, `WRC.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
 | **Auto-Detect All** | `auto` | Detects via running processes or active shared memory maps | `linux/sim-with-recorder.sh` |
 
 ## Footprint
@@ -42,6 +43,7 @@ The simulator's shared memory only exists inside the wineserver that runs the ga
    - **LMU:** `/path/to/recorder/linux/lmu-with-recorder.sh %command%`
    - **AC1:** `/path/to/recorder/linux/ac-with-recorder.sh %command%`
    - **AC EVO:** `/path/to/recorder/linux/acevo-with-recorder.sh %command%`
+   - **DiRT Rally 2.0 / EA WRC:** `/path/to/recorder/linux/dr2-with-recorder.sh %command%`
    - **Universal (Any):** `/path/to/recorder/linux/sim-with-recorder.sh %command%`
 
 3. Start the game from Steam as usual. The recorder starts 10 seconds later and stops by itself a few seconds after the game closes. Its log is in `~/.local/state/idoracing-recorder.log`.
@@ -49,6 +51,12 @@ The simulator's shared memory only exists inside the wineserver that runs the ga
 If the recorder is missing or the launch command has no Proton, the game starts normally without it. `IDORACING_RECORDER`, `IDORACING_RECORDER_DELAY` and `IDORACING_RECORDER_LOG` override the executable, the delay and the log path.
 
 Session files go to `.../pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings/`, which IdoRacing lists alongside other telemetry files. Pass `-out` to write somewhere else.
+
+### Note for DiRT Rally 2.0 / EA SPORTS WRC
+Enable UDP output in `hardware_settings_config.xml` (located in `Documents/My Games/DiRT Rally 2.0/hardwaresettings/`):
+```xml
+<udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />
+```
 
 ### Note for Le Mans Ultimate (LMU)
 Ensure `rFactor2SharedMemoryMapPlugin64.dll` is enabled in your LMU prefix:

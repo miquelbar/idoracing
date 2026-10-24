@@ -52,7 +52,19 @@ IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDO
 sleep 0.5
 grep -qx "run $work/idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe -log $work/log" "$CALLS" || fail "acevo-with-recorder.sh failed"
 
-# 5. Universal launcher auto-detection
+# 5. DiRT Rally 2.0 / WRC
+: >"$CALLS"
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/dr2-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/dr2/dirtrally2.exe"
+sleep 0.5
+grep -qx "run $work/idoracing-recorder.exe -sim dr2 -exit-with dirtrally2.exe,WRC.exe -log $work/log" "$CALLS" || fail "dr2-with-recorder.sh failed"
+
+# 6. Universal launcher auto-detection
+: >"$CALLS"
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/dr2/dirtrally2.exe"
+sleep 0.5
+grep -qx "run $work/idoracing-recorder.exe -sim dr2 -exit-with dirtrally2.exe,WRC.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-dr2 failed"
 : >"$CALLS"
 IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/lmu/Le Mans Ultimate.exe"
