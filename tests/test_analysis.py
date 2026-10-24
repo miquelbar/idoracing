@@ -131,6 +131,59 @@ def test_sebring_multitrack_corners_and_telemetry():
     assert max(ty) - min(ty) > 100.0
 
 
+def test_red_bull_ring_corners_and_clockwise_outline():
+    import numpy as np
+
+    from analysis.telemetry_generator import generate_lap_telemetry_for_track
+    from analysis.tracks import generate_track_coordinates, get_track_corners, get_track_length
+
+    corners = get_track_corners("Red Bull Ring")
+    assert len(corners) == 10
+    assert corners[0]["name"] == "Niki Lauda"
+    assert corners[9]["name"] == "Turn 10"
+    assert sum(c["turn_deg"] for c in corners) == -360
+
+    assert get_track_length("Red Bull Ring") == 4318.0
+
+    target_time = 105.669
+    t_data = generate_lap_telemetry_for_track(
+        track_name="Red Bull Ring",
+        target_lap_time=target_time,
+        is_reference=True,
+    )
+    assert abs(float(t_data["time"][-1]) - target_time) < 0.1
+    assert float(t_data["distance"][-1]) >= 4300.0
+
+    comp_t_data = generate_lap_telemetry_for_track(
+        track_name="Red Bull Ring",
+        target_lap_time=107.200,
+        is_reference=False,
+    )
+    ref_dict = {k: v.tolist() for k, v in t_data.items()}
+    comp_dict = {k: v.tolist() for k, v in comp_t_data.items()}
+    aligned = align_laps_by_distance(ref_dict, comp_dict, step_m=2.0)
+
+    rbr_corners = extract_corners_analysis(aligned, track_name="Red Bull Ring")
+    assert len(rbr_corners) == 10
+    assert rbr_corners[0].corner_number == 1
+
+    tx, ty = generate_track_coordinates("Red Bull Ring", aligned["distance"], aligned)
+    assert len(tx) == len(aligned["distance"])
+    assert abs(tx[0] - tx[-1]) < 1e-4  # Closed loop
+    assert abs(ty[0] - ty[-1]) < 1e-4  # Closed loop
+    assert max(tx) - min(tx) > 100.0  # Real dimensions, not a collapsed line
+    assert max(ty) - min(ty) > 100.0
+
+    # Red Bull Ring runs clockwise: the outline's signed area must be negative and
+    # Turn 1 (Niki Lauda) must turn right on the map.
+    x, y = np.asarray(tx), np.asarray(ty)
+    assert float(np.sum(x[:-1] * y[1:] - x[1:] * y[:-1])) < 0
+    heading = np.unwrap(np.arctan2(np.gradient(y), np.gradient(x)))
+    turn = np.gradient(heading)
+    t1 = (aligned["distance"] >= 400.0) & (aligned["distance"] <= 510.0)
+    assert float(np.sum(turn[t1])) < 0  # Turn 1 turns right on the map
+
+
 def test_track_coordinates_infer_turn_directions_from_lateral_accel():
     import numpy as np
 

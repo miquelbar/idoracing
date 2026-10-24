@@ -358,6 +358,123 @@ SEBRING_CORNERS: list[dict[str, Any]] = [
     },
 ]
 
+# Red Bull Ring corners: windows measured from the ACC fastlane.ai centreline in
+# data/circuits/red_bull_ring.json (game frame mirrored to real-world orientation),
+# turn directions per the real circuit (clockwise), and turn angles that sum to
+# exactly -360 degrees so an inferred outline closes like the real lap.
+RED_BULL_RING_CORNERS: list[dict[str, Any]] = [
+    {
+        "number": 1,
+        "name": "Niki Lauda",
+        "start": 402.6,
+        "apex": 458.0,
+        "end": 508.3,
+        "gear": 4,
+        "target_speed": 150.0,
+        "turn_dir": "right",
+        "turn_deg": -72,
+    },
+    {
+        "number": 2,
+        "name": "Munzer",
+        "start": 1026.7,
+        "apex": 1066.9,
+        "end": 1177.6,
+        "gear": 5,
+        "target_speed": 190.0,
+        "turn_dir": "left",
+        "turn_deg": 17,
+    },
+    {
+        "number": 3,
+        "name": "Schlossgold",
+        "start": 1358.8,
+        "apex": 1399.1,
+        "end": 1469.5,
+        "gear": 3,
+        "target_speed": 95.0,
+        "turn_dir": "right",
+        "turn_deg": -136,
+    },
+    {
+        "number": 4,
+        "name": "Rauch",
+        "start": 2133.8,
+        "apex": 2224.4,
+        "end": 2259.7,
+        "gear": 3,
+        "target_speed": 120.0,
+        "turn_dir": "right",
+        "turn_deg": -115,
+    },
+    {
+        "number": 5,
+        "name": "Turn 5",
+        "start": 2259.7,
+        "apex": 2395.5,
+        "end": 2531.4,
+        "gear": 5,
+        "target_speed": 190.0,
+        "turn_dir": "right",
+        "turn_deg": -81,
+    },
+    {
+        "number": 6,
+        "name": "Turn 6",
+        "start": 2586.8,
+        "apex": 2808.2,
+        "end": 2868.6,
+        "gear": 4,
+        "target_speed": 140.0,
+        "turn_dir": "left",
+        "turn_deg": 134,
+    },
+    {
+        "number": 7,
+        "name": "Graz",
+        "start": 2924.0,
+        "apex": 3064.9,
+        "end": 3150.4,
+        "gear": 4,
+        "target_speed": 160.0,
+        "turn_dir": "left",
+        "turn_deg": 108,
+    },
+    {
+        "number": 8,
+        "name": "Turn 8",
+        "start": 3155.5,
+        "apex": 3258.6,
+        "end": 3361.8,
+        "gear": 5,
+        "target_speed": 180.0,
+        "turn_dir": "right",
+        "turn_deg": -47,
+    },
+    {
+        "number": 9,
+        "name": "Rindt",
+        "start": 3699.0,
+        "apex": 3819.8,
+        "end": 3885.2,
+        "gear": 5,
+        "target_speed": 190.0,
+        "turn_dir": "right",
+        "turn_deg": -75,
+    },
+    {
+        "number": 10,
+        "name": "Turn 10",
+        "start": 3925.5,
+        "apex": 4038.7,
+        "end": 4151.9,
+        "gear": 4,
+        "target_speed": 130.0,
+        "turn_dir": "right",
+        "turn_deg": -93,
+    },
+]
+
 
 def get_track_length(track_name: str | None = None) -> float:
     t = (track_name or "").lower()
@@ -371,6 +488,15 @@ def get_track_length(track_name: str | None = None) -> float:
         return 5793.0
     if "nurburgring" in t or "nürburgring" in t:
         return 5148.0
+    if (
+        "red bull ring" in t
+        or "spielberg" in t
+        or "österreichring" in t
+        or "osterreichring" in t
+        or "a1-ring" in t
+        or "a1 ring" in t
+    ):
+        return 4318.0
     return 4500.0
 
 
@@ -381,6 +507,15 @@ def known_track_corners(track_name: str | None) -> list[dict[str, Any]] | None:
         return SEBRING_CORNERS
     if "valencia" in t_norm or "ricardo" in t_norm or "cheste" in t_norm:
         return VALENCIA_CORNERS
+    if (
+        "red bull ring" in t_norm
+        or "spielberg" in t_norm
+        or "österreichring" in t_norm
+        or "osterreichring" in t_norm
+        or "a1-ring" in t_norm
+        or "a1 ring" in t_norm
+    ):
+        return RED_BULL_RING_CORNERS
     return None
 
 
