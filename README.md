@@ -17,8 +17,11 @@
 Supports:
 - **Assetto Corsa Competizione (ACC)**
 - **Le Mans Ultimate (LMU)**
+- **Assetto Corsa 1 & Assetto Corsa Rally**
+- **Assetto Corsa EVO**
+- **DiRT Rally 2.0 & EA SPORTS WRC**
 - **iRacing** (MoTeC & CSV exports)
-- **Universal CSV Logs**
+- **Universal 50Hz CSV Logs**
 
 ---
 
@@ -69,67 +72,65 @@ Supports:
 
 ## 🎮 How to Record Telemetry in Your Sim
 
+### 🚀 Universal Steam Launcher on Linux (All Simulators)
+The recommended and simplest way on Linux with Steam + Proton is the **universal auto-detecting launcher**. It inspects the running binary to determine whether you are playing ACC, LMU, AC1, AC Rally, AC EVO, DiRT Rally 2.0, or EA SPORTS WRC, and hooks `idoracing-recorder.exe` into the game's Proton prefix automatically:
+
+1. In Steam, right-click your simulator > **Properties** > **General** > **Launch Options**.
+2. Enter:
+   ```bash
+   gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%
+   ```
+   *(Or without GameMode: `/path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%`)*  
+   *(Or with MangoHud: `mangohud gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%`)*
+3. Start the game. The recorder starts silently in the background and closes automatically when the game exits.
+4. Telemetry is saved to `IdoRacing/recordings/` and imported automatically by IdoRacing Analytics.
+
+*(Note: The simulator-specific scripts like `acc-with-recorder.sh`, `lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`, and `dr2-with-recorder.sh` remain 100% supported if you already configured them).*
+
+---
+
+### 🪟 Windows Quickstart (All Simulators)
+Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windowsgui`), it runs **completely silently**: no black command prompt popups, no taskbar window, and negligible CPU consumption (<0.01% when idle).
+
+- **Option A: Auto-Record on Boot (Recommended — Set & Forget)**:
+  1. Press `Win + R`, type `shell:startup`, and press Enter.
+  2. Put a shortcut to `idoracing-recorder.exe` in that folder.
+  3. Whenever you launch any supported sim (ACC, LMU, AC, AC EVO, DR2, WRC), it automatically detects the game and saves 50Hz telemetry to `Documents\IdoRacing\recordings\`.
+- **Option B: Manual / Desktop Shortcut**:
+  Double-click `idoracing-recorder.exe` before driving.
+- **Option C: Auto-Exit with Specific Game**:
+  ```cmd
+  idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe
+  idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"
+  idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"
+  idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe
+  idoracing-recorder.exe -sim dr2 -exit-with "dirtrally2.exe,WRC.exe"
+  ```
+
+---
+
 ### 🏎️ Assetto Corsa Competizione (ACC)
-
-#### Option 1: Automatic Live Recorder (Recommended)
-IdoRacing includes [`idoracing-recorder`](recorder/README.md), a lightweight background helper that reads ACC's shared memory under Proton/Wine. It captures full telemetry **including real world coordinates $(x, y)$** and ACC lap validity flags.
-
-- **Linux (Steam + Proton)**:
-  1. In Steam, go to **Assetto Corsa Competizione > Properties > General > Launch Options**.
-  2. Add the launcher script before `%command%`:
-     ```text
-     /path/to/idoracing/recorder/linux/acc-with-recorder.sh %command%
-     ```
-     *(If using custom environment variables or GameMode, keep them before the script and command, e.g. `PROTON_ENABLE_NVAPI=1 /path/to/.../acc-with-recorder.sh gamemoderun %command%`)*
-  3. Start ACC. The recorder runs silently in the background and closes automatically when the game exits.
-  4. Sessions are saved directly to `IdoRacing/recordings/` and appear automatically in the app under **Auto-discovery**.
-
-- **Windows**:
-  Run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe` in the background.
-
-#### Option 2: Native MoTeC Export (Fallback)
-1. In ACC, enter the **Car Setup** menu for your vehicle.
-2. Under **Electronics** or **Fuel & Strategy**, set **Telemetry Laps** to **10–20** (default is `0` = off).
-3. Return to the pit box to flush files. ACC writes `.ld` and `.ldx` files to:
-   - **Windows**: `Documents\Assetto Corsa Competizione\MoTeC\`
-   - **Linux (Proton)**: `~/.local/share/Steam/steamapps/compatdata/805550/pfx/drive_c/users/steamuser/Documents/Assetto Corsa Competizione/MoTeC/`
-   *(Native MoTeC files lack world $(x, y)$ coordinates, so track maps are dead-reckoned).*
+- **Automatic Recorder (50Hz + GPS coords)**: Use the Universal launcher above, or dedicated `/path/to/recorder/linux/acc-with-recorder.sh %command%`. On Windows, run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe`.
+- **Native MoTeC Export (Fallback)**: In ACC, enter Car Setup > Electronics/Fuel and set **Telemetry Laps** to **10–20** (default `0` = off). ACC writes `.ld` files to `Documents\Assetto Corsa Competizione\MoTeC\`.
 
 ### 🏁 Le Mans Ultimate (LMU)
+- **Automatic Recorder (50Hz + GPS coords)**: Use the Universal launcher above, or dedicated `/path/to/recorder/linux/lmu-with-recorder.sh %command%`. Ensure `rFactor2SharedMemoryMapPlugin64.dll` is enabled in `UserData/player/CustomPluginVariables.json`. On Windows, run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"`.
+- **Session Results XML (Fallback)**: LMU automatically generates result XMLs under `UserData/Log/Results/`. IdoRacing detects them and displays lap times and split deltas.
 
-#### Option 1: Automatic Live Recorder (Recommended)
-Like ACC, IdoRacing's [`idoracing-recorder`](recorder/README.md) captures LMU telemetry in real time, including **track position $(x, y)$**, pedals, steering, speed, and lateral/longitudinal G-forces at 50Hz.
-
-- **Linux (Steam + Proton)**:
-  1. In Steam, go to **Le Mans Ultimate > Properties > General > Launch Options**.
-  2. Add the launcher script before `%command%`:
-     ```text
-     /path/to/idoracing/recorder/linux/lmu-with-recorder.sh %command%
-     ```
-  3. Start LMU. The recorder joins the game's Proton prefix, reads `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$`, and stops automatically when the game exits.
-  4. Recordings go directly to `IdoRacing/recordings/` and appear automatically in the app under **Auto-discovery**.
-
-- **Windows**:
-  Run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"` in the background.
-
-#### Option 2: Session Results XML / MoTeC DAMPlugin (Fallback)
-1. LMU logs race and practice session results automatically in XML format upon exiting:
-   - **Windows**: `<SteamLibrary>\steamapps\common\Le Mans Ultimate\UserData\Log\Results\`
-   - **Linux (Steam)**: `~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results/`
-2. IdoRacing Analytics auto-detects these XML session files and imports your lap times and sector deltas instantly.
-3. If using DAMPlugin, place or upload the generated `.ld` file from `UserData/Log/MoTeC/` to view traces.
-
-### 🏎️ Assetto Corsa, AC Rally & Assetto Corsa EVO
-- **Assetto Corsa 1 & AC Rally**: Use `recorder/linux/ac-with-recorder.sh %command%` in Steam for real-time 50Hz capture across circuit and rally stages.
-- **Assetto Corsa EVO**: Set **Telemetry Laps > 0** in the garage menu for `.ld` files, or use `recorder/linux/acevo-with-recorder.sh %command%` in Steam.
+### 🏎️ Assetto Corsa 1, AC Rally & Assetto Corsa EVO
+- **Assetto Corsa 1 & AC Rally**: Use `sim-with-recorder.sh %command%` (or dedicated `ac-with-recorder.sh %command%`) for real-time 50Hz capture across circuit tracks and point-to-point rally stages.
+- **Assetto Corsa EVO**: Set **Telemetry Laps > 0** in the garage menu for `.ld` files, or use `sim-with-recorder.sh %command%` (or dedicated `acevo-with-recorder.sh %command%`).
 
 ### 🌲 DiRT Rally 2.0 & EA SPORTS WRC
-1. Enable UDP output in `hardware_settings_config.xml` (`<udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />`).
-2. Add `recorder/linux/dr2-with-recorder.sh %command%` to Steam Launch Options.
+1. Enable UDP output in `hardware_settings_config.xml` (located in `Documents/My Games/DiRT Rally 2.0/hardwaresettings/`):
+   ```xml
+   <udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />
+   ```
+2. Use `sim-with-recorder.sh %command%` (or dedicated `dr2-with-recorder.sh %command%`). On Windows, run `idoracing-recorder.exe -sim dr2`.
 3. Captures stage run times, distance, speed, inputs, G-forces, and $(x, y)$ stage geometry automatically.
 
 ### 🏁 iRacing
-1. While in the car, press **`Alt + L`** to start/stop telemetry recording (or set automatic logging in iRacing Options).
+1. In car, press **`Alt + L`** to start/stop telemetry recording (or set automatic logging in iRacing Options).
 2. Telemetry `.ibt` files are written to `Documents\iRacing\telemetry\`.
 3. Export to `.ld` (using the free MoTeC iRacing plugin) or export as CSV via Mu / Atlas.
 4. Drag and drop the resulting `.ld` or `.csv` file into IdoRacing Analytics.

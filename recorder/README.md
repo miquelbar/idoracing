@@ -39,12 +39,24 @@ The simulator's shared memory only exists inside the wineserver that runs the ga
 1. Put `idoracing-recorder.exe` next to the `linux/*.sh` scripts.
 2. In Steam: Sim Properties > General > Launch options:
 
-   - **ACC:** `/path/to/recorder/linux/acc-with-recorder.sh %command%`
-   - **LMU:** `/path/to/recorder/linux/lmu-with-recorder.sh %command%`
-   - **AC1:** `/path/to/recorder/linux/ac-with-recorder.sh %command%`
-   - **AC EVO:** `/path/to/recorder/linux/acevo-with-recorder.sh %command%`
-   - **DiRT Rally 2.0 / EA WRC:** `/path/to/recorder/linux/dr2-with-recorder.sh %command%`
-   - **Universal (Any):** `/path/to/recorder/linux/sim-with-recorder.sh %command%`
+   - **Universal (Recommended for all sims):**
+     ```text
+     /path/to/recorder/linux/sim-with-recorder.sh %command%
+     ```
+   - **With GameMode (Recommended on Linux):**
+     ```text
+     gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%
+     ```
+   - **With GameMode & MangoHud:**
+     ```text
+     mangohud gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%
+     ```
+   - **Dedicated sim scripts (all still 100% supported):**
+     - **ACC:** `/path/to/recorder/linux/acc-with-recorder.sh %command%`
+     - **LMU:** `/path/to/recorder/linux/lmu-with-recorder.sh %command%`
+     - **AC1 / AC Rally:** `/path/to/recorder/linux/ac-with-recorder.sh %command%`
+     - **AC EVO:** `/path/to/recorder/linux/acevo-with-recorder.sh %command%`
+     - **DiRT Rally 2.0 / EA WRC:** `/path/to/recorder/linux/dr2-with-recorder.sh %command%`
 
 3. Start the game from Steam as usual. The recorder starts 10 seconds later and stops by itself a few seconds after the game closes. Its log is in `~/.local/state/idoracing-recorder.log`.
 
@@ -93,9 +105,47 @@ The recorder exits on its own when the fake simulator finishes.
 
 ## Run on Windows
 
-Start `idoracing-recorder.exe` before or after the game and leave it running; close it with Ctrl+C, or pass `-exit-with <game.exe>` (e.g. `-exit-with AC2-Win64-Shipping.exe`, `-exit-with "Le Mans Ultimate.exe"`, `-exit-with "acs.exe,AssettoCorsa.exe"`, `-exit-with AssettoCorsaEVO.exe`) so it stops with the game. Files go to `Documents\IdoRacing\recordings`.
+Because `idoracing-recorder.exe` is built with `-H=windowsgui`, it runs completely silently in the background: **no command prompt window popups, no taskbar icon, and zero impact on gaming performance** (<0.01% CPU when idle, checking once per second until you hit the track).
 
-Pass `-sim <acc|lmu|ac|acevo|auto>` to force a specific simulator adapter or let it auto-detect.
+Sessions are automatically saved as CSV files with full 50Hz telemetry to:
+```text
+C:\Users\<YourUser>\Documents\IdoRacing\recordings\
+```
+
+### Option 1: Automatic Startup (Set and Forget — Recommended)
+To have telemetry automatically recorded whenever you play any simulator without ever thinking about it:
+1. Press `Win + R`, type `shell:startup`, and press Enter.
+2. Create a shortcut to `idoracing-recorder.exe` inside that folder.
+3. Done! The recorder will run quietly in the background on every boot, auto-detecting any game you launch.
+
+### Option 2: Manual Run / Shortcut
+Double-click `idoracing-recorder.exe` before or after starting your game. It runs in the background with auto-detection enabled (`-sim auto`). To stop it, close it via Task Manager (`idoracing-recorder.exe`) or run `taskkill /IM idoracing-recorder.exe`.
+
+### Option 3: Auto-exit with Game (Command Line / Batch Script)
+You can instruct the recorder to exit automatically as soon as your game closes using the `-exit-with` flag:
+
+```cmd
+# Assetto Corsa Competizione (ACC)
+idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe
+
+# Le Mans Ultimate (LMU)
+idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"
+
+# Assetto Corsa 1 & AC Rally
+idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"
+
+# Assetto Corsa EVO
+idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe
+
+# DiRT Rally 2.0 & EA SPORTS WRC
+idoracing-recorder.exe -sim dr2 -exit-with "dirtrally2.exe,WRC.exe"
+```
+
+### Option 4: Steam Launch Options on Windows
+If you want Steam to launch the recorder together with the game on Windows, you can set Steam Launch Options to:
+```cmd
+cmd /c "start /b "" "C:\path\to\idoracing-recorder.exe" -sim auto" && %command%
+```
 
 ## Output
 
