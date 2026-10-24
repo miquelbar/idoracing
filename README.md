@@ -110,30 +110,103 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
 ---
 
 ### 🏎️ Assetto Corsa Competizione (ACC)
-- **Automatic Recorder (50Hz + GPS coords)**: Use the Universal launcher above, or dedicated `/path/to/recorder/linux/acc-with-recorder.sh %command%`. On Windows, run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe`.
-- **Native MoTeC Export (Fallback)**: In ACC, enter Car Setup > Electronics/Fuel and set **Telemetry Laps** to **10–20** (default `0` = off). ACC writes `.ld` files to `Documents\Assetto Corsa Competizione\MoTeC\`.
+- **Automatic Live Recorder (50Hz + GPS coords)**:
+  - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `acc-with-recorder.sh %command%`).
+  - **Windows**: Run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe` (or use `-sim auto`).
+  - **Data Captured**: Shared memory (`Local\acpmf_physics`, `graphics`, `static`), speed, inputs, steer angle, G-forces, tyre pressures, and real $(x, y)$ world coordinates. Laps cut-short or exceeding track limits are flagged automatically using ACC's native `lap_valid` signal.
+- **Native MoTeC Export (Fallback)**:
+  - In ACC, enter Car Setup > Electronics/Fuel and set **Telemetry Laps** to **10–20** (default `0` = off).
+  - ACC writes `.ld` and `.ldx` files to `Documents\Assetto Corsa Competizione\MoTeC\`.
 
 ### 🏁 Le Mans Ultimate (LMU)
-- **Automatic Recorder (50Hz + GPS coords)**: Requires `rFactor2SharedMemoryMapPlugin64.dll` inside `<Le Mans Ultimate>/Plugins/` and `" Enabled": 1` in `<Le Mans Ultimate>/UserData/player/CustomPluginVariables.JSON`. Then add `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `lmu-with-recorder.sh %command%`) to Steam Launch Options. On Windows, run `idoracing-recorder.exe -sim lmu` (or `-sim auto`).
-- **Session Results XML (Fallback)**: LMU automatically generates result XMLs under `UserData/Log/Results/`. IdoRacing detects them and displays lap times and split deltas.
+- **Automatic Live Recorder (50Hz + GPS coords)**:
+  - Requires `rFactor2SharedMemoryMapPlugin64.dll` inside `<Le Mans Ultimate>/Plugins/` and `" Enabled": 1` in `<Le Mans Ultimate>/UserData/player/CustomPluginVariables.JSON`.
+  - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `lmu-with-recorder.sh %command%`).
+  - **Windows**: Run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"` (or use `-sim auto`).
+  - **Data Captured**: Real-time 50Hz telemetry (`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$`), speed, pedals, steering, G-forces, and world $(x, y)$ position.
+- **Session Results XML (Fallback)**:
+  - LMU automatically writes practice, qualifying, and race XML results to `UserData/Log/Results/`.
+  - IdoRacing automatically discovers and imports these files, displaying lap times and sector deltas.
+- **MoTeC DAMPlugin (Fallback)**:
+  - If you use DAMPlugin, place or upload the generated `.ld` file from `UserData/Log/MoTeC/`.
 
-### 🏎️ Assetto Corsa 1, AC Rally & Assetto Corsa EVO
-- **Assetto Corsa 1 & AC Rally**: Use `sim-with-recorder.sh %command%` (or dedicated `ac-with-recorder.sh %command%`) for real-time 50Hz capture across circuit tracks and point-to-point rally stages.
-- **Assetto Corsa EVO**: Set **Telemetry Laps > 0** in the garage menu for `.ld` files, or use `sim-with-recorder.sh %command%` (or dedicated `acevo-with-recorder.sh %command%`).
+### 🏎️ Assetto Corsa 1 (AC)
+- **Automatic Live Recorder (50Hz + GPS coords)**:
+  - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `ac-with-recorder.sh %command%`).
+  - **Windows**: Run `idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"` (or use `-sim auto`).
+  - **Data Captured**: Shared memory (`Local\acpmf_physics`, `graphics`, `static`), closed-circuit trajectory with start/finish loop-closure drift correction, speed, pedal positions, and G-forces.
+- **MoTeC Export (Fallback)**:
+  - Use the ACTIR MoTeC telemetry app; exports `.ld` files to `Documents/Assetto Corsa/MoTeC/`, which are auto-imported on startup.
 
-### 🌲 DiRT Rally 2.0 & EA SPORTS WRC
-1. Enable UDP output in `hardware_settings_config.xml` (located in `Documents/My Games/DiRT Rally 2.0/hardwaresettings/`):
-   ```xml
-   <udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />
-   ```
-2. Use `sim-with-recorder.sh %command%` (or dedicated `dr2-with-recorder.sh %command%`). On Windows, run `idoracing-recorder.exe -sim dr2`.
-3. Captures stage run times, distance, speed, inputs, G-forces, and $(x, y)$ stage geometry automatically.
+### 🌲 Assetto Corsa Rally (AC Rally)
+- **Automatic Live Recorder (50Hz + GPS coords)**:
+  - AC Rally point-to-point stages (e.g. rally stages, hillclimbs) use the AC physics engine with non-looping start/finish coordinates.
+  - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `ac-with-recorder.sh %command%`).
+  - **Windows**: Run `idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"` (or use `-sim auto`).
+  - **Point-to-Point Handling**: The recorder detects when start and finish positions differ by more than 30 metres, preserving the authentic linear trajectory without closing false loops.
+
+### ⚡ Assetto Corsa EVO (AC EVO)
+- **Automatic Live Recorder (50Hz + GPS coords)**:
+  - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `acevo-with-recorder.sh %command%`).
+  - **Windows**: Run `idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe` (or use `-sim auto`).
+  - **Data Captured**: Shared memory (`Local\acevo_pmf_*` with fallback to `Local\acpmf_*`), capturing 50Hz physics channels and world $(x, y)$ coordinates.
+- **Native MoTeC Export**:
+  - In the in-game garage setup menu, set **Telemetry Laps > 0**. Files are saved to `Saved Games/ACE/MoTec/<car>/<track>/` and auto-imported.
+- **Native Session Results**:
+  - AC EVO automatically logs session results in JSON format under `Saved Games/ACE/Results/*.sessionresults.json`.
+
+### 🏔️ DiRT Rally 2.0 (DR2)
+- **Automatic Live Recorder (100Hz UDP Stream)**:
+  1. Enable UDP output in `hardware_settings_config.xml` (located in `Documents/My Games/DiRT Rally 2.0/hardwaresettings/`):
+     ```xml
+     <udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />
+     ```
+  2. **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `dr2-with-recorder.sh %command%`).
+  3. **Windows**: Run `idoracing-recorder.exe -sim dr2 -exit-with dirtrally2.exe` (or use `-sim auto`).
+  4. **Data Captured**: Decodes Codemasters 100Hz UDP packets (`extradata=3` format: 264 bytes) recording stage time, distance covered, speed, throttle, brake, steering, RPM, G-forces, and point-to-point $(x, y)$ stage geometry.
+
+### 🏜️ EA SPORTS WRC (WRC)
+- **Automatic Live Recorder (100Hz UDP Stream)**:
+  1. Enable UDP output in `hardware_settings_config.xml` (located in `Documents/EA SPORTS WRC/hardwaresettings/`):
+     ```xml
+     <udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" delay="1" />
+     ```
+  2. **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `dr2-with-recorder.sh %command%`).
+  3. **Windows**: Run `idoracing-recorder.exe -sim dr2 -exit-with WRC.exe` (or use `-sim auto`).
+  4. **Data Captured**: Receives 100Hz UDP telemetry on port 20777, recording stage split times, linear progress, steering angle, inputs, and trajectory.
 
 ### 🏁 iRacing
-1. In car, press **`Alt + L`** to start/stop telemetry recording (or set automatic logging in iRacing Options).
-2. Telemetry `.ibt` files are written to `Documents\iRacing\telemetry\`.
-3. Export to `.ld` (using the free MoTeC iRacing plugin) or export as CSV via Mu / Atlas.
-4. Drag and drop the resulting `.ld` or `.csv` file into IdoRacing Analytics.
+- **In-Game Telemetry Logging**:
+  1. While in the car, press **`Alt + L`** to toggle telemetry recording on/off (the in-car dashboard displays a `TELEM` indicator).
+  2. iRacing writes binary `.ibt` files to `Documents/iRacing/telemetry/`.
+  3. Convert or export to `.ld` (using the free MoTeC iRacing plugin) or export as CSV via Mu / Atlas.
+  4. Drag and drop the resulting `.ld` or `.csv` file into IdoRacing Analytics, or place it in the auto-import directory.
+
+### 📊 Universal 50Hz CSV Logs
+- **Custom Hardware & Third-Party Recorders**:
+  - Any data logger, data acquisition unit, or custom script can export CSV files with leading metadata headers:
+    ```text
+    # simulator: Custom Sim
+    # track: Spa-Francorchamps
+    # car: Porsche 911 GT3 R
+    time,lap,lap_distance,speed,throttle,brake,steer_angle,lat_accel,long_accel,x,y,lap_valid
+    ```
+  - Place your CSV files in `Documents/IdoRacing/recordings/` or drag and drop them directly into the web UI.
+
+---
+
+### 📂 Telemetry Auto-Discovery Directory Reference
+
+IdoRacing Analytics scans the following paths automatically on startup or when clicking **"Escanear Telemetría"**:
+
+| Simulator | File Types | Default Linux (Steam Proton) Path | Default Windows Path |
+| :--- | :--- | :--- | :--- |
+| **All Simulators (IdoRacing Recorder)** | `*.csv` | `~/.local/share/Steam/steamapps/compatdata/*/pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings/` | `C:\Users\<User>\Documents\IdoRacing\recordings\` |
+| **Assetto Corsa Competizione** | `*.ld`, `*.ldx` | `.../compatdata/805550/.../Documents/Assetto Corsa Competizione/MoTeC/` | `Documents\Assetto Corsa Competizione\MoTeC\` |
+| **Le Mans Ultimate** | `*.xml` | `~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results/` | `<SteamLibrary>\steamapps\common\Le Mans Ultimate\UserData\Log\Results\` |
+| **Assetto Corsa 1** | `*.ld` | `.../compatdata/244210/.../Documents/Assetto Corsa/MoTeC/` | `Documents\Assetto Corsa\MoTeC\` |
+| **Assetto Corsa EVO** | `*.ld`, `*.json` | `.../compatdata/3058630/.../Saved Games/ACE/` (`MoTec/` and `Results/`) | `Saved Games\ACE\` (`MoTec\` and `Results\`) |
+| **iRacing** | `*.ld`, `*.csv` | `~/Documents/iRacing/Telemetry/` | `Documents\iRacing\telemetry\` |
 
 ---
 
@@ -141,19 +214,21 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
 
 ```
 idoracing/
-├── api/                # FastAPI app: REST endpoints and the built frontend
+├── api/                # FastAPI app: REST endpoints and built frontend static server
 ├── frontend/           # React 19 + TypeScript + Vite + Tailwind CSS
-│   ├── src/components/ # Charts, track inspector, debrief drawer
-│   ├── src/views/      # Sessions, telemetry, lap history, engineer, settings
+│   ├── src/components/ # Charts, track inspector, debrief drawer, garage inspector
+│   ├── src/views/      # Sessions, telemetry, car setup, engineer radio, settings
 │   ├── src/services/   # Typed API client
-│   └── src/types/      # API types
+│   └── src/types/      # API telemetry types
 ├── domain/             # Pydantic models (Session, Lap, LapComparison, CoachReport)
-├── importers/          # MoTeC .ld/.ldx, LMU XML results and CSV importers
-├── analysis/           # Alignment, corner analysis, lap comparison, track geometry,
-│                       # placeholder telemetry and the demo session
-├── storage/            # SQLite persistence for sessions, laps and debriefs
-├── coach/              # LLM clients, prompts and the rule-based engineer
-└── tests/              # pytest suite
+├── importers/          # MoTeC .ld/.ldx, LMU XML, ACEVO JSON and 50Hz/100Hz CSV importers
+├── analysis/           # Distance alignment, corner phase diagnostics, Bubota ideal ghost
+├── storage/            # SQLite persistence for sessions, laps, setups and debriefs
+├── coach/              # LLM clients, Pep pit-wall radio and rule-based advisor
+├── recorder/           # Standalone Go 50Hz/100Hz recorder (ACC, LMU, AC, ACEVO, DR2, WRC)
+│   ├── linux/          # Steam Proton launch scripts & universal sim-with-recorder.sh
+│   └── tools/          # fakeacc & fakelmu testing harness
+└── tests/              # pytest suite (importers, physics, advisors, API)
 ```
 
 ---
@@ -259,7 +334,7 @@ There are no frontend tests yet; `npm run build` type-checks the app in strict m
 ## 🤝 Contributing
 
 Contributions are warmly welcome! Whether you are:
-- Adding support for new simulators (Automobilista 2, EA Sports WRC, BeamNG)
+- Adding support for new simulators (Automobilista 2, BeamNG.drive, RaceRoom, rFactor 2)
 - Enhancing corner detection algorithms or tire slip angle calculations
 - Improving the UI or adding new telemetry charts
 - Reporting bugs or suggesting features

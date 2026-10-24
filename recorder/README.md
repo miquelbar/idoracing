@@ -1,19 +1,21 @@
 # idoracing-recorder
 
-Reads telemetry and car position from **Assetto Corsa Competizione (ACC)**, **Le Mans Ultimate (LMU)**, **Assetto Corsa 1 (AC)**, and **Assetto Corsa EVO (AC EVO)** in real time and writes standard CSV files per session. Import them into IdoRacing like any other file.
+Reads telemetry and car position from **Assetto Corsa Competizione**, **Le Mans Ultimate**, **Assetto Corsa**, **Assetto Corsa Rally**, **Assetto Corsa EVO**, **DiRT Rally 2.0**, and **EA SPORTS WRC** in real time and writes standard 50Hz/100Hz CSV files per session. Import them into IdoRacing like any other file.
 
-It runs on its own; the IdoRacing app does not need to be open while you drive.
+It runs on its own; the IdoRacing app does not need to be open while you drive. (For **iRacing**, export `.ld` with the MoTeC plugin or `.csv` via Mu/Atlas).
 
 ## Supported Simulators
 
-| Simulator | Detection Flag (`-sim`) | Process / Shared Memory | Launch Script |
+| Simulator | Detection Flag (`-sim`) | Process / Shared Memory / Network | Launch Script |
 | :--- | :--- | :--- | :--- |
 | **Assetto Corsa Competizione** | `acc` (default) | `AC2-Win64-Shipping.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/acc-with-recorder.sh` |
 | **Le Mans Ultimate** | `lmu` | `Le Mans Ultimate.exe`<br>`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$` | `linux/lmu-with-recorder.sh` |
-| **Assetto Corsa 1 & AC Rally** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
+| **Assetto Corsa 1** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
+| **Assetto Corsa Rally** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>Point-to-point stages without false loop closure | `linux/ac-with-recorder.sh` |
 | **Assetto Corsa EVO** | `acevo` | `AssettoCorsaEVO.exe`<br>`Local\acevo_pmf_*` (fallback `Local\acpmf_*`) | `linux/acevo-with-recorder.sh` |
-| **DiRT Rally 2.0 / EA WRC** | `dr2` | `dirtrally2.exe`, `WRC.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
-| **Auto-Detect All** | `auto` | Detects via running processes or active shared memory maps | `linux/sim-with-recorder.sh` |
+| **DiRT Rally 2.0** | `dr2` | `dirtrally2.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
+| **EA SPORTS WRC** | `dr2` | `WRC.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
+| **Auto-Detect All** | `auto` | Detects via running processes, memory maps, or UDP ports | `linux/sim-with-recorder.sh` |
 
 ## Footprint
 

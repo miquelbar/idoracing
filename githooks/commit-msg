@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# commit-msg: enforce one-line, English, conventional-commit messages.
+# Pattern: type(scope): description  or  type: description
+# Types: feat, fix, style, chore, docs, test, refactor, perf, ci, build
+set -euo pipefail
+
+MSG_FILE="$1"
+
+# Strip comment lines (git commit --verbose, merge messages, etc.)
+MSG=$(grep -v '^#' "$MSG_FILE" | sed '/^$/d')
+
+# --- Rule 1: exactly one line ---
+LINE_COUNT=$(printf '%s\n' "$MSG" | wc -l | tr -d ' ')
+if [ "$LINE_COUNT" -ne 1 ]; then
+	echo "commit-msg: message must be a single line (found $LINE_COUNT)." >&2
+	echo "commit-msg: example: feat(setup): add telemetry-based setup recommendations" >&2
+	exit 1
+fi
+
+# --- Rule 2: conventional commit format ---
+PATTERN='^(feat|fix|style|chore|docs|test|refactor|perf|ci|build)(\([a-z0-9_-]+\))?: [a-z].+'
+if ! printf '%s' "$MSG" | grep -qE "$PATTERN"; then
+	echo "commit-msg: message must follow conventional commit format." >&2
+	echo "commit-msg: expected: type(scope): description  or  type: description" >&2
+	echo "commit-msg: types:    feat, fix, style, chore, docs, test, refactor, perf, ci, build" >&2
+	echo "commit-msg: example:  fix(ui): keep the track map clear of the legend" >&2
+	echo "commit-msg: got:      $MSG" >&2
+	exit 1
+fi
+
+# --- Rule 3: English only ---
+# Reject Spanish-specific characters.
+if printf '%s' "$MSG" | grep -qP '[ñÑáéíóúüÁÉÍÓÚÜ¿¡]'; then
+	echo "commit-msg: message must be in English." >&2
+	echo "commit-msg: Spanish characters detected (ñ, á, é, í, ó, ú, ¿, ¡)." >&2
+	echo "commit-msg: got: $MSG" >&2
+	exit 1
+fi
+
+# Reject common Spanish words unlikely in English commit messages.
+SPANISH_WORDS='\b(el|la|los|las|del|al|para|por|con|sin|que|este|esta|esto|ese|esa|todo|todos|todas|añadir|arreglar|quitar|corregir|mejorar|cambiar|actualizar|crear|eliminar|modificar|nuevo|nueva|viejo|vieja|circuito|pista|coche|vuelta|sesion|reglaje|neumatico|frenada|telemetria|de|en|un|una|es|son|hay|hace|hacia|pero|muy|más|solo|cada|otro|otra|otros|otras|algun|alguna|ningun|ninguna|cuando|donde|como|porque|sobre|entre|desde|hasta|durante|mediante|segun|contra|tras|bajo|ante)\b'
+if printf '%s' "$MSG" | grep -qiP "$SPANISH_WORDS"; then
+	echo "commit-msg: message must be in English." >&2
+	echo "commit-msg: Spanish words detected." >&2
+	echo "commit-msg: got: $MSG" >&2
+	exit 1
+fi
+
+exit 0

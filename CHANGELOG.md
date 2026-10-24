@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added automated documentation consistency test (`tests/test_docs_consistency.py`) and pre-commit hook validation ensuring all supported simulators and launch scripts are always documented across `README.md` and `recorder/README.md`.
+- Expanded `README.md` with dedicated, comprehensive sections and an auto-discovery directory reference table for all 8 supported simulators (ACC, LMU, AC1, AC Rally, AC EVO, DR2, WRC, iRacing).
 - Clarified Le Mans Ultimate shared memory setup with exact plugin folder requirements and configuration paths in root and recorder documentation.
 - Documented complete Windows recording workflows (`shell:startup` background run, multi-sim auto-detection, `-exit-with` hooks) and Linux GameMode / MangoHud universal launcher syntax in root and recorder READMEs.
 - Simulator badges & labels in Garaje and Sessions for all supported simulators (`ACC`, `LMU`, `iRacing`, `AC EVO`, `AC`, `AC RALLY`, `DR2`, `WRC`) with robust fallback detection.
