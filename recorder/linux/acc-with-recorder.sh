@@ -19,25 +19,33 @@ game_exe="AC2-Win64-Shipping.exe,acc.exe"
 # Clean up all background jobs on script exit
 trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
 
-# Read spotter configuration (enabled, language)
+# Read spotter configuration (enabled, language, volume)
 spotter_enabled="true"
 spotter_lang="es"
+spotter_vol_pct="${IDORACING_SPOTTER_VOLUME:-100}"
 if [ -f "$config_file" ]; then
 	cfg_en=$(grep -o '"enabled": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"enabled": *//' -e 's/"//g' -e 's/ //g')
 	[ "$cfg_en" = "false" ] && spotter_enabled="false"
 	cfg_lang=$(grep -o '"language": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"language": *//' -e 's/"//g' -e 's/ //g')
 	[ "$cfg_lang" = "en" ] && spotter_lang="en"
+	cfg_vol=$(grep -o '"volume": *[0-9]*' "$config_file" | head -n1 | sed -e 's/"volume": *//' -e 's/ //g')
+	if [ -n "$cfg_vol" ] && [ "$cfg_vol" -gt 0 ] 2>/dev/null; then
+		spotter_vol_pct="$cfg_vol"
+	fi
 fi
 
 play_clip() {
 	local ogg="$1"
 	[ -f "$ogg" ] || return 0
 	if command -v pw-play >/dev/null 2>&1; then
-		pw-play "$ogg"
+		local pw_vol
+		pw_vol=$(awk "BEGIN {printf \"%.2f\", $spotter_vol_pct / 100}")
+		pw-play --volume "${pw_vol:-1.0}" --media-role=voice "$ogg" 2>/dev/null || pw-play "$ogg"
 	elif command -v paplay >/dev/null 2>&1; then
-		paplay "$ogg"
+		local pa_vol=$(( spotter_vol_pct * 65536 / 100 ))
+		paplay --volume="$pa_vol" --property="media.role=voice" "$ogg" 2>/dev/null || paplay "$ogg"
 	elif command -v ffplay >/dev/null 2>&1; then
-		ffplay -nodisp -autoexit -loglevel quiet "$ogg"
+		ffplay -nodisp -autoexit -loglevel quiet -volume "$spotter_vol_pct" "$ogg"
 	fi
 }
 

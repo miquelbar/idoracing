@@ -23,7 +23,13 @@ VOICES = {
     "en": "en-GB-RyanNeural",
 }
 
-RADIO_AUDIO_FILTER = "highpass=f=320,lowpass=f=3100,acompressor=threshold=-18dB:ratio=4"
+RADIO_AUDIO_FILTER = (
+    "highpass=f=200,"
+    "lowpass=f=4500,"
+    "equalizer=f=2800:width_type=h:width=1200:g=5,"
+    "acompressor=threshold=-24dB:ratio=6:attack=5:release=40:makeup=8dB,"
+    "loudnorm=I=-11:TP=-0.3:LRA=4"
+)
 
 PEP_SCRIPTS: dict[str, dict[str, str]] = {
     "radio_on": {
@@ -96,7 +102,7 @@ def _generate_fallback_audio(dest_path: Path) -> None:
         "-i",
         "sine=frequency=800:duration=0.5",
         "-af",
-        f"{RADIO_AUDIO_FILTER},volume=0.01",
+        f"{RADIO_AUDIO_FILTER},volume=0.5",
         "-c:a",
         "libvorbis",
         str(dest_path),

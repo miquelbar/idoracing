@@ -72,7 +72,7 @@ def load_spotter_config() -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to parse spotter config %s: %s", SPOTTER_CONFIG_FILE, exc)
 
-    default_cfg = {"enabled": True, "language": "es", "volume": 85, "toggle_key": "F9"}
+    default_cfg = {"enabled": True, "language": "es", "volume": 100, "toggle_key": "F9"}
     save_spotter_config(default_cfg)
     return default_cfg
 

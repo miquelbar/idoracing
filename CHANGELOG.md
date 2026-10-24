@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The car setup modal (opened from the telemetry header) now includes the structured setup advice panel below the setup inspector, so recommendations and Pep's review are accessible without leaving the telemetry view.
 
 ### Changed
+- Hardened git pre-commit hook (`githooks/pre-commit`): automatically runs full pytest test suite, Go unit tests in `recorder/`, and frontend build verification before allowing commits.
+- Remastered Pep spotter radio audio with broadcast loudness normalization (`loudnorm=I=-11:TP=-0.3:LRA=4`), speech presence boost (+5dB at 2.8kHz), highpass filter, and dedicated audio role/volume controls (`--volume`, `media.role=voice`) in launch scripts (`acc-with-recorder.sh`, `sim-with-recorder.sh`).
 - Replaced hardcoded personal hardware IDs with standard XDG environment loader (`~/.config/idoracing/env`).
 - Re-architected telemetry session context bar into responsive, fluid flex-wrap layout preventing car badge and P1 lap badge overlap.
 - Redesigned AI engine chip (`.model-badge`) to compact single line (`⚙️ Reglas Numéricas` / `⚙️ qwen3.8:27b`) with translucent background.
@@ -64,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The legacy Streamlit UI.
 
 ### Fixed
+- Handled missing `playwright` dependency gracefully in CI via `pytest.importorskip("playwright")`, preventing collection errors when running pytest without browser testing packages.
 - Fixed setup advice review failing with "Laps not found for setup advice review" by falling back to session laps when ranked flying laps are unavailable.
 - Closed circuit loop drift correction preventing trajectory gaps at start/finish line.
 - Eliminated garage teleport spikes and enforced turn chirality in 2D track map and segment zoom.

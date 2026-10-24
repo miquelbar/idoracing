@@ -72,7 +72,7 @@ else
 	echo "pre-commit: WARNING: ruff not found, skipping Python linting." >&2
 fi
 
-# --- Documentation Consistency Check ---
+# --- Automated Test Suite Execution (pytest) ---
 PYTEST=""
 if [ -x "$REPO_ROOT/.venv/bin/pytest" ]; then
 	PYTEST="$REPO_ROOT/.venv/bin/pytest"
@@ -81,11 +81,34 @@ elif command -v pytest >/dev/null 2>&1; then
 fi
 
 if [ -n "$PYTEST" ]; then
-	echo "pre-commit: checking documentation consistency..."
-	"$PYTEST" "$REPO_ROOT/tests/test_docs_consistency.py" -q || {
-		echo "pre-commit: Documentation consistency check failed! Ensure README.md and recorder/README.md document all supported simulators and scripts." >&2
+	echo "pre-commit: running full pytest test suite..."
+	PYTHONPATH="$REPO_ROOT" "$PYTEST" "$REPO_ROOT/tests" -q || {
+		echo "pre-commit: pytest test suite failed! Please fix failing tests before committing." >&2
 		exit 1
 	}
+else
+	echo "pre-commit: WARNING: pytest not found, skipping Python tests." >&2
+fi
+
+# --- Go Unit Tests (recorder) ---
+if command -v go >/dev/null 2>&1 && [ -d "$REPO_ROOT/recorder" ]; then
+	echo "pre-commit: running Go unit tests in recorder/..."
+	(cd "$REPO_ROOT/recorder" && go test ./...) || {
+		echo "pre-commit: Go unit tests failed! Fix recorder tests before committing." >&2
+		exit 1
+	}
+fi
+
+# --- Frontend Typecheck & Build ---
+if command -v npm >/dev/null 2>&1 && [ -d "$REPO_ROOT/frontend" ]; then
+	staged_frontend=$(git diff --cached --name-only 2>/dev/null | grep "^frontend/" || true)
+	if [ -n "$staged_frontend" ]; then
+		echo "pre-commit: verifying frontend build with npm run build..."
+		(cd "$REPO_ROOT/frontend" && npm run build) || {
+			echo "pre-commit: frontend build failed! Fix TypeScript/build errors before committing." >&2
+			exit 1
+		}
+	fi
 fi
 
 # --- CHANGELOG Check ---
