@@ -59,19 +59,29 @@ In `UserData/player/CustomPluginVariables.json`, confirm:
 }
 ```
 
-### Check it under Wine before driving (ACC Fake Sim)
+### Check it under Wine before driving (ACC and LMU Fake Sim)
 
-`tools/fakeacc` publishes ACC's three shared memory pages with a car lapping a circle, so the whole chain can be checked without the game:
+`tools/fakeacc` and `tools/fakelmu` publish the simulator's shared memory pages with a virtual car lapping a circle, so the whole recorder chain can be tested under Wine without running the actual game:
 
+**ACC:**
 ```bash
 GOOS=windows GOARCH=amd64 go build -o fakeacc.exe ./tools/fakeacc
 export WINEPREFIX=/tmp/idoracing-wine-test
 wine fakeacc.exe -seconds 30 &
 wine idoracing-recorder.exe -out 'C:\recordings' -exit-with fakeacc.exe
-ls "$WINEPREFIX/drive_c/recordings"   # one acc_fake_circle_fake_gt3_*.csv, x/y tracing a 200 m circle
+ls "$WINEPREFIX/drive_c/recordings"   # one acc_fake_circle_fake_gt3_*.csv
 ```
 
-The recorder exits on its own when `fakeacc.exe` finishes.
+**LMU:**
+```bash
+GOOS=windows GOARCH=amd64 go build -o fakelmu.exe ./tools/fakelmu
+export WINEPREFIX=/tmp/idoracing-wine-test
+wine fakelmu.exe -seconds 30 &
+wine idoracing-recorder.exe -sim lmu -out 'C:\recordings' -exit-with fakelmu.exe
+ls "$WINEPREFIX/drive_c/recordings"   # one lmu_Circuit-de-la-Sarthe_Ferrari-499P_*.csv
+```
+
+The recorder exits on its own when the fake simulator finishes.
 
 ## Run on Windows
 

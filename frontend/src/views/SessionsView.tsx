@@ -1089,38 +1089,48 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               {t('how_to_record_title')}
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-2 text-xs text-gray-300">
-              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 pt-2 text-xs text-gray-300">
+              <div className="p-4 rounded-xl bg-night-3 border border-accent/20 space-y-1.5">
                 <span className="font-bold text-accent block text-sm">Assetto Corsa Competizione</span>
                 <p className="text-gray-400">
-                  Abre el setup del coche en el garaje del juego. En la pestaña <strong>Electrónica</strong> o <strong>Setup</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99).
+                  Abre el setup del coche en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99) para generar archivos <code className="text-gray-300">.ld</code> en MoTeC.
                 </p>
-                <p className="text-[11px] text-gray-500">
-                  Guarda los archivos .ld en <code className="text-gray-300">Documentos/Assetto Corsa Competizione/MoTeC</code>.
+                <p className="text-[11px] text-gray-400">
+                  Para registrar trazada GPS: lanza en Steam con <code className="text-brand">acc-with-recorder.sh %command%</code>.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
+              <div className="p-4 rounded-xl bg-night-3 border border-blue-500/20 space-y-1.5">
+                <span className="font-bold text-blue-400 block text-sm">Le Mans Ultimate</span>
+                <p className="text-gray-300">
+                  <strong>Grabador IdoRacing (50Hz + GPS):</strong> Lanza LMU en Steam con <code className="text-brand">lmu-with-recorder.sh %command%</code> (activa el plugin en <code className="text-gray-300">CustomPluginVariables.json</code>).
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  Resultados XML: se importan solos desde <code className="text-gray-300">UserData/Log/Results</code>.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-night-3 border border-purple-500/20 space-y-1.5">
                 <span className="font-bold text-purple-400 block text-sm">Assetto Corsa EVO</span>
                 <p className="text-gray-400">
-                  Abre el setup del coche en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> (ej. 99). Sin esto no genera telemetría.
+                  En el garaje, pon <strong>Telemetry Laps &gt; 0</strong>. Guarda los .ld en <code className="text-gray-300">Saved Games/ACE/MoTec/</code>.
                 </p>
-                <p className="text-[11px] text-gray-500">
-                  Guarda los .ld en <code className="text-gray-300">Saved Games/ACE/MoTec/&lt;coche&gt;/&lt;circuito&gt;</code>. Los resultados de sesión (solo tiempos) se importan solos.
+                <p className="text-[11px] text-gray-400">
+                  O usa el grabador con <code className="text-brand">acevo-with-recorder.sh %command%</code>.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
-                <span className="font-bold text-blue-400 block text-sm">Le Mans Ultimate</span>
+              <div className="p-4 rounded-xl bg-night-3 border border-orange-500/20 space-y-1.5">
+                <span className="font-bold text-orange-400 block text-sm">Assetto Corsa 1</span>
                 <p className="text-gray-400">
-                  LMU registra automáticamente cada tanda en archivos XML en tu carpeta de Steam.
+                  Lanza en Steam con el grabador integrado: <code className="text-brand">ac-with-recorder.sh %command%</code> para capturar 50Hz y posición.
                 </p>
-                <p className="text-[11px] text-gray-500">
-                  Ruta típica: <code className="text-gray-300">Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results</code>.
+                <p className="text-[11px] text-gray-400">
+                  O exporta telemetría MoTeC con Content Manager / ACTIR a archivos .ld.
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-night-3 border border-white/5 space-y-1.5">
+              <div className="p-4 rounded-xl bg-night-3 border border-red-500/20 space-y-1.5">
                 <span className="font-bold text-red-400 block text-sm">iRacing & Otros</span>
                 <p className="text-gray-400">
                   Pulsa <strong>Alt + L</strong> dentro del simulador para iniciar la grabación de telemetría en formato IBT o exporta a CSV.

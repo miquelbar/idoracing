@@ -223,6 +223,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   const isLMU = gameUpper.includes('MANS') || gameUpper.includes('LMU');
   const isIRacing = gameUpper.includes('IRACING');
   const isACEvo = gameUpper.includes('EVO');
+  const isAC1 = gameUpper.includes('ASSETTO') && !isACEvo && !gameUpper.includes('COMPETIZIONE');
 
   const s1Ref = comparison.ref_sectors?.['S1'] || 0;
   const s1Comp = comparison.comp_sectors?.['S1'] || 0;
@@ -332,17 +333,46 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
               </div>
 
               {isLMU ? (
-                <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-200 leading-relaxed">
-                  <li>
-                    En <strong>Le Mans Ultimate</strong>, los archivos XML de <code className="text-brand">UserData/Log/Results/</code> solo guardan tiempos por vuelta y sectores.
-                  </li>
-                  <li>
-                    Para grabar canales a 50Hz (velocidad, pedales, volante y GPS), activa el plugin de exportación <strong>MoTeC (.ld)</strong> en la configuración de LMU / DAMPlugin.
-                  </li>
-                  <li>
-                    Vincula o sube el archivo <code className="text-brand">.ld</code> generado junto a la sesión para desbloquear las gráficas y el diagnóstico por curva.
-                  </li>
-                </ol>
+                <div className="space-y-2 text-xs text-gray-200 leading-relaxed">
+                  <p className="font-semibold text-brand">
+                    {lang === 'en'
+                      ? 'In Le Mans Ultimate (LMU), capture full 50Hz telemetry and GPS position via:'
+                      : 'En Le Mans Ultimate (LMU), graba telemetría completa a 50Hz y posición GPS mediante:'}
+                  </p>
+                  <ol className="list-decimal pl-5 space-y-2">
+                    <li>
+                      <strong>{lang === 'en' ? 'IdoRacing Recorder (Recommended):' : 'IdoRacing Recorder (Recomendado):'}</strong>{' '}
+                      {lang === 'en' ? (
+                        <>
+                          Enable the plugin in <code className="text-brand">UserData/player/CustomPluginVariables.json</code> (set <code className="text-brand">"rFactor2SharedMemoryMapPlugin64.dll": &#123; " Enabled": 1 &#125;</code>) and in Steam Launch Options add:
+                          <code className="block mt-1 p-1.5 bg-black/50 border border-white/10 rounded font-mono text-[11px] text-brand select-all">
+                            /path/to/recorder/linux/lmu-with-recorder.sh %command%
+                          </code>
+                          Automatically records speed, pedals, steering, G-forces and track coordinates $(x, y)$.
+                        </>
+                      ) : (
+                        <>
+                          Activa el plugin en <code className="text-brand">UserData/player/CustomPluginVariables.json</code> (pon <code className="text-brand">"rFactor2SharedMemoryMapPlugin64.dll": &#123; " Enabled": 1 &#125;</code>) y en Parámetros de Lanzamiento de Steam añade:
+                          <code className="block mt-1 p-1.5 bg-black/50 border border-white/10 rounded font-mono text-[11px] text-brand select-all">
+                            /path/to/recorder/linux/lmu-with-recorder.sh %command%
+                          </code>
+                          Graba automáticamente velocidad, pedales, dirección, fuerzas G y trazada $(x, y)$ a 50Hz.
+                        </>
+                      )}
+                    </li>
+                    <li>
+                      <strong>{lang === 'en' ? 'MoTeC DAMPlugin (.ld):' : 'MoTeC DAMPlugin (.ld):'}</strong>{' '}
+                      {lang === 'en'
+                        ? 'If you have DAMPlugin configured, place or upload the .ld file from UserData/Log/MoTeC/.'
+                        : 'Si tienes configurado DAMPlugin en LMU, coloca o sube el archivo .ld desde UserData/Log/MoTeC/.'}
+                    </li>
+                  </ol>
+                  <p className="text-[11px] text-gray-400">
+                    {lang === 'en'
+                      ? 'Note: Default XML files in UserData/Log/Results/ only store lap times (synthetic laps without pedal/speed traces).'
+                      : 'Nota: Los archivos XML por defecto en UserData/Log/Results/ solo contienen tiempos de vuelta (sesión sintética sin trazas de pedales/velocidad).'}
+                  </p>
+                </div>
               ) : isIRacing ? (
                 <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-200 leading-relaxed">
                   <li>
@@ -366,6 +396,21 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                   <li>
                     Al volver a boxes, AC EVO guardará los archivos <code className="text-brand">.ld</code> en <code className="text-gray-300">Saved Games/ACE/MoTec/</code>.
                   </li>
+                  <li>
+                    También puedes usar el grabador integrado en Steam: <code className="text-brand">acevo-with-recorder.sh %command%</code>.
+                  </li>
+                </ol>
+              ) : isAC1 ? (
+                <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-200 leading-relaxed">
+                  <li>
+                    En <strong>Assetto Corsa</strong>, puedes usar el grabador integrado de IdoRacing en Steam:
+                    <code className="block mt-1 p-1 bg-black/40 rounded font-mono text-[11px] text-brand select-all">
+                      /path/to/recorder/linux/ac-with-recorder.sh %command%
+                    </code>
+                  </li>
+                  <li>
+                    O exporta telemetría MoTeC con la app de Content Manager / ACTIR a archivos <code className="text-brand">.ld</code>.
+                  </li>
                 </ol>
               ) : (
                 <ol className="list-decimal pl-5 space-y-1.5 text-xs text-gray-200 leading-relaxed">
@@ -379,7 +424,10 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                     Sube <strong className="text-brand">Telemetry Laps</strong> de <code className="text-rose-400">0</code> a <strong className="text-emerald-300">10–20 vueltas</strong>.
                   </li>
                   <li>
-                    Al volver a boxes, ACC guardará automáticamente los archivos <code className="text-brand">.ld</code> y <code className="text-brand">.ldx</code> en <code className="text-gray-300">Documents/Assetto Corsa Competizione/MoTeC/</code> (o ruta Proton en Linux).
+                    Al volver a boxes, ACC guardará los archivos <code className="text-brand">.ld</code> en <code className="text-gray-300">Documents/Assetto Corsa Competizione/MoTeC/</code>.
+                  </li>
+                  <li>
+                    Para obtener posición en pista (GPS) y comparar trazadas, usa en Steam: <code className="text-brand">acc-with-recorder.sh %command%</code>.
                   </li>
                 </ol>
               )}

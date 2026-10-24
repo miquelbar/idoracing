@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added in-app telemetry activation and recording guides for Le Mans Ultimate (LMU), Assetto Corsa 1, and Steam launch options in both SessionsView and TelemetryView.
 - Multi-simulator support in `idoracing-recorder`: standalone Go recorder now supports **Le Mans Ultimate (LMU)**, **Assetto Corsa 1 (AC)**, and **Assetto Corsa EVO (AC EVO)** in addition to ACC with zero regressions.
   - LMU memory mapping for `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$` with `#pragma pack(push, 4)`.
   - Kunos shared memory mapping for AC1 (`Local\acpmf_*`) and AC EVO (`Local\acevo_pmf_*` with fallback).
