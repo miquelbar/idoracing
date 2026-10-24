@@ -65,3 +65,57 @@ def test_laps_flagged_invalid_by_the_game_stay_invalid(tmp_path):
     session = CSVImporter(str(path)).parse()
 
     assert [lap.is_valid for lap in session.laps] == [True, False]
+
+
+def test_lmu_recorder_csv_gives_metadata_and_position(tmp_path):
+    header = (
+        "# simulator: Le Mans Ultimate\n"
+        "# track: Circuit de la Sarthe\n"
+        "# car: Ferrari 499P\n"
+        "# track_length_m: 13626.0\n"
+        "# recorder: idoracing-recorder 0.1.0\n"
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid\n"
+    )
+    rows1, t = _oval_lap(1, 200.0, 0.0)
+    rows2, _ = _oval_lap(2, 201.5, t)
+    path = tmp_path / "lmu_Circuit-de-la-Sarthe_Ferrari-499P_20261024-180000.csv"
+    path.write_text(header + "".join(rows1 + rows2))
+
+    session = CSVImporter(str(path)).parse()
+
+    assert (session.simulator, session.track, session.car) == (
+        "Le Mans Ultimate",
+        "Circuit de la Sarthe",
+        "Ferrari 499P",
+    )
+    assert [lap.lap_number for lap in session.laps] == [1, 2]
+    assert all(lap.is_valid for lap in session.laps)
+
+    comparison = compare_laps(session.laps[0], session.laps[1], track_name=session.track)
+    apex_offsets = [c.line_offset_apex_m for c in comparison.corners]
+    assert len(apex_offsets) == 2
+    assert all(o == pytest.approx(1.5, abs=0.2) for o in apex_offsets)
+
+
+def test_acevo_and_ac_recorder_csv(tmp_path):
+    for sim_name, prefix, car in [
+        ("Assetto Corsa EVO", "acevo", "alfa_romeo_giulia_gtam"),
+        ("Assetto Corsa", "ac", "ferrari_f40"),
+    ]:
+        header = (
+            f"# simulator: {sim_name}\n"
+            "# track: Imola\n"
+            f"# car: {car}\n"
+            "# track_length_m: 4909.0\n"
+            "# recorder: idoracing-recorder 0.1.0\n"
+            "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid\n"
+        )
+        rows, _ = _oval_lap(1, 200.0, 0.0)
+        path = tmp_path / f"{prefix}_Imola_{car}_20261024-180000.csv"
+        path.write_text(header + "".join(rows))
+
+        session = CSVImporter(str(path)).parse()
+        assert session.simulator == sim_name
+        assert session.track == "Imola"
+        assert session.car == car
+        assert len(session.laps) == 1

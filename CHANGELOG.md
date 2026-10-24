@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Standardized Le Mans Ultimate, AC1, and AC EVO recorder support across root README, CI testing (`test-sim-launchers.sh`), and end-to-end CSV importer test suite (`test_recorder_csv.py`).
 - Added end-to-end Wine integration test for LMU recorder (`test-lmu-integration.sh`) running `fakelmu.exe` and `idoracing-recorder.exe`.
 - Added in-app telemetry activation and recording guides for Le Mans Ultimate (LMU), Assetto Corsa 1, and Steam launch options in both SessionsView and TelemetryView.
 - Multi-simulator support in `idoracing-recorder`: standalone Go recorder now supports **Le Mans Ultimate (LMU)**, **Assetto Corsa 1 (AC)**, and **Assetto Corsa EVO (AC EVO)** in addition to ACC with zero regressions.

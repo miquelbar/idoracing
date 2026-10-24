@@ -79,6 +79,7 @@ jobs:
       run: |
         go test ./...
         bash linux/test-acc-with-recorder.sh
+        bash linux/test-sim-launchers.sh
 
     - name: Build the Windows executable
       run: GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .

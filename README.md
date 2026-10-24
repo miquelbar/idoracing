@@ -96,11 +96,32 @@ IdoRacing includes [`idoracing-recorder`](recorder/README.md), a lightweight bac
    *(Native MoTeC files lack world $(x, y)$ coordinates, so track maps are dead-reckoned).*
 
 ### 🏁 Le Mans Ultimate (LMU)
-1. LMU logs race and practice session data automatically in XML format upon exiting the session.
-2. Files are located in:
+
+#### Option 1: Automatic Live Recorder (Recommended)
+Like ACC, IdoRacing's [`idoracing-recorder`](recorder/README.md) captures LMU telemetry in real time, including **track position $(x, y)$**, pedals, steering, speed, and lateral/longitudinal G-forces at 50Hz.
+
+- **Linux (Steam + Proton)**:
+  1. In Steam, go to **Le Mans Ultimate > Properties > General > Launch Options**.
+  2. Add the launcher script before `%command%`:
+     ```text
+     /path/to/idoracing/recorder/linux/lmu-with-recorder.sh %command%
+     ```
+  3. Start LMU. The recorder joins the game's Proton prefix, reads `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$`, and stops automatically when the game exits.
+  4. Recordings go directly to `IdoRacing/recordings/` and appear automatically in the app under **Auto-discovery**.
+
+- **Windows**:
+  Run `idoracing-recorder.exe -sim lmu -exit-with "Le Mans Ultimate.exe"` in the background.
+
+#### Option 2: Session Results XML / MoTeC DAMPlugin (Fallback)
+1. LMU logs race and practice session results automatically in XML format upon exiting:
    - **Windows**: `<SteamLibrary>\steamapps\common\Le Mans Ultimate\UserData\Log\Results\`
    - **Linux (Steam)**: `~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results/`
-3. IdoRacing Analytics auto-detects these XML session files and imports your lap times and sector deltas instantly.
+2. IdoRacing Analytics auto-detects these XML session files and imports your lap times and sector deltas instantly.
+3. If using DAMPlugin, place or upload the generated `.ld` file from `UserData/Log/MoTeC/` to view traces.
+
+### 🏎️ Assetto Corsa & Assetto Corsa EVO
+- **Assetto Corsa EVO**: Set **Telemetry Laps > 0** in the garage menu for `.ld` files, or use `recorder/linux/acevo-with-recorder.sh %command%` in Steam.
+- **Assetto Corsa 1**: Use `recorder/linux/ac-with-recorder.sh %command%` in Steam for real-time 50Hz capture.
 
 ### 🏁 iRacing
 1. While in the car, press **`Alt + L`** to start/stop telemetry recording (or set automatic logging in iRacing Options).
