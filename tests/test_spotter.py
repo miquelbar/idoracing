@@ -1,7 +1,6 @@
 """Unit tests for Live Spotter (Pep) configuration, manifest export, and audio cues."""
 
 import json
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -67,7 +66,11 @@ def test_track_slug_normalization():
     assert get_track_slug("Autodromo Nazionale Monza") == "monza"
 
 
-def test_comparison_exports_spotter_manifest(client):
+def test_comparison_exports_spotter_manifest(client, monkeypatch, tmp_path):
+    # Isolate test voices output to a temporary directory so working tree assets are preserved
+    test_voices_dir = tmp_path / "voices"
+    monkeypatch.setattr("analysis.spotter.VOICES_DIR", test_voices_dir)
+
     # Ensure demo sessions are initialized
     client.get("/api/sessions")
 
@@ -78,7 +81,7 @@ def test_comparison_exports_spotter_manifest(client):
     assert resp_data["has_telemetry"] is True
     assert len(resp_data["corners"]) >= 3
 
-    manifest_path = Path("recorder/voices/tracks/valencia/manifest.json")
+    manifest_path = test_voices_dir / "tracks" / "valencia" / "manifest.json"
     assert manifest_path.exists(), "Manifest was not exported"
 
     with open(manifest_path, encoding="utf-8") as f:
@@ -112,6 +115,6 @@ def test_comparison_exports_spotter_manifest(client):
 
         # Check that hotspot audio clips exist on disk in both languages
         for lang in ("es", "en"):
-            clip_path = Path(f"recorder/voices/tracks/valencia/{lang}/hotspot_{slot}.ogg")
+            clip_path = test_voices_dir / "tracks" / "valencia" / lang / f"hotspot_{slot}.ogg"
             assert clip_path.exists(), f"Missing audio clip: {clip_path}"
             assert clip_path.stat().st_size > 1000, f"Audio clip {clip_path} is too small"
