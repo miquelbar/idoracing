@@ -46,7 +46,11 @@ export function detectSimGame(
 ): string | null {
   if (session?.simulator) return session.simulator;
   if (comparison?.game_name) return comparison.game_name;
-  if ((session?.session_id || '').toLowerCase().includes('iracing')) return 'iRacing';
+  const sLower = (session?.session_id || '').toLowerCase();
+  if (sLower.includes('iracing')) return 'iRacing';
+  if (sLower.includes('dr2') || sLower.includes('dirt')) return 'DiRT Rally 2.0';
+  if (sLower.includes('wrc')) return 'EA SPORTS WRC';
+  if (sLower.includes('acrally')) return 'Assetto Corsa Rally';
   return null;
 }
 
@@ -56,15 +60,51 @@ const SIM_BADGES: { match: string; label: string; className: string }[] = [
   { match: 'Assetto Corsa Competizione', label: 'ACC', className: 'bg-red-950/60 border-accent/40 text-loss-light' },
   { match: 'Assetto Corsa EVO', label: 'AC EVO', className: 'bg-purple-950/70 border-purple-500/40 text-purple-300' },
   { match: 'Assetto Corsa', label: 'AC', className: 'bg-amber-950/60 border-amber-500/40 text-amber-300' },
+  { match: 'Assetto Corsa Rally', label: 'AC RALLY', className: 'bg-orange-950/70 border-orange-500/40 text-orange-300' },
+  { match: 'DiRT Rally 2.0', label: 'DR2', className: 'bg-amber-950/70 border-amber-500/40 text-amber-300' },
+  { match: 'EA SPORTS WRC', label: 'WRC', className: 'bg-yellow-950/70 border-yellow-500/40 text-yellow-300' },
 ];
 
 export function simBadge(simulator: string | null): { label: string; className: string } {
-  return (
-    SIM_BADGES.find((b) => b.match === simulator) ?? {
+  if (!simulator) {
+    return {
       label: 'SIM',
       className: 'bg-white/5 border-white/15 text-gray-400',
-    }
-  );
+    };
+  }
+  const exact = SIM_BADGES.find((b) => b.match === simulator || b.label === simulator);
+  if (exact) return exact;
+
+  const simLower = simulator.toLowerCase();
+  if (simLower.includes('mans') || simLower === 'lmu') {
+    return SIM_BADGES[0]; // LMU
+  }
+  if (simLower.includes('iracing')) {
+    return SIM_BADGES[1]; // iRacing
+  }
+  if (simLower.includes('competizione') || simLower === 'acc') {
+    return SIM_BADGES[2]; // ACC
+  }
+  if (simLower.includes('evo')) {
+    return SIM_BADGES[3]; // AC EVO
+  }
+  if (simLower.includes('rally') && simLower.includes('assetto')) {
+    return SIM_BADGES[5]; // AC RALLY
+  }
+  if (simLower.includes('assetto') || simLower === 'ac' || simLower === 'ac1') {
+    return SIM_BADGES[4]; // AC
+  }
+  if (simLower.includes('dirt') || simLower === 'dr2') {
+    return SIM_BADGES[6]; // DR2
+  }
+  if (simLower.includes('wrc')) {
+    return SIM_BADGES[7]; // WRC
+  }
+
+  return {
+    label: simulator.slice(0, 8).toUpperCase(),
+    className: 'bg-white/5 border-white/15 text-gray-400',
+  };
 }
 
 const METRIC_LABELS: Record<string, { es: string; en: string }> = {

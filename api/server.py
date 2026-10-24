@@ -56,6 +56,11 @@ ACC_DOCUMENTS_DIR = os.path.expanduser(
 ACC_MOTEC_DIR = os.path.join(ACC_DOCUMENTS_DIR, "Assetto Corsa Competizione", "MoTeC")
 # Where idoracing-recorder writes by default when it runs inside ACC's Proton prefix.
 ACC_RECORDINGS_DIR = os.path.join(ACC_DOCUMENTS_DIR, "IdoRacing", "recordings")
+# Recorder output locations across Windows/native documents and Proton prefixes
+NATIVE_RECORDINGS_DIR = os.path.expanduser("~/Documents/IdoRacing/recordings")
+COMPATDATA_RECORDINGS_GLOB = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/*/pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings"
+)
 LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
 # Assetto Corsa EVO (app 3058630) — telemetry lives under Saved Games/ACE.
 ACEVO_SAVED_GAMES_DIR = os.path.expanduser(
@@ -79,6 +84,8 @@ AUTO_IMPORT_SIMULATORS = {
     "LMU": "Le Mans Ultimate",
     "AC EVO": "Assetto Corsa EVO",
     "AC1": "Assetto Corsa",
+    "DR2": "DiRT Rally 2.0",
+    "WRC": "EA SPORTS WRC",
 }
 
 
@@ -168,10 +175,13 @@ def _auto_import_all(imported_sources: set[str]) -> dict[str, int]:
 
     # ACC — MoTeC .ld files
     results["ACC (MoTeC)"] = _auto_import_from_dir(ACC_MOTEC_DIR, ["*.ld"], MoTeCImporter, imported_sources, "ACC")
-    # ACC — idoracing-recorder .csv files
-    results["ACC (Recorder)"] = _auto_import_from_dir(
-        ACC_RECORDINGS_DIR, ["*.csv"], CSVImporter, imported_sources, "ACC"
-    )
+    # All simulators — idoracing-recorder .csv files (from ACC prefix, other Proton prefixes, or native ~/Documents)
+    rec_dirs = {ACC_RECORDINGS_DIR, NATIVE_RECORDINGS_DIR}
+    rec_dirs.update(glob.glob(COMPATDATA_RECORDINGS_GLOB))
+    rec_count = 0
+    for rdir in sorted(rec_dirs):
+        rec_count += _auto_import_from_dir(rdir, ["*.csv"], CSVImporter, imported_sources, "Recorder")
+    results["Recorder (50Hz CSV)"] = rec_count
     # LMU — result .xml files
     results["LMU"] = _auto_import_from_dir(LMU_RESULTS_DIR, ["*.xml"], LMUImporter, imported_sources, "LMU")
     # Assetto Corsa EVO — MoTeC .ld files (nested under MoTec/<car>/<track>/) and session results
@@ -354,6 +364,7 @@ class CarSetupDTO(BaseModel):
     car_name: str
     track_name: str
     game_name: str | None = None
+    has_telemetry: bool = True
     tyres: dict[str, Any]
     electronics: dict[str, Any]
     aero: dict[str, Any]
@@ -681,6 +692,30 @@ def _lap_has_valid_telemetry(session: Session, lap: Lap) -> bool:
     return lap.has_telemetry
 
 
+def _detect_simulator(session: Session | None) -> str:
+    """Return canonical simulator name for a session, checking metadata and file hints."""
+    if not session:
+        return "Assetto Corsa Competizione"
+    if session.simulator:
+        return session.simulator
+    low = f"{session.session_id} {session.source_file or ''} {session.car or ''} {session.track or ''}".lower()
+    if "iracing" in low:
+        return "iRacing"
+    if "lmu" in low or "mans" in low:
+        return "Le Mans Ultimate"
+    if "dirt" in low or "dr2" in low:
+        return "DiRT Rally 2.0"
+    if "wrc" in low:
+        return "EA SPORTS WRC"
+    if "acrally" in low:
+        return "Assetto Corsa Rally"
+    if "acevo" in low or "evo" in low:
+        return "Assetto Corsa EVO"
+    if "ac1" in low or "assettocorsa" in low:
+        return "Assetto Corsa"
+    return "Assetto Corsa Competizione"
+
+
 def _rank_flying_laps(sess: Session) -> list[Lap]:
     """Return session laps sorted by lap_time ascending, excluding pit out-laps and laps > 107% of PB."""
     best_t = min((l.lap_time for l in sess.laps if l.lap_time > 20.0), default=0.0)
@@ -817,9 +852,7 @@ def get_lap_comparison(
     ref_sectors = {f"S{i + 1}": t for i, t in enumerate(ref_lap.sector_times)}
     comp_sectors = {f"S{i + 1}": t for i, t in enumerate(comp_lap.sector_times)}
 
-    detected_game = matched_session.simulator
-    if detected_game is None and "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower():
-        detected_game = "iRacing"
+    detected_game = _detect_simulator(matched_session)
 
     is_demo = matched_session.session_id.startswith("synth_")
     has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(comp_session, comp_lap)
@@ -1190,11 +1223,8 @@ def _build_setup_comparison(
                 comp_session, comp_lap = sib
 
     matched_session = comp_session or ref_session
-    detected_game = matched_session.simulator or (
-        "iRacing"
-        if "iracing" in f"{matched_session.session_id} {matched_session.source_file}".lower()
-        else "Assetto Corsa Competizione"
-    )
+    detected_game = _detect_simulator(matched_session)
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(comp_session, comp_lap)
     car = normalize_car_name(matched_session.car or "Porsche 992 GT3 R")
     track = normalize_track_name(matched_session.track or "Valencia")
 
@@ -1255,6 +1285,7 @@ def _build_setup_comparison(
         car_name=car,
         track_name=track,
         game_name=detected_game,
+        has_telemetry=has_telem,
         tyres=p2["tyres"],
         electronics=p2["electronics"],
         aero=p2["aero"],
@@ -1870,8 +1901,18 @@ def import_local_file(req: LocalImportRequest):
     filepath = os.path.realpath(req.filepath)
     allowed_dirs = [
         os.path.realpath(d)
-        for d in (ACC_MOTEC_DIR, ACC_RECORDINGS_DIR, LMU_RESULTS_DIR, ACEVO_MOTEC_DIR, ACEVO_RESULTS_DIR, AC1_MOTEC_DIR)
+        for d in (
+            ACC_MOTEC_DIR,
+            ACC_RECORDINGS_DIR,
+            NATIVE_RECORDINGS_DIR,
+            LMU_RESULTS_DIR,
+            ACEVO_MOTEC_DIR,
+            ACEVO_RESULTS_DIR,
+            AC1_MOTEC_DIR,
+        )
     ]
+    for d in glob.glob(COMPATDATA_RECORDINGS_GLOB):
+        allowed_dirs.append(os.path.realpath(d))
     if not any(os.path.commonpath([filepath, d]) == d for d in allowed_dirs):
         raise HTTPException(
             status_code=403, detail="Only files from the simulator telemetry folders can be imported by path"

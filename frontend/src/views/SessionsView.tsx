@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   ChevronDown,
   ChevronRight,
@@ -116,7 +117,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 }) => {
   const { lang, t } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'stint' | 'import'>('sessions');
-  const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing' | 'acevo' | 'ac1'>('all');
+  const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing' | 'acevo' | 'ac1' | 'dr2'>('all');
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
@@ -196,7 +197,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     if (filterGame === 'lmu') return g.simulator === 'Le Mans Ultimate';
     if (filterGame === 'iracing') return g.simulator === 'iRacing';
     if (filterGame === 'acevo') return g.simulator === 'Assetto Corsa EVO';
-    if (filterGame === 'ac1') return g.simulator === 'Assetto Corsa';
+    if (filterGame === 'ac1') return g.simulator === 'Assetto Corsa' || g.simulator === 'Assetto Corsa Rally';
+    if (filterGame === 'dr2') return g.simulator === 'DiRT Rally 2.0' || g.simulator === 'EA SPORTS WRC';
     return true;
   });
 
@@ -217,6 +219,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   const nonDemoMatching = rawMatchingCarSessions.filter((s) => !s.is_demo && !s.session_id.startsWith('synth_'));
   const matchingCarSessions =
     !isCurrentDemo && nonDemoMatching.length > 0 ? nonDemoMatching : rawMatchingCarSessions;
+  const hasWorkspace50Hz = matchingCarSessions.some((s) => Boolean(s.has_telemetry));
 
   const formatSessionChipDate = (isoDate: string) => {
     try {
@@ -467,7 +470,17 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     : 'bg-white/5 text-gray-400 hover:text-white'
                 }`}
               >
-                AC1
+                AC / Rally
+              </button>
+              <button
+                onClick={() => setFilterGame('dr2')}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  filterGame === 'dr2'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-white/5 text-gray-400 hover:text-white'
+                }`}
+              >
+                DiRT / WRC
               </button>
             </div>
           )}
@@ -792,6 +805,29 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         </button>
                       </div>
                     )}
+
+                    {!hasWorkspace50Hz && (
+                      <div className="mt-2 p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200 space-y-2 font-telemetry">
+                        <div className="flex items-center gap-2 font-bold text-amber-300 text-[11px]">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>Vueltas sin telemetría física a 50Hz (Solo tiempos de vuelta)</span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 leading-relaxed">
+                          Para registrar acelerador, freno, volante, fuerzas G y trazada GPS completa a 50Hz sin inventar datos, añade a Parámetros de lanzamiento en Steam:
+                        </p>
+                        <code className="block p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
+                          /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+                        </code>
+                        <div className="pt-1 text-[10px] text-gray-400 border-t border-white/5 space-y-1">
+                          <div>
+                            • <strong>DiRT Rally 2.0 / EA WRC:</strong> Habilita UDP en <code className="text-amber-200">hardware_settings_config.xml</code>: <code className="text-amber-200">&lt;udp enabled=&quot;true&quot; extradata=&quot;3&quot; port=&quot;20777&quot; /&gt;</code>
+                          </div>
+                          <div>
+                            • <strong>Windows / Nativo:</strong> Ejecuta <code className="text-amber-200">idoracing-recorder.exe -sim auto</code> antes o durante tu sesión.
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -953,6 +989,21 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {filteredHistoricalLaps.some((l) => !l.has_telemetry) && (
+                    <div className="p-3 rounded-xl bg-night-3 border border-amber-500/25 text-xs text-gray-300 space-y-1.5 font-telemetry">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-bold text-[11px]">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>¿Tienes vueltas marcadas con "⏱️ Solo Tiempos"?</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        Estas vueltas se importaron de un archivo XML o resumen sin telemetría física. Para grabar automáticamente a 50Hz (frenada, acelerador, volante y trazada GPS), añade a los parámetros de lanzamiento en Steam:
+                      </p>
+                      <code className="block p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
+                        /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+                      </code>
+                    </div>
+                  )}
                 </div>
               </>
             )}

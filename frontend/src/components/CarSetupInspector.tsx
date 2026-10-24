@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  AlertTriangle,
   CheckCircle2,
   Cpu,
   Gauge,
@@ -280,6 +281,26 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
           )}
         </div>
       </div>
+
+      {setup.has_telemetry === false && (
+        <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs font-telemetry space-y-2">
+          <div className="flex items-center gap-2 font-bold text-amber-300 text-xs">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Configuración base sin telemetría física a 50Hz (Solo tiempos registrados)</span>
+          </div>
+          <p className="text-[11px] text-gray-300 leading-relaxed">
+            Las presiones en caliente y temperaturas I/M/O de neumáticos reflejan valores de partida estáticos porque esta sesión no contiene canales de acelerador, frenada o fuerzas G a 50Hz. Para calcular presiones dinámicas reales medidas en pista y el desgaste térmico de pilotaje:
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
+              /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+            </code>
+            <span className="text-[10px] text-gray-400">
+              (o ejecuta <code className="text-amber-200 font-mono">idoracing-recorder.exe -sim auto</code> en Windows)
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Grid: 4 Tyres & Electronics */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
