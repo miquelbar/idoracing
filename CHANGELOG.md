@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The legacy Streamlit UI.
 
 ### Fixed
+- Added template audio fallback in spotter voice generator when ffmpeg is missing in CI environments.
 - Handled missing `playwright` dependency gracefully in CI via `pytest.importorskip("playwright")`, preventing collection errors when running pytest without browser testing packages.
 - Fixed setup advice review failing with "Laps not found for setup advice review" by falling back to session laps when ranked flying laps are unavailable.
 - Closed circuit loop drift correction preventing trajectory gaps at start/finish line.

@@ -1,40 +1,40 @@
 {
   "track_slug": "valencia",
   "track_length_m": 4005.0,
-  "pb_lap_ms": 100147,
-  "bubota_lap_ms": 97211,
+  "pb_lap_ms": 81987,
+  "bubota_lap_ms": 80687,
   "hotspots": [
     {
       "slot": 1,
+      "corner_id": 7,
+      "corner_name": "Curva 7",
+      "trigger_dist_m": 1570.0,
+      "corner_start_m": 1820.0,
+      "corner_end_m": 2080.0,
+      "target_brake_m": 120,
+      "target_vmin_kmh": 153.2,
+      "clip_id": "hotspot_1"
+    },
+    {
+      "slot": 2,
       "corner_id": 1,
       "corner_name": "Curva Aspar",
       "trigger_dist_m": 110.0,
       "corner_start_m": 360.0,
       "corner_end_m": 640.0,
-      "target_brake_m": 170,
-      "target_vmin_kmh": 142.4,
-      "clip_id": "hotspot_1"
-    },
-    {
-      "slot": 2,
-      "corner_id": 11,
-      "corner_name": "Curva Champi Herreros",
-      "trigger_dist_m": 2650.0,
-      "corner_start_m": 2900.0,
-      "corner_end_m": 3120.0,
-      "target_brake_m": 66,
-      "target_vmin_kmh": 125.1,
+      "target_brake_m": 76,
+      "target_vmin_kmh": 154.5,
       "clip_id": "hotspot_2"
     },
     {
       "slot": 3,
-      "corner_id": 5,
-      "corner_name": "Curva 5",
-      "trigger_dist_m": 1080.0,
-      "corner_start_m": 1330.0,
-      "corner_end_m": 1520.0,
-      "target_brake_m": 48,
-      "target_vmin_kmh": 102.2,
+      "corner_id": 3,
+      "corner_name": "Curva 3",
+      "trigger_dist_m": 790.0,
+      "corner_start_m": 1040.0,
+      "corner_end_m": 1160.0,
+      "target_brake_m": 50,
+      "target_vmin_kmh": 139.2,
       "clip_id": "hotspot_3"
     }
   ]
