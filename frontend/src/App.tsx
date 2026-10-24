@@ -75,30 +75,75 @@ function readStoredLaps(sessionId: string): { ref: number; comp: number } | null
   return null;
 }
 
-/** Fastest valid flying lap (<= 150s) as reference, paired with the next best flying lap. */
+function isLapOutlap(
+  lap: { lap_number: number; lap_time: number; is_valid: boolean; is_outlap?: boolean; telemetry?: { speed?: number[]; distance?: number[] } },
+  bestLapTime: number,
+): boolean {
+  if (lap.is_outlap || lap.lap_time > 150) return true;
+  if (lap.lap_number === 1) {
+    if (!lap.is_valid) return true;
+    if (bestLapTime > 0 && lap.lap_time > bestLapTime * 1.05) return true;
+    const speeds = lap.telemetry?.speed || [];
+    const dists = lap.telemetry?.distance || [];
+    if (speeds.length > 0) {
+      const initSpeeds =
+        dists.length === speeds.length
+          ? speeds.filter((_, i) => dists[i] >= 0 && dists[i] < 50)
+          : speeds.slice(0, 12);
+      if (initSpeeds.length > 0) {
+        const avgInit = initSpeeds.reduce((a, b) => a + b, 0) / initSpeeds.length;
+        if (initSpeeds[0] < 180 || avgInit < 180) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Fastest valid flying lap (PB) as P1, paired with the second fastest valid flying lap (excluding Lap 1 Out-laps) as P2. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (!session || session.laps.length === 0) return [1, 2];
   if (session.laps.length === 1) return [session.laps[0].lap_number, session.laps[0].lap_number];
 
+  const positiveTimes = session.laps.filter((l) => l.lap_time > 20).map((l) => l.lap_time);
+  const bestLapTime = positiveTimes.length > 0 ? Math.min(...positiveTimes) : 0;
+
   const flyingValid = session.laps
-    .filter((l) => l.lap_time > 0 && l.lap_time <= 150 && l.is_valid)
+    .filter((l) => l.lap_time > 20 && l.lap_time <= 150 && l.is_valid && !isLapOutlap(l, bestLapTime))
     .sort((a, b) => a.lap_time - b.lap_time);
   if (flyingValid.length >= 2) {
     return [flyingValid[0].lap_number, flyingValid[1].lap_number];
   }
 
-  const valid = session.laps.filter((l) => l.lap_time > 0 && l.is_valid).sort((a, b) => a.lap_time - b.lap_time);
+  const flyingAny = session.laps
+    .filter((l) => l.lap_time > 20 && !isLapOutlap(l, bestLapTime))
+    .sort((a, b) => a.lap_time - b.lap_time);
+  if (flyingAny.length >= 2) {
+    return [flyingAny[0].lap_number, flyingAny[1].lap_number];
+  }
+
+  const valid = session.laps
+    .filter((l) => l.lap_time > 0 && l.is_valid && !isLapOutlap(l, bestLapTime))
+    .sort((a, b) => a.lap_time - b.lap_time);
   if (valid.length >= 2) {
     return [valid[0].lap_number, valid[1].lap_number];
   }
   if (valid.length === 1) {
     const refLap = valid[0];
+    const nonOutlapOthers = session.laps.filter(
+      (l) => l.lap_number !== refLap.lap_number && l.lap_time > 0 && !isLapOutlap(l, bestLapTime),
+    );
+    if (nonOutlapOthers.length > 0) {
+      return [refLap.lap_number, nonOutlapOthers[0].lap_number];
+    }
     const otherLaps = session.laps.filter((l) => l.lap_number !== refLap.lap_number && l.lap_time > 0);
     const compLap = otherLaps.length > 0 ? otherLaps[0] : (session.laps.find((l) => l.lap_number !== refLap.lap_number) ?? refLap);
     return [refLap.lap_number, compLap.lap_number];
   }
 
   const sorted = [...session.laps].sort((a, b) => {
+    const aOut = isLapOutlap(a, bestLapTime) ? 1 : 0;
+    const bOut = isLapOutlap(b, bestLapTime) ? 1 : 0;
+    if (aOut !== bOut) return aOut - bOut;
     if (a.lap_time <= 0) return 1;
     if (b.lap_time <= 0) return -1;
     return a.lap_time - b.lap_time;
@@ -134,7 +179,7 @@ export const App: React.FC = () => {
   const [isDebriefOpen, setIsDebriefOpen] = useState(false);
   const [isCarSetupModalOpen, setIsCarSetupModalOpen] = useState(false);
   const [isStintModalOpen, setIsStintModalOpen] = useState(false);
-  const [showIdealGhost, setShowIdealGhost] = useState(true);
+  const [showIdealGhost, setShowIdealGhost] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -221,9 +266,12 @@ export const App: React.FC = () => {
       setSessions(sList);
 
       const storedSessionId = readStoredSessionId();
+      const storedCandidate = sList.find((s) => s.session_id === storedSessionId);
       const activeSession =
-        sList.find((s) => s.session_id === storedSessionId) ||
+        (storedCandidate && storedCandidate.lap_count >= 3 ? storedCandidate : null) ||
         sList.find((s) => !s.session_id.startsWith('synth_') && s.has_telemetry !== false && s.lap_count >= 5) ||
+        sList.find((s) => !s.session_id.startsWith('synth_') && s.has_telemetry !== false && s.lap_count >= 3) ||
+        storedCandidate ||
         sList.find((s) => !s.session_id.startsWith('synth_') && s.has_telemetry !== false) ||
         sList.find((s) => !s.session_id.startsWith('synth_')) || // default to real data over the demo
         sList[0];
@@ -236,9 +284,20 @@ export const App: React.FC = () => {
       let compLap = defaultComp;
       const storedLaps = activeSessionId ? readStoredLaps(activeSessionId) : null;
       if (storedLaps && fullSess) {
-        const available = new Set(fullSess.laps.map((l) => l.lap_number));
-        if (available.has(storedLaps.ref)) refLap = storedLaps.ref;
-        if (available.has(storedLaps.comp)) compLap = storedLaps.comp;
+        const posTimes = fullSess.laps.filter((l) => l.lap_time > 20).map((l) => l.lap_time);
+        const bestT = posTimes.length > 0 ? Math.min(...posTimes) : 0;
+        const refLapObj = fullSess.laps.find((l) => l.lap_number === storedLaps.ref);
+        const compLapObj = fullSess.laps.find((l) => l.lap_number === storedLaps.comp);
+        if (
+          refLapObj &&
+          compLapObj &&
+          !isLapOutlap(refLapObj, bestT) &&
+          !isLapOutlap(compLapObj, bestT) &&
+          (storedLaps.ref !== storedLaps.comp || defaultRef === defaultComp)
+        ) {
+          refLap = storedLaps.ref;
+          compLap = storedLaps.comp;
+        }
       }
       setRefLapNumber(refLap);
       setCompLapNumber(compLap);

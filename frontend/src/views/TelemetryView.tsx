@@ -43,7 +43,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
   isDebriefOpen,
   onOpenDebrief,
   onCloseDebrief,
-  showIdealGhost = true,
+  showIdealGhost = false,
   onToggleIdealGhost,
   onSessionUploaded,
   onRescanComplete,

@@ -40,6 +40,7 @@ from domain.session import (
     Session,
     SetupAdviceReport,
     SetupAdviceReview,
+    is_outlap_detected,
     normalize_car_name,
     normalize_track_name,
 )
@@ -656,6 +657,35 @@ def _lap_has_valid_telemetry(session: Session, lap: Lap) -> bool:
     return lap.has_telemetry
 
 
+def _rank_flying_laps(sess: Session) -> list[Lap]:
+    """Return session laps sorted by lap_time ascending, excluding pit out-laps (Lap 1 <180km/h or >+5% vs PB)."""
+    best_t = min((l.lap_time for l in sess.laps if l.lap_time > 20.0), default=0.0)
+
+    def _has_enough_data(lap: Lap) -> bool:
+        t = lap.telemetry or {}
+        return len(t.get("speed", [])) >= 100 and 5.0 < lap.lap_time <= 150.0
+
+    def _is_outlap(lap: Lap) -> bool:
+        return bool(
+            lap.is_outlap or is_outlap_detected(lap.lap_number, lap.lap_time, best_t, lap.telemetry, lap.is_valid)
+        )
+
+    flying_valid = [l for l in sess.laps if l.lap_time > 0 and l.is_valid and not _is_outlap(l) and _has_enough_data(l)]
+    if len(flying_valid) >= 2:
+        return sorted(flying_valid, key=lambda x: x.lap_time)
+
+    flying_any = [l for l in sess.laps if l.lap_time > 0 and not _is_outlap(l) and _has_enough_data(l)]
+    if len(flying_any) >= 2:
+        return sorted(flying_any, key=lambda x: x.lap_time)
+
+    non_outlap = [l for l in sess.laps if l.lap_time > 0 and not _is_outlap(l)]
+    if len(non_outlap) >= 2:
+        return sorted(non_outlap, key=lambda x: x.lap_time)
+
+    fallback = [l for l in sess.laps if 0 < l.lap_time <= 150.0] or [l for l in sess.laps if l.lap_time > 0]
+    return sorted(fallback, key=lambda x: (1 if _is_outlap(x) else 0, x.lap_time))
+
+
 @app.get("/api/comparison", response_model=ComparisonResponse)
 def get_lap_comparison(
     ref_lap_id: str | None = Query(None),
@@ -680,32 +710,14 @@ def get_lap_comparison(
         ref_lap = _find_lap(ref_session, ref_lap_id) if ref_lap_id else None
         comp_lap = _find_lap(comp_session, comp_lap_id) if comp_lap_id else None
 
-        if not ref_lap or not comp_lap:
-
-            def _has_enough_data(lap: Lap) -> bool:
-                t = lap.telemetry or {}
-                return len(t.get("speed", [])) >= 100 and lap.lap_time > 5.0 and lap.lap_time <= 150.0
-
-            if not ref_lap:
-                candidates = [l for l in ref_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
-                if not candidates:
-                    candidates = [l for l in ref_session.laps if l.lap_time > 0 and _has_enough_data(l)]
-                if not candidates:
-                    candidates = [l for l in ref_session.laps if 0 < l.lap_time <= 150.0] or [
-                        l for l in ref_session.laps if l.lap_time > 0
-                    ]
-                if candidates:
-                    ref_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
-            if not comp_lap:
-                candidates = [l for l in comp_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
-                if not candidates:
-                    candidates = [l for l in comp_session.laps if l.lap_time > 0 and _has_enough_data(l)]
-                if not candidates:
-                    candidates = [l for l in comp_session.laps if 0 < l.lap_time <= 150.0] or [
-                        l for l in comp_session.laps if l.lap_time > 0
-                    ]
-                if candidates:
-                    comp_lap = sorted(candidates, key=lambda x: x.lap_time)[0]
+        if not ref_lap:
+            ranked_ref = _rank_flying_laps(ref_session)
+            if ranked_ref:
+                ref_lap = ranked_ref[0]
+        if not comp_lap:
+            ranked_comp = _rank_flying_laps(comp_session)
+            if ranked_comp:
+                comp_lap = ranked_comp[0]
 
         if not ref_lap or not comp_lap:
             raise HTTPException(status_code=404, detail="Could not find laps in the selected sessions")
@@ -721,23 +733,12 @@ def get_lap_comparison(
         comp_lap = _find_lap(matched_session, comp_lap_id) if comp_lap_id else None
 
         if not ref_lap or not comp_lap:
-            # Prefer valid flying laps (<= 150s) with enough samples so out-laps (> 2:30) and partial laps are avoided.
-            def _has_enough_data(lap: Lap) -> bool:
-                t = lap.telemetry or {}
-                return len(t.get("speed", [])) >= 100 and 5.0 < lap.lap_time <= 150.0
-
-            candidates = [l for l in matched_session.laps if l.lap_time > 0 and l.is_valid and _has_enough_data(l)]
-            if not candidates:
-                candidates = [l for l in matched_session.laps if l.lap_time > 0 and _has_enough_data(l)]
-            if not candidates:
-                candidates = [l for l in matched_session.laps if 0 < l.lap_time <= 150.0] or [
-                    l for l in matched_session.laps if l.lap_time > 0
-                ]
-            ranked = sorted(candidates, key=lambda x: x.lap_time)
+            ranked = _rank_flying_laps(matched_session)
             if not ranked:
                 raise HTTPException(status_code=404, detail="Session has no laps")
-            ref_lap = ranked[0]
-            comp_lap = ranked[1] if len(ranked) > 1 else ranked[0]
+            ref_lap = ref_lap or ranked[0]
+            if not comp_lap:
+                comp_lap = next((l for l in ranked if l.lap_number != ref_lap.lap_number), ranked[0])
 
         ref_car = normalize_car_name(matched_session.car)
         comp_car = normalize_car_name(matched_session.car)

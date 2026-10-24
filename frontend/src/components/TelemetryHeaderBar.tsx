@@ -42,7 +42,7 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
   reportAvailable = false,
   onOpenCarSetup,
   onOpenStint,
-  showIdealGhost = true,
+  showIdealGhost = false,
   onToggleIdealGhost,
 }) => {
   const { lang, t } = useLanguage();
@@ -199,11 +199,11 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                     }`}
                     title={
                       isEn
-                        ? 'Toggle 👻 Ideal Ghost target curves on telemetry charts'
-                        : 'Mostrar/ocultar curvas objetivo del 👻 Fantasma Ideal en las gráficas'
+                        ? 'Toggle 👻 Bubota target curves on telemetry charts'
+                        : 'Mostrar/ocultar curvas objetivo de 👻 Bubota en las gráficas'
                     }
                   >
-                    👻 {isEn ? 'Ideal Guide' : 'Guía Ideal'}
+                    👻 Bubota
                   </button>
                 )}
               </div>

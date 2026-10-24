@@ -512,3 +512,48 @@ def test_no_teleport_spikes_in_track_map():
     aligned = align_laps_by_distance(aborted, comp_clean)
     ref_steps = np.hypot(np.diff(aligned["ref_x"]), np.diff(aligned["ref_y"]))
     assert float(np.max(ref_steps)) <= 25.0
+
+
+def test_outlap_lap1_excluded_from_default_selection():
+    """
+    Lap 1 (Out-lap from pitlane with initial speed < 180 km/h at distance < 50m or >5% slower than PB)
+    must be flagged as is_outlap and excluded from automatic P1 / P2 selection.
+    """
+    from datetime import datetime
+
+    from api.server import _rank_flying_laps
+    from domain.session import Lap, Session, is_outlap_detected
+
+    n = 150
+    dists = np.linspace(0.0, 4000.0, n).tolist()
+    flying_speeds = np.full(n, 220.0).tolist()
+    outlap_speeds = ([135.0] * 10) + np.full(n - 10, 215.0).tolist()
+    base_tel = {
+        "distance": dists,
+        "throttle": [1.0] * n,
+        "brake": [0.0] * n,
+        "gear": [4.0] * n,
+        "lat_accel": [0.0] * n,
+        "long_accel": [0.0] * n,
+    }
+
+    assert is_outlap_detected(1, 111.5, 100.2, {**base_tel, "speed": outlap_speeds}, True) is True
+    assert is_outlap_detected(1, 101.0, 100.2, {**base_tel, "speed": outlap_speeds}, True) is True
+    assert is_outlap_detected(1, 106.0, 100.0, {**base_tel, "speed": flying_speeds}, True) is True
+    assert is_outlap_detected(2, 100.2, 100.2, {**base_tel, "speed": flying_speeds}, True) is False
+
+    sess = Session(
+        session_id="test_outlap_exclusion",
+        car="Porsche 911 GT3 R (992)",
+        track="Ricardo Tormo de Valencia",
+        date=datetime.now(),
+        laps=[
+            Lap(lap_number=1, lap_time=111.4, is_valid=True, telemetry={**base_tel, "speed": outlap_speeds}),
+            Lap(lap_number=2, lap_time=100.2, is_valid=True, telemetry={**base_tel, "speed": flying_speeds}),
+            Lap(lap_number=3, lap_time=100.6, is_valid=True, telemetry={**base_tel, "speed": flying_speeds}),
+        ],
+    )
+    assert sess.laps[0].is_outlap is True
+    assert sess.laps[1].is_outlap is False
+    ranked = _rank_flying_laps(sess)
+    assert [l.lap_number for l in ranked[:2]] == [2, 3]

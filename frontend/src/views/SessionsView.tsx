@@ -250,10 +250,13 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             sess.session_id === activeFullSession?.session_id
               ? activeFullSession.laps
               : null;
+          const posTimes = sess.laps.filter((l) => l.lap_time > 20).map((l) => l.lap_time);
+          const sessBest = sess.best_lap_time > 0 ? sess.best_lap_time : posTimes.length > 0 ? Math.min(...posTimes) : 0;
           return sess.laps
             .filter((l) => l.lap_time >= 20.0)
             .map((l) => {
               const detailLap = fullLaps?.find((fl) => fl.lap_number === l.lap_number);
+              const lap1Slow = l.lap_number === 1 && (!l.is_valid || (sessBest > 0 && l.lap_time > sessBest * 1.05));
               return {
                 sessionId: sess.session_id,
                 sessionDate: sess.date,
@@ -261,21 +264,26 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 lap_time: l.lap_time,
                 is_valid: l.is_valid,
                 has_telemetry: l.has_telemetry ?? sess.has_telemetry ?? false,
-                is_outlap: Boolean(l.is_outlap || l.lap_time > 150),
+                is_outlap: Boolean(l.is_outlap || detailLap?.is_outlap || l.lap_time > 150 || lap1Slow),
                 sector_times: detailLap?.sector_times,
               };
             });
         })
-      : (activeFullSession?.laps || []).map((l) => ({
-          sessionId: activeFullSession?.session_id || selectedSessionId || '',
-          sessionDate: activeSessionSummary?.date || '',
-          lap_number: l.lap_number,
-          lap_time: l.lap_time,
-          is_valid: l.is_valid,
-          has_telemetry: l.has_telemetry ?? activeSessionSummary?.has_telemetry ?? false,
-          is_outlap: l.lap_time > 150,
-          sector_times: l.sector_times,
-        }));
+      : (activeFullSession?.laps || []).map((l) => {
+          const posTimes = (activeFullSession?.laps || []).filter((x) => x.lap_time > 20).map((x) => x.lap_time);
+          const sessBest = posTimes.length > 0 ? Math.min(...posTimes) : 0;
+          const lap1Slow = l.lap_number === 1 && (!l.is_valid || (sessBest > 0 && l.lap_time > sessBest * 1.05));
+          return {
+            sessionId: activeFullSession?.session_id || selectedSessionId || '',
+            sessionDate: activeSessionSummary?.date || '',
+            lap_number: l.lap_number,
+            lap_time: l.lap_time,
+            is_valid: l.is_valid,
+            has_telemetry: l.has_telemetry ?? activeSessionSummary?.has_telemetry ?? false,
+            is_outlap: Boolean(l.is_outlap || l.lap_time > 150 || lap1Slow),
+            sector_times: l.sector_times,
+          };
+        });
 
   const filteredHistoricalLaps =
     workspaceSessionFilter === 'all'
@@ -589,8 +597,10 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                             (activeTrackName.toLowerCase() === group.track.toLowerCase() &&
                               activeCarName.toLowerCase() === carName.toLowerCase());
 
-                          // Best default session to load when clicking this [Track + Car]
+                          // Best default session to load when clicking this [Track + Car]: prefer sessions with >=2 flying laps
                           const targetSession =
+                            carSessions.find((s) => s.has_telemetry && !s.is_demo && s.lap_count >= 5) ||
+                            carSessions.find((s) => s.has_telemetry && !s.is_demo && s.lap_count >= 3) ||
                             carSessions.find((s) => s.has_telemetry && !s.is_demo && s.lap_count >= 2) ||
                             carSessions.find((s) => s.has_telemetry && !s.is_demo) ||
                             carSessions.find((s) => s.has_telemetry) ||

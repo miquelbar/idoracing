@@ -314,6 +314,8 @@ class Storage:
                 "SELECT lap_number, lap_time, sector_times, is_valid FROM laps WHERE session_id = ? ORDER BY lap_number ASC",
                 (s_row["id"],),
             )
+            rows = cursor.fetchall()
+            best_t = min((float(r["lap_time"]) for r in rows if float(r["lap_time"]) > 20.0), default=0.0)
             return [
                 {
                     "lap_number": r["lap_number"],
@@ -321,9 +323,15 @@ class Storage:
                     "sector_times": json.loads(r["sector_times"]) if r["sector_times"] else [],
                     "is_valid": bool(r["is_valid"]),
                     "has_telemetry": sess_has_tel,
-                    "is_outlap": bool(r["lap_time"] > 150.0 or (r["lap_number"] == 1 and not r["is_valid"])),
+                    "is_outlap": bool(
+                        r["lap_time"] > 150.0
+                        or (
+                            r["lap_number"] == 1
+                            and (not r["is_valid"] or (best_t > 0.0 and float(r["lap_time"]) > best_t * 1.05))
+                        )
+                    ),
                 }
-                for r in cursor.fetchall()
+                for r in rows
             ]
 
     def save_coach_report(self, session_id: str, ref_lap: int, comp_lap: int, report: CoachReport):

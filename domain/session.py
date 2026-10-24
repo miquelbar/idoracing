@@ -38,6 +38,40 @@ def normalize_track_name(track: str | None) -> str:
     return TRACK_ALIASES.get(cleaned.lower(), cleaned)
 
 
+def is_outlap_detected(
+    lap_number: int,
+    lap_time: float,
+    best_lap_time: float = 0.0,
+    telemetry: dict[str, list[float]] | None = None,
+    is_valid: bool = True,
+) -> bool:
+    """
+    Detect if a lap is a pit out-lap (especially Lap 1):
+    - Lap time > 150s
+    - Lap 1 with initial speed at start line (distance < 50m) < 180 km/h
+    - Lap 1 with lap_time > best_lap_time * 1.05 (> 5% slower than session PB)
+    - Lap 1 marked invalid
+    """
+    if lap_time > 150.0:
+        return True
+    if lap_number == 1:
+        if not is_valid:
+            return True
+        if best_lap_time > 0.0 and lap_time > best_lap_time * 1.05:
+            return True
+        if telemetry:
+            speeds = telemetry.get("speed") or []
+            dists = telemetry.get("distance") or []
+            if len(speeds) > 0:
+                if len(dists) == len(speeds):
+                    init_sp = [float(s) for d, s in zip(dists, speeds, strict=False) if 0.0 <= float(d) < 50.0]
+                else:
+                    init_sp = [float(s) for s in speeds[:12]]
+                if init_sp and (init_sp[0] < 180.0 or (sum(init_sp) / len(init_sp)) < 180.0):
+                    return True
+    return False
+
+
 class Lap(BaseModel):
     """Represents a single lap within a driving session."""
 
@@ -48,6 +82,7 @@ class Lap(BaseModel):
     is_incomplete: bool = Field(
         default=False, description="Whether this lap was truncated due to a garage teleport or reset"
     )
+    is_outlap: bool = Field(default=False, description="Whether this lap is a pit out-lap")
     telemetry: dict[str, list[float]] | None = None
     synthetic: bool = Field(default=False, description="Telemetry was generated, not recorded by the simulator")
     has_telemetry: bool = Field(default=False, description="Whether 50Hz telemetry channels were recorded for this lap")
@@ -58,6 +93,10 @@ class Lap(BaseModel):
     def _infer_has_telemetry(self) -> "Lap":
         if not self.has_telemetry and self.telemetry and len(self.telemetry.get("speed", [])) >= 5:
             self.has_telemetry = True
+        if not self.is_outlap and is_outlap_detected(
+            self.lap_number, self.lap_time, 0.0, self.telemetry, self.is_valid
+        ):
+            self.is_outlap = True
         return self
 
 
@@ -76,6 +115,11 @@ class Session(BaseModel):
 
     @model_validator(mode="after")
     def validate_telemetry_channels(self) -> "Session":
+        if self.laps:
+            best_t = min((l.lap_time for l in self.laps if l.lap_time > 20.0), default=0.0)
+            for l in self.laps:
+                if is_outlap_detected(l.lap_number, l.lap_time, best_t, l.telemetry, l.is_valid):
+                    l.is_outlap = True
         if self.telemetry:
             # Map canonical channel names for case-insensitivity and standard aliases
             normalized_keys = {k.lower(): k for k in self.telemetry}

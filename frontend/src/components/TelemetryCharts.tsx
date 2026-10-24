@@ -20,7 +20,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   onHoverDistance,
   selectedCorner,
   onResetZoom,
-  showIdealGhost = true,
+  showIdealGhost = false,
   onToggleIdealGhost,
 }) => {
   const { lang, t } = useLanguage();
@@ -30,6 +30,46 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 850, height: 500 });
+
+  // Interactive visibility toggles: P2 & P1 active by default, 👻 Bubota off by default
+  const [showP2, setShowP2] = useState(true);
+  const [showP1, setShowP1] = useState(true);
+  const [localBubota, setLocalBubota] = useState(false);
+  const [p1PedalsExplicitWithBubota, setP1PedalsExplicitWithBubota] = useState(false);
+
+  const isBubotaActive = onToggleIdealGhost ? showIdealGhost : localBubota;
+
+  // When 👻 Bubota is toggled on, automatically hide P1 pedals in the Pedals lane unless user clicks P1 explicitly
+  useEffect(() => {
+    if (isBubotaActive) {
+      setP1PedalsExplicitWithBubota(false);
+    }
+  }, [isBubotaActive]);
+
+  const showP1InPedals = showP1 && (!isBubotaActive || p1PedalsExplicitWithBubota);
+
+  const handleToggleBubota = () => {
+    if (onToggleIdealGhost) {
+      onToggleIdealGhost();
+    } else {
+      setLocalBubota((v) => !v);
+    }
+  };
+
+  const handleToggleP1 = () => {
+    if (isBubotaActive && showP1 && !p1PedalsExplicitWithBubota) {
+      // User explicitly clicked P1 while Bubota is active -> re-enable P1 pedals
+      setP1PedalsExplicitWithBubota(true);
+      return;
+    }
+    if (showP1) {
+      setShowP1(false);
+      setP1PedalsExplicitWithBubota(false);
+    } else {
+      setShowP1(true);
+      setP1PedalsExplicitWithBubota(isBubotaActive);
+    }
+  };
 
   useEffect(() => {
     const el = chartWrapperRef.current;
@@ -118,14 +158,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     deltaFillPath,
     thrRefPath,
     thrCompPath,
-    thrCompFillPath,
     thrIdealPath,
-    thrIdealFillPath,
     brkRefPath,
     brkCompPath,
     brkIdealPath,
-    brkIdealFillPath,
-    brkCompFillPath,
+    brkCompTrailFillPath,
+    bubotaLabels,
     gearRefPath,
     gearCompPath,
     hoverData,
@@ -156,14 +194,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         deltaFillPath: '',
         thrRefPath: '',
         thrCompPath: '',
-        thrCompFillPath: '',
         thrIdealPath: '',
-        thrIdealFillPath: '',
         brkRefPath: '',
         brkCompPath: '',
         brkIdealPath: '',
-        brkIdealFillPath: '',
-        brkCompFillPath: '',
+        brkCompTrailFillPath: '',
+        bubotaLabels: [] as Array<{ key: string; kind: 'brake' | 'gas'; x: number; y: number }>,
         gearRefPath: '',
         gearCompPath: '',
         hoverData: null,
@@ -231,16 +267,14 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
     let dFill = '';
     let tR = '';
     let tC = '';
-    let tC_Fill = '';
     let tI = '';
-    let tI_Fill = '';
     let bR = '';
     let bC = '';
     let bI = '';
-    let bI_Fill = '';
-    let bC_Fill = '';
+    let bC_TrailFill = '';
     let gR = '';
     let gC = '';
+    const labels: Array<{ key: string; kind: 'brake' | 'gas'; x: number; y: number }> = [];
 
     const yDeltaZero = toYDelta(0);
     const yPedalZero = toYPedal(0);
@@ -344,8 +378,6 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         spI += `M ${x} ${ySpI}`;
         dLine += `M ${x} ${yDt}`;
         dFill += `M ${x} ${yDeltaZero} L ${x} ${yDt}`;
-        tC_Fill += `M ${x} ${yPedalZero} L ${x} ${yTc}`;
-        bC_Fill += `M ${x} ${yPedalZero} L ${x} ${yBc}`;
         gR += `M ${x} ${yGr}`;
         gC += `M ${x} ${yGc}`;
       } else {
@@ -354,16 +386,29 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         spI += ` L ${x} ${ySpI}`;
         dLine += ` L ${x} ${yDt}`;
         dFill += ` L ${x} ${yDt}`;
-        tC_Fill += ` L ${x} ${yTc}`;
-        bC_Fill += ` L ${x} ${yBc}`;
         gR += ` L ${x} ${yGr}`;
         gC += ` L ${x} ${yGc}`;
       }
     });
 
-    // Build clean per-corner Ideal Trail Braking wedges and Ideal Exit Throttle ramps (no vertical drop at holdEnd)
+    // Build per-corner P2 Trail Braking soft fill, and 👻 Bubota Brake & Gas dashed paths + labels
     for (const c of activeCorners) {
       const apexD = c.apex_distance ?? (c.start_distance + c.end_distance) / 2;
+      const compBp = c.comp_brake_point ?? c.ref_brake_point ?? c.start_distance;
+      const trailStart = compBp + 0.22 * Math.max(10, apexD - compBp);
+      const p2TrailIdxs = filteredIndices.filter(
+        (idx) => dists[idx] >= trailStart && dists[idx] <= apexD && (compBrk[idx] ?? 0) > 0.01,
+      );
+      if (p2TrailIdxs.length >= 2) {
+        const xFirst = toX(dists[p2TrailIdxs[0]]).toFixed(1);
+        const xLast = toX(dists[p2TrailIdxs[p2TrailIdxs.length - 1]]).toFixed(1);
+        bC_TrailFill += `${bC_TrailFill ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
+        for (const idx of p2TrailIdxs) {
+          bC_TrailFill += ` L ${toX(dists[idx]).toFixed(1)} ${toYPedal(compBrk[idx]).toFixed(1)}`;
+        }
+        bC_TrailFill += ` L ${xLast} ${yPedalZero.toFixed(1)} Z`;
+      }
+
       const bpD =
         c.ideal_brake_point ??
         (c.ref_brake_point != null || c.comp_brake_point != null
@@ -376,15 +421,22 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           const xFirst = toX(dists[brkIdxs[0]]).toFixed(1);
           const xLast = toX(dists[brkIdxs[brkIdxs.length - 1]]).toFixed(1);
           bI += `${bI ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
-          bI_Fill += `${bI_Fill ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
           for (const idx of brkIdxs) {
             const x = toX(dists[idx]).toFixed(1);
             const y = toYPedal(evalIdealPedals(dists[idx], idx).brk).toFixed(1);
             bI += ` L ${x} ${y}`;
-            bI_Fill += ` L ${x} ${y}`;
           }
           bI += ` L ${xLast} ${yPedalZero.toFixed(1)}`;
-          bI_Fill += ` L ${xLast} ${yPedalZero.toFixed(1)} Z`;
+
+          const pxW = toX(apexD) - toX(bpD);
+          if (selectedCorner || pxW >= 26) {
+            labels.push({
+              key: `brk-${c.corner_number}`,
+              kind: 'brake',
+              x: toX(bpD + 0.45 * (apexD - bpD)),
+              y: toYPedal(0.72),
+            });
+          }
         }
       }
 
@@ -393,26 +445,29 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       const thrIdxs = filteredIndices.filter((idx) => dists[idx] >= apexD && dists[idx] <= holdEnd);
       if (thrIdxs.length >= 2) {
         const xFirst = toX(dists[thrIdxs[0]]).toFixed(1);
-        const xLast = toX(dists[thrIdxs[thrIdxs.length - 1]]).toFixed(1);
         tI += `${tI ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
-        tI_Fill += `${tI_Fill ? ' ' : ''}M ${xFirst} ${yPedalZero.toFixed(1)}`;
         for (const idx of thrIdxs) {
           const x = toX(dists[idx]).toFixed(1);
           const y = toYPedal(evalIdealPedals(dists[idx], idx).thr).toFixed(1);
           tI += ` L ${x} ${y}`;
-          tI_Fill += ` L ${x} ${y}`;
         }
-        // Close area fill down to baseline without drawing a vertical stroke drop at holdEnd
-        tI_Fill += ` L ${xLast} ${yPedalZero.toFixed(1)} Z`;
+
+        const pxW = toX(holdEnd) - toX(apexD);
+        if (selectedCorner || pxW >= 26) {
+          labels.push({
+            key: `gas-${c.corner_number}`,
+            kind: 'gas',
+            x: toX(apexD + 0.48 * (rampEnd - apexD)),
+            y: toYPedal(0.55),
+          });
+        }
       }
     }
 
-    // Close area fills
+    // Close delta area fill
     if (filteredIndices.length > 0) {
       const lastX = toX(dists[filteredIndices[filteredIndices.length - 1]]).toFixed(1);
       dFill += ` L ${lastX} ${yDeltaZero} Z`;
-      tC_Fill += ` L ${lastX} ${yPedalZero} Z`;
-      bC_Fill += ` L ${lastX} ${yPedalZero} Z`;
     }
 
     // Hover readout calculation
@@ -455,14 +510,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       deltaFillPath: dFill,
       thrRefPath: tR,
       thrCompPath: tC,
-      thrCompFillPath: tC_Fill,
       thrIdealPath: tI,
-      thrIdealFillPath: tI_Fill,
       brkRefPath: bR,
       brkCompPath: bC,
       brkIdealPath: bI,
-      brkIdealFillPath: bI_Fill,
-      brkCompFillPath: bC_Fill,
+      brkCompTrailFillPath: bC_TrailFill,
+      bubotaLabels: labels,
       gearRefPath: gR,
       gearCompPath: gC,
       hoverData: hData,
@@ -487,7 +540,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
 
   return (
     <div className="glass-panel rounded-xl p-3 flex flex-col h-full relative overflow-hidden" ref={containerRef}>
-      {/* Header with Title, Inline Live Telemetry Values, and Legend */}
+      {/* Header with Title, Inline Live Telemetry Values, and Interactive Layer Toggles */}
       <div className="flex items-center justify-between gap-3 mb-2 shrink-0 pb-2 border-b border-white/5">
         {/* Left: Title + Inline Live Values */}
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
@@ -504,7 +557,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             </span>
           )}
 
-          {/* Inline Live Values (Replaces separate 45px box) */}
+          {/* Inline Live Values */}
           <div className="flex items-center gap-2.5 text-[11px] font-telemetry text-gray-300 border-l border-white/10 pl-2.5">
             {hoverData ? (
               <>
@@ -525,10 +578,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
                   </strong>
                 </span>
                 <span className="hidden sm:inline">
-                  {t('throttle')}: <strong className="text-gain">{Math.round(hoverData.compThr)}%</strong>
+                  {t('throttle')}: <strong className="text-[#10b981]">{Math.round(hoverData.compThr)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
-                  {t('brake')}: <strong className="text-loss">{Math.round(hoverData.compBrk)}%</strong>
+                  {t('brake')}: <strong className="text-[#ef4444]">{Math.round(hoverData.compBrk)}%</strong>
                 </span>
                 <span className="hidden sm:inline">
                   {t('gear_label')}: <strong className="text-white">{hoverData.compGear}</strong>
@@ -543,7 +596,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           </div>
         </div>
 
-        {/* Right: Legend and Reset Zoom */}
+        {/* Right: Interactive Layer Toggles (P2, P1, 👻 Bubota) and Reset Zoom */}
         <div className="flex items-center gap-3 text-[10px] font-telemetry shrink-0">
           {selectedCorner && (
             <button
@@ -557,58 +610,92 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
           )}
 
           <div className="flex items-center gap-1.5">
-            {/* P2: Solid Line */}
-            <div
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#A855F7]/15 border border-[#A855F7]/30"
-              title="Vuelta Comparada (P2) - Línea Continua"
-            >
-              <svg width="14" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="14" y2="2" stroke="#D8B4FE" strokeWidth="2.5" />
-              </svg>
-              <span className="text-[#D8B4FE] font-bold">P2 ({isEn ? 'L' : 'V'}{compNum})</span>
-            </div>
-
-            {/* P1: Dashed Line */}
-            <div
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#00D2BE]/12 border border-[#00D2BE]/30"
-              title="Vuelta Referencia (P1) - Línea Discontinua"
-            >
-              <svg width="14" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="14" y2="2" stroke="#00E5FF" strokeWidth="2" strokeDasharray="3,2" />
-              </svg>
-              <span className="text-[#00D2BE] font-bold">P1 ({isEn ? 'L' : 'V'}{refNum})</span>
-            </div>
-
-            {/* 👻 Ideal Ghost Toggle/Pill */}
+            {/* P2 Toggle Button: Solid Line */}
             <button
               type="button"
-              onClick={onToggleIdealGhost}
+              onClick={() => setShowP2((v) => !v)}
               className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition cursor-pointer ${
-                showIdealGhost
-                  ? 'bg-[#FFE600]/20 border-[#FFE600]/70 text-[#FFE600] shadow-sm'
+                showP2
+                  ? 'bg-[#A855F7]/20 border-[#A855F7]/60 text-[#D8B4FE] shadow-sm'
+                  : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-100'
+              }`}
+              title="Mostrar/ocultar Vuelta Comparada (P2) - Línea Continua"
+            >
+              <svg width="14" height="4" className="shrink-0">
+                <line x1="0" y1="2" x2="14" y2="2" stroke={showP2 ? '#D8B4FE' : '#64748B'} strokeWidth="2" />
+              </svg>
+              <span className="font-bold">P2 ({isEn ? 'L' : 'V'}{compNum})</span>
+            </button>
+
+            {/* P1 Toggle Button: Dotted Line */}
+            <button
+              type="button"
+              onClick={handleToggleP1}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition cursor-pointer ${
+                showP1 && showP1InPedals
+                  ? 'bg-[#00D2BE]/18 border-[#00D2BE]/55 text-[#00D2BE] shadow-sm'
+                  : showP1
+                  ? 'bg-[#00D2BE]/10 border-[#00D2BE]/30 text-[#00D2BE]/80'
+                  : 'bg-white/5 border-white/10 text-gray-500 opacity-60 hover:opacity-100'
+              }`}
+              title={
+                isBubotaActive && showP1 && !p1PedalsExplicitWithBubota
+                  ? 'P1 oculta en Pedales mientras 👻 Bubota está activa — haz clic para superponer también P1 en Pedales'
+                  : 'Mostrar/ocultar Vuelta Referencia (P1) - Línea Punteada'
+              }
+            >
+              <svg width="14" height="4" className="shrink-0">
+                <line
+                  x1="0"
+                  y1="2"
+                  x2="14"
+                  y2="2"
+                  stroke={showP1 ? '#00E5FF' : '#64748B'}
+                  strokeWidth="1.5"
+                  strokeDasharray="3,3"
+                />
+              </svg>
+              <span className="font-bold">P1 ({isEn ? 'L' : 'V'}{refNum})</span>
+            </button>
+
+            {/* 👻 Bubota Toggle Button */}
+            <button
+              type="button"
+              onClick={handleToggleBubota}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded border transition cursor-pointer ${
+                isBubotaActive
+                  ? 'bg-[#facc15]/20 border-[#facc15]/70 text-[#facc15] shadow-sm'
                   : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
               }`}
               title={
                 isEn
-                  ? '👻 Ideal Ghost: Optimal Trail Braking & Target Speed Envelope'
-                  : '👻 Fantasma Ideal: Curva óptima de Trail Braking y velocidad objetivo'
+                  ? '👻 Bubota: Toggle Optimal Trail Braking (#f97316), Gas (#a3e635) & Target Speed (#facc15)'
+                  : '👻 Bubota: Activar/desactivar guía ideal de Freno (#f97316), Gas (#a3e635) y Velocidad (#facc15)'
               }
             >
               <svg width="14" height="4" className="shrink-0">
-                <line x1="0" y1="2" x2="14" y2="2" stroke="#FFE600" strokeWidth="2.5" strokeDasharray="4,2" />
+                <line
+                  x1="0"
+                  y1="2"
+                  x2="14"
+                  y2="2"
+                  stroke={isBubotaActive ? '#facc15' : '#94A3B8'}
+                  strokeWidth="2"
+                  strokeDasharray="7,4"
+                />
               </svg>
-              <span className="font-bold">👻 Ideal</span>
+              <span className="font-bold">👻 Bubota</span>
             </button>
 
             {/* Channel Colors: Brake & Throttle */}
             <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-white/10">
-              <div className="flex items-center gap-1" title="Curva de Freno (Rojo)">
-                <span className="w-2 h-2 rounded-full bg-loss" />
-                <span className="text-loss font-bold">{t('brake')}</span>
+              <div className="flex items-center gap-1" title="Curva de Freno (Gama Roja/Naranja)">
+                <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                <span className="text-[#ef4444] font-bold">{t('brake')}</span>
               </div>
-              <div className="flex items-center gap-1" title="Curva de Gas / Acelerador (Verde)">
-                <span className="w-2 h-2 rounded-full bg-gain" />
-                <span className="text-gain font-bold">{t('throttle')}</span>
+              <div className="flex items-center gap-1" title="Curva de Gas / Acelerador (Gama Verde/Lima)">
+                <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+                <span className="text-[#10b981] font-bold">{t('throttle')}</span>
               </div>
             </div>
           </div>
@@ -662,38 +749,55 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             </span>
             {!hoverData && (
               <span className="hidden lg:flex items-center gap-2.5 text-[9.5px] text-gray-300 font-telemetry bg-black/55 px-2.5 py-0.5 rounded border border-white/10">
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FF1744" strokeWidth="2.8" /></svg>
-                  <span className="text-[#FF4D6D] font-bold">Freno P2</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FF66C4" strokeWidth="2.2" strokeDasharray="3,2" /></svg>
-                  <span className="text-[#FF85D0] font-bold">Freno P1</span>
-                </span>
+                {showP2 && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#ef4444" strokeWidth="2" /></svg>
+                    <span className="text-[#ef4444] font-bold">Freno P2</span>
+                  </span>
+                )}
+                {showP1InPedals && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#fca5a5" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
+                    <span className="text-[#fca5a5] font-bold">Freno P1</span>
+                  </span>
+                )}
+                {isBubotaActive && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#f97316" strokeWidth="2" strokeDasharray="7,4" /></svg>
+                    <span className="text-[#f97316] font-bold">👻 Freno</span>
+                  </span>
+                )}
                 <span className="text-gray-600">|</span>
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#00E676" strokeWidth="2.8" /></svg>
-                  <span className="text-[#00E676] font-bold">Gas P2</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#00D4FF" strokeWidth="2.2" strokeDasharray="3,2" /></svg>
-                  <span className="text-[#38E2FF] font-bold">Gas P1</span>
-                </span>
-                <span className="text-gray-600">|</span>
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#FFE600" strokeWidth="2.6" strokeDasharray="4,2" /></svg>
-                  <span className="text-[#FFE600] font-extrabold">👻 Ideal (Freno & Gas)</span>
-                </span>
+                {showP2 && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#10b981" strokeWidth="2" /></svg>
+                    <span className="text-[#10b981] font-bold">Gas P2</span>
+                  </span>
+                )}
+                {showP1InPedals && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#6ee7b7" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
+                    <span className="text-[#6ee7b7] font-bold">Gas P1</span>
+                  </span>
+                )}
+                {isBubotaActive && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="4"><line x1="0" y1="2" x2="12" y2="2" stroke="#a3e635" strokeWidth="2" strokeDasharray="7,4" /></svg>
+                    <span className="text-[#a3e635] font-bold">👻 Gas</span>
+                  </span>
+                )}
               </span>
             )}
           </div>
           {hoverData && (
             <span className="text-[10px] font-telemetry text-gray-300 bg-black/75 px-2.5 py-0.5 rounded border border-white/10">
-              Gas: <strong className="text-[#00E676]">P2 {Math.round(hoverData.compThr)}%</strong>{' '}
-              <span className="text-[#38E2FF]">(P1 {Math.round(hoverData.refThr)}%)</span> • Freno:{' '}
-              <strong className="text-[#FF4D6D]">P2 {Math.round(hoverData.compBrk)}%</strong>{' '}
-              <span className="text-[#FF85D0]">(P1 {Math.round(hoverData.refBrk)}%)</span>{' '}
-              <span className="text-[#FFE600] font-bold">• 👻 Ideal: Freno {Math.round(hoverData.idealBrk)}% / Gas {Math.round(hoverData.idealThr)}%</span>
+              Gas: <strong className="text-[#10b981]">P2 {Math.round(hoverData.compThr)}%</strong>{' '}
+              {showP1InPedals && <span className="text-[#6ee7b7]">(P1 {Math.round(hoverData.refThr)}%)</span>}
+              {isBubotaActive && <span className="text-[#a3e635] font-bold"> (👻 Gas {Math.round(hoverData.idealThr)}%)</span>}
+              {' • '}Freno:{' '}
+              <strong className="text-[#ef4444]">P2 {Math.round(hoverData.compBrk)}%</strong>{' '}
+              {showP1InPedals && <span className="text-[#fca5a5]">(P1 {Math.round(hoverData.refBrk)}%)</span>}
+              {isBubotaActive && <span className="text-[#f97316] font-bold"> (👻 Freno {Math.round(hoverData.idealBrk)}%)</span>}
             </span>
           )}
         </div>
@@ -708,14 +812,18 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             </span>
             {!hoverData && (
               <span className="hidden lg:flex items-center gap-2 text-[9px] text-gray-400 font-telemetry bg-black/40 px-2 py-0.5 rounded border border-white/5">
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#E2E8F0" strokeWidth="2" /></svg>
-                  <span className="text-gray-300">P2 (Sólida)</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
-                  <span className="text-cyan-400">P1 (Puntos)</span>
-                </span>
+                {showP2 && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#E2E8F0" strokeWidth="2" /></svg>
+                    <span className="text-gray-300">P2 (Sólida)</span>
+                  </span>
+                )}
+                {showP1 && (
+                  <span className="flex items-center gap-1">
+                    <svg width="12" height="3"><line x1="0" y1="1.5" x2="12" y2="1.5" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="3,3" /></svg>
+                    <span className="text-cyan-400">P1 (Puntos)</span>
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -739,25 +847,10 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               <stop offset="50%" stopColor={COLORS.brand} stopOpacity="0.1" />
               <stop offset="100%" stopColor={COLORS.gain} stopOpacity="0.4" />
             </linearGradient>
-            <linearGradient id="brake-comp-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF1744" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#FF1744" stopOpacity="0.04" />
+            <linearGradient id="brake-trail-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.02" />
             </linearGradient>
-            <linearGradient id="thr-comp-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00E676" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#00E676" stopOpacity="0.02" />
-            </linearGradient>
-            <linearGradient id="ideal-brake-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FFE600" stopOpacity="0.32" />
-              <stop offset="100%" stopColor="#FFE600" stopOpacity="0.05" />
-            </linearGradient>
-            <linearGradient id="ideal-thr-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FFE600" stopOpacity="0.16" />
-              <stop offset="100%" stopColor="#FFE600" stopOpacity="0.02" />
-            </linearGradient>
-            <filter id="glow-ideal" x="-10%" y="-10%" width="120%" height="120%">
-              <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#FFE600" floodOpacity="0.75" />
-            </filter>
           </defs>
 
           {/* Vertical Gridlines */}
@@ -800,16 +893,19 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={(laneHeaderH + hSpeed - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{Math.round((maxSpeed + minSpeed) / 2)}</text>
             <text x={padLeft - 6} y={hSpeed - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">{minSpeed}</text>
 
-            <path d={speedRefPath} fill="none" stroke="#00E5FF" strokeWidth="2" strokeDasharray="5,3" strokeOpacity="0.92" />
-            <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2.6" />
-            {showIdealGhost && speedIdealPath && (
+            {showP1 && (
+              <path d={speedRefPath} fill="none" stroke="#00E5FF" strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.92" />
+            )}
+            {showP2 && (
+              <path d={speedCompPath} fill="none" stroke={COLORS.comp} strokeWidth="2" />
+            )}
+            {isBubotaActive && speedIdealPath && (
               <path
                 d={speedIdealPath}
                 fill="none"
-                stroke="#FFE600"
-                strokeWidth="2.3"
-                strokeDasharray="6,3"
-                filter="url(#glow-ideal)"
+                stroke="#facc15"
+                strokeWidth="2"
+                strokeDasharray="7,4"
                 strokeOpacity="0.98"
               />
             )}
@@ -847,45 +943,74 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={(laneHeaderH + hPedals - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">50%</text>
             <text x={padLeft - 6} y={hPedals - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">0%</text>
 
-            {/* Area fills for Pedals: Throttle P2, Brake P2, and 👻 Ideal Ghost */}
-            <path d={thrCompFillPath} fill="url(#thr-comp-gradient)" />
-            <path d={brkCompFillPath} fill="url(#brake-comp-gradient)" />
-            {showIdealGhost && thrIdealFillPath && (
-              <path d={thrIdealFillPath} fill="url(#ideal-thr-gradient)" />
-            )}
-            {showIdealGhost && brkIdealFillPath && (
-              <path d={brkIdealFillPath} fill="url(#ideal-brake-gradient)" />
+            {/* Soft fill ONLY for P2 Brake in the trail braking zone (no yellow ghost fill, no P1 fill) */}
+            {showP2 && brkCompTrailFillPath && (
+              <path d={brkCompTrailFillPath} fill="url(#brake-trail-gradient)" />
             )}
 
-            {/* Throttle traces: Ref P1 (dashed electric cyan-blue #00D4FF), Comp P2 (solid emerald #00E676), & 👻 Ideal (#FFE600) */}
-            <path d={thrRefPath} fill="none" stroke="#00D4FF" strokeWidth="2.1" strokeDasharray="5,3" strokeOpacity="0.95" />
-            <path d={thrCompPath} fill="none" stroke="#00E676" strokeWidth="2.5" />
-            {showIdealGhost && thrIdealPath && (
+            {/* Throttle traces: P1 (#6ee7b7 dotted 1.5px), P2 (#10b981 solid 2px), 👻 Bubota Gas (#a3e635 dashed 2px) */}
+            {showP1InPedals && (
+              <path d={thrRefPath} fill="none" stroke="#6ee7b7" strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.95" />
+            )}
+            {showP2 && (
+              <path d={thrCompPath} fill="none" stroke="#10b981" strokeWidth="2" />
+            )}
+            {isBubotaActive && thrIdealPath && (
               <path
                 d={thrIdealPath}
                 fill="none"
-                stroke="#FFE600"
-                strokeWidth="2.3"
-                strokeDasharray="6,3"
-                filter="url(#glow-ideal)"
-                strokeOpacity="0.96"
+                stroke="#a3e635"
+                strokeWidth="2"
+                strokeDasharray="7,4"
+                strokeOpacity="0.98"
               />
             )}
 
-            {/* Brake traces: Ref P1 (dashed hot pink/magenta #FF66C4), Comp P2 (solid crimson #FF1744), & 👻 Ideal Trail Braking (#FFE600) */}
-            <path d={brkRefPath} fill="none" stroke="#FF66C4" strokeWidth="2.2" strokeDasharray="5,3" strokeOpacity="0.95" />
-            <path d={brkCompPath} fill="none" stroke="#FF1744" strokeWidth="2.7" />
-            {showIdealGhost && brkIdealPath && (
+            {/* Brake traces: P1 (#fca5a5 dotted 1.5px), P2 (#ef4444 solid 2px), 👻 Bubota Brake (#f97316 dashed 2px) */}
+            {showP1InPedals && (
+              <path d={brkRefPath} fill="none" stroke="#fca5a5" strokeWidth="1.5" strokeDasharray="3,3" strokeOpacity="0.95" />
+            )}
+            {showP2 && (
+              <path d={brkCompPath} fill="none" stroke="#ef4444" strokeWidth="2" />
+            )}
+            {isBubotaActive && brkIdealPath && (
               <path
                 d={brkIdealPath}
                 fill="none"
-                stroke="#FFE600"
-                strokeWidth="2.7"
-                strokeDasharray="6,3"
-                filter="url(#glow-ideal)"
+                stroke="#f97316"
+                strokeWidth="2"
+                strokeDasharray="7,4"
                 strokeOpacity="1"
               />
             )}
+
+            {/* Inline labels for 👻 Bubota Freno (#f97316) and 👻 Bubota Gas (#a3e635) */}
+            {isBubotaActive &&
+              bubotaLabels.map((lbl) => (
+                <g key={lbl.key} transform={`translate(${lbl.x.toFixed(1)}, ${lbl.y.toFixed(1)})`}>
+                  <rect
+                    x={-26}
+                    y={-8}
+                    width={52}
+                    height={14}
+                    rx={3}
+                    fill="rgba(8, 9, 12, 0.85)"
+                    stroke={lbl.kind === 'brake' ? '#f97316' : '#a3e635'}
+                    strokeWidth="0.8"
+                  />
+                  <text
+                    x={0}
+                    y={2}
+                    fill={lbl.kind === 'brake' ? '#f97316' : '#a3e635'}
+                    fontSize="8.5px"
+                    fontWeight="bold"
+                    fontFamily="'JetBrains Mono', monospace"
+                    textAnchor="middle"
+                  >
+                    {lbl.kind === 'brake' ? '👻 Freno' : '👻 Gas'}
+                  </text>
+                </g>
+              ))}
           </g>
 
           {/* Gear */}
@@ -899,8 +1024,12 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
             <text x={padLeft - 6} y={(laneHeaderH + hGear - lanePadBottom) / 2 + 3} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">4</text>
             <text x={padLeft - 6} y={hGear - lanePadBottom} fill={COLORS.muted} fontSize="8px" fontFamily="'JetBrains Mono', monospace" textAnchor="end">1</text>
 
-            <path d={gearRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1" strokeDasharray="2,2" strokeOpacity="0.6" />
-            <path d={gearCompPath} fill="none" stroke="#E2E8F0" strokeWidth="2" />
+            {showP1 && (
+              <path d={gearRefPath} fill="none" stroke={COLORS.brand} strokeWidth="1" strokeDasharray="3,3" strokeOpacity="0.6" />
+            )}
+            {showP2 && (
+              <path d={gearCompPath} fill="none" stroke="#E2E8F0" strokeWidth="2" />
+            )}
           </g>
 
           {/* Vertical Crosshair Line */}
