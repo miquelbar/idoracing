@@ -106,9 +106,11 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
 
       {/* Structured setup advice from Pep, based on telemetry */}
       <SetupAdvicePanel
-        refLapId={refLapId}
-        compLapId={compLapId}
-        sessionId={selectedSessionId}
+        refLapId={refLapId || setup.ref_lap_id || (setup.ref_lap_number ? `Lap ${setup.ref_lap_number}` : null)}
+        compLapId={compLapId || setup.comp_lap_id || (setup.comp_lap_number ? `Lap ${setup.comp_lap_number}` : null)}
+        sessionId={selectedSessionId || setup.session_id || null}
+        refSessionId={refSessionId || setup.ref_session_id || null}
+        compSessionId={compSessionId || setup.comp_session_id || null}
       />
     </div>
   );

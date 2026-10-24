@@ -431,6 +431,37 @@ def test_setup_advice_review_english(client, monkeypatch):
     assert "Verdict" in data["pep_review"] or "recommendation" in data["pep_review"].lower()
 
 
+def test_setup_advice_review_defaults_when_lap_ids_omitted(client):
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "session_id": "synth_valencia_992_gt3",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert "report" in data
+    assert "pep_review" in data
+
+
+def test_setup_advice_review_cross_session(client):
+    res = client.post(
+        "/api/setup-advice/review",
+        json={
+            "ref_session_id": "synth_valencia_992_gt3",
+            "comp_session_id": "synth_valencia_992_gt3",
+            "ref_lap_id": "2",
+            "comp_lap_id": "1",
+            "lang": "es",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert "report" in data
+    assert "pep_review" in data
+
+
 def test_canonical_car_and_track_normalization():
     from domain.session import normalize_car_name, normalize_track_name
 

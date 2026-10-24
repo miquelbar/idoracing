@@ -10,6 +10,7 @@ import {
   Info,
   Lightbulb,
   MessageSquare,
+  Radio,
   RefreshCw,
   Target,
   Wrench,
@@ -18,13 +19,16 @@ import {
 import { fetchSetupAdviceReview } from '../services/api';
 import type { SetupAdviceReport, SetupAdviceReview, SetupRecommendation } from '../types/telemetry';
 import { useLanguage, type TranslationKey } from '../i18n';
+import { useWaitingChatter } from '../i18n/waitingChatter';
 import { errorMessage } from '../utils/formatters';
 import { renderFormattedMarkdown } from '../utils/markdown';
 
 interface SetupAdvicePanelProps {
-  refLapId: string | null;
-  compLapId: string | null;
-  sessionId: string | null;
+  refLapId?: string | null;
+  compLapId?: string | null;
+  sessionId?: string | null;
+  refSessionId?: string | null;
+  compSessionId?: string | null;
 }
 
 const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; label: TranslationKey }> = {
@@ -205,20 +209,31 @@ export const SetupAdvicePanel: React.FC<SetupAdvicePanelProps> = ({
   refLapId,
   compLapId,
   sessionId,
+  refSessionId,
+  compSessionId,
 }) => {
   const { t, lang } = useLanguage();
   const [review, setReview] = useState<SetupAdviceReview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const waitingChatter = useWaitingChatter(loading, lang);
 
   const report: SetupAdviceReport | null = review?.report ?? null;
+  const canLoad = Boolean(refLapId || compLapId || sessionId || refSessionId);
 
   const loadAdvice = async () => {
-    if (!refLapId || !compLapId) return;
+    if (!canLoad) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchSetupAdviceReview(refLapId, compLapId, sessionId || undefined, lang);
+      const data = await fetchSetupAdviceReview(
+        refLapId,
+        compLapId,
+        sessionId || undefined,
+        lang,
+        refSessionId || undefined,
+        compSessionId || undefined
+      );
       setReview(data);
     } catch (err) {
       setError(errorMessage(err, t('setup_advice_error')));
@@ -254,7 +269,7 @@ export const SetupAdvicePanel: React.FC<SetupAdvicePanelProps> = ({
         </div>
         <button
           onClick={loadAdvice}
-          disabled={loading || !refLapId || !compLapId}
+          disabled={loading || !canLoad}
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand/10 hover:bg-brand/20 border border-brand/30 text-brand text-xs font-bold uppercase tracking-wider transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
@@ -270,9 +285,15 @@ export const SetupAdvicePanel: React.FC<SetupAdvicePanelProps> = ({
 
       {/* Loading state */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <RefreshCw className="w-6 h-6 text-brand animate-spin mb-2" />
-          <p className="text-xs text-gray-400 font-telemetry">{t('setup_advice_loading')}</p>
+        <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+          <RefreshCw className="w-6 h-6 text-brand animate-spin" />
+          <p className="text-xs text-gray-300 font-telemetry">{t('setup_advice_loading')}</p>
+          <div className="p-3 rounded-lg bg-black/60 border border-brand/20 max-w-md mx-auto text-xs text-brand font-telemetry flex items-center gap-2.5 text-left shadow-inner">
+            <Radio className="w-4 h-4 shrink-0 text-brand animate-pulse" />
+            <span className="leading-relaxed">
+              {waitingChatter ?? t('pep_thinking', { track: 'setup' })}
+            </span>
+          </div>
         </div>
       )}
 

@@ -6,6 +6,7 @@ import {
   Cpu,
   FileText,
   Lightbulb,
+  Radio,
   RefreshCw,
   Send,
   Sparkles,
@@ -74,6 +75,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const waitingChatter = useWaitingChatter(chatLoading, lang);
+  const reportWaitingChatter = useWaitingChatter(loadingReport, lang);
 
   const handleGenerateReport = async (forceRefresh = false) => {
     if (!comparison) return;
@@ -201,11 +203,17 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
         {/* Loading Spinner */}
         {loadingReport && (
-          <div className="py-20 text-center flex flex-col items-center justify-center space-y-3 glass-panel rounded-xl">
+          <div className="py-16 text-center flex flex-col items-center justify-center space-y-4 glass-panel rounded-xl">
             <div className="w-10 h-10 border-3 border-brand border-t-transparent rounded-full animate-spin" />
             <p className="text-xs text-gray-300 font-telemetry">
               Procesando telemetría e inferencia con {activeModel}...
             </p>
+            <div className="p-3.5 rounded-lg bg-black/60 border border-brand/20 max-w-lg mx-auto text-xs text-brand font-telemetry flex items-center gap-3 text-left shadow-inner">
+              <Radio className="w-4 h-4 shrink-0 text-brand animate-pulse" />
+              <span className="leading-relaxed">
+                {reportWaitingChatter ?? t('pep_thinking', { track: comparison?.track_name || 'Circuito' })}
+              </span>
+            </div>
           </div>
         )}
 

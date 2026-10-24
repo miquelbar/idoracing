@@ -116,9 +116,11 @@ export const CarSetupModal: React.FC<CarSetupModalProps> = ({
               {/* Structured setup advice from Pep, based on telemetry */}
               <div className="mt-6 pt-6 border-t border-white/10">
                 <SetupAdvicePanel
-                  refLapId={refLapId ?? null}
-                  compLapId={compLapId ?? null}
-                  sessionId={sessionId ?? null}
+                  refLapId={refLapId || setup.ref_lap_id || (setup.ref_lap_number ? `Lap ${setup.ref_lap_number}` : null)}
+                  compLapId={compLapId || setup.comp_lap_id || (setup.comp_lap_number ? `Lap ${setup.comp_lap_number}` : null)}
+                  sessionId={sessionId || setup.session_id || null}
+                  refSessionId={refSessionId || setup.ref_session_id || null}
+                  compSessionId={compSessionId || setup.comp_session_id || null}
                 />
               </div>
             </>

@@ -359,6 +359,8 @@ class CarSetupDTO(BaseModel):
     aero: dict[str, Any]
     chassis: dict[str, Any]
     setup_advice: list[dict[str, str]]
+    ref_lap_id: str | None = None
+    comp_lap_id: str | None = None
     ref_lap_label: str | None = None
     comp_lap_label: str | None = None
     ref_lap_number: int | None = None
@@ -1274,6 +1276,8 @@ def _build_setup_comparison(
                 "impact": "Estabilidad en aceleración.",
             },
         ],
+        ref_lap_id=f"Lap {ref_lap.lap_number}" if ref_lap else None,
+        comp_lap_id=f"Lap {comp_lap.lap_number}" if comp_lap else None,
         ref_lap_label=ref_label,
         comp_lap_label=comp_label,
         ref_lap_number=ref_lap.lap_number if ref_lap else 1,
@@ -1322,36 +1326,86 @@ def get_stint_analysis(session_id: str | None = Query(None)):
 
 
 class SetupAdviceRequest(BaseModel):
-    ref_lap_id: str
-    comp_lap_id: str
+    ref_lap_id: str | None = None
+    comp_lap_id: str | None = None
     session_id: str | None = None
+    ref_session_id: str | None = None
+    comp_session_id: str | None = None
+
+
+def _resolve_setup_laps(
+    session_id: str | None = None,
+    ref_session_id: str | None = None,
+    comp_session_id: str | None = None,
+    ref_lap_id: str | None = None,
+    comp_lap_id: str | None = None,
+    detail_prefix: str = "setup advice",
+) -> tuple[Session, Session, Lap, Lap]:
+    if ref_session_id or comp_session_id:
+        ref_session = _load_session(ref_session_id or session_id)
+        comp_session = _load_session(comp_session_id or session_id)
+        ref_lap = _find_lap(ref_session, ref_lap_id) if ref_lap_id else None
+        comp_lap = _find_lap(comp_session, comp_lap_id) if comp_lap_id else None
+        if not ref_lap and not ref_lap_id:
+            ranked_ref = _rank_flying_laps(ref_session)
+            ref_lap = ranked_ref[0] if ranked_ref else (ref_session.laps[0] if ref_session.laps else None)
+        if not comp_lap and not comp_lap_id:
+            ranked_comp = _rank_flying_laps(comp_session)
+            comp_lap = ranked_comp[0] if ranked_comp else (comp_session.laps[0] if comp_session.laps else None)
+    else:
+        ref_session = _load_session(session_id)
+        comp_session = ref_session
+        ranked = _rank_flying_laps(ref_session)
+        ref_lap = _find_lap(ref_session, ref_lap_id) if ref_lap_id else None
+        if not ref_lap and not ref_lap_id:
+            ref_lap = ranked[0] if ranked else (ref_session.laps[0] if ref_session.laps else None)
+        comp_lap = _find_lap(ref_session, comp_lap_id) if comp_lap_id else None
+        if not comp_lap and not comp_lap_id:
+            if ranked:
+                comp_lap = next((l for l in ranked if not ref_lap or l.lap_number != ref_lap.lap_number), ranked[0])
+            elif ref_session.laps:
+                comp_lap = next((l for l in ref_session.laps if not ref_lap or l.lap_number != ref_lap.lap_number), ref_session.laps[0])
+        if ref_lap and comp_lap and ref_lap.lap_number == comp_lap.lap_number and len(ranked) == 1:
+            sib = _find_sibling_flying_lap(ref_session)
+            if sib is not None:
+                comp_session, comp_lap = sib
+
+    if not ref_lap or not comp_lap:
+        raise HTTPException(status_code=404, detail=f"Laps not found for {detail_prefix}")
+
+    return ref_session, comp_session, ref_lap, comp_lap
 
 
 @app.post("/api/setup-advice", response_model=SetupAdviceReport)
 def get_setup_advice(req: SetupAdviceRequest):
     """Generate structured setup recommendations from a lap comparison."""
-    matched_session = _load_session(req.session_id)
-    ref_lap = _find_lap(matched_session, req.ref_lap_id)
-    comp_lap = _find_lap(matched_session, req.comp_lap_id)
-    if not ref_lap or not comp_lap:
-        raise HTTPException(status_code=404, detail="Laps not found for setup advice")
-
-    has_telem = _lap_has_valid_telemetry(matched_session, ref_lap) and _lap_has_valid_telemetry(
-        matched_session, comp_lap
+    ref_session, comp_session, ref_lap, comp_lap = _resolve_setup_laps(
+        session_id=req.session_id,
+        ref_session_id=req.ref_session_id,
+        comp_session_id=req.comp_session_id,
+        ref_lap_id=req.ref_lap_id,
+        comp_lap_id=req.comp_lap_id,
+        detail_prefix="setup advice",
     )
-    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
+
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(
+        comp_session, comp_lap
+    )
+    comparison = compare_laps(ref_lap, comp_lap, track_name=ref_session.track)
     return generate_setup_advice(
         comparison,
-        car=normalize_car_name(matched_session.car),
-        track=normalize_track_name(matched_session.track),
+        car=normalize_car_name(ref_session.car),
+        track=normalize_track_name(ref_session.track),
         synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
     )
 
 
 class SetupAdviceReviewRequest(BaseModel):
-    ref_lap_id: str
-    comp_lap_id: str
+    ref_lap_id: str | None = None
+    comp_lap_id: str | None = None
     session_id: str | None = None
+    ref_session_id: str | None = None
+    comp_session_id: str | None = None
     lang: str = "es"
 
 
@@ -1484,26 +1538,29 @@ def _fallback_review(report: SetupAdviceReport, lang: str) -> str:
 @app.post("/api/setup-advice/review", response_model=SetupAdviceReview)
 def get_setup_advice_review(req: SetupAdviceReviewRequest):
     """Generate structured setup advice and enrich it with Pep's natural-language review."""
-    matched_session = _load_session(req.session_id)
-    ref_lap = _find_lap(matched_session, req.ref_lap_id)
-    comp_lap = _find_lap(matched_session, req.comp_lap_id)
-    if not ref_lap or not comp_lap:
-        raise HTTPException(status_code=404, detail="Laps not found for setup advice review")
-
-    has_telem = _lap_has_valid_telemetry(matched_session, ref_lap) and _lap_has_valid_telemetry(
-        matched_session, comp_lap
+    ref_session, comp_session, ref_lap, comp_lap = _resolve_setup_laps(
+        session_id=req.session_id,
+        ref_session_id=req.ref_session_id,
+        comp_session_id=req.comp_session_id,
+        ref_lap_id=req.ref_lap_id,
+        comp_lap_id=req.comp_lap_id,
+        detail_prefix="setup advice review",
     )
-    comparison = compare_laps(ref_lap, comp_lap, track_name=matched_session.track)
+
+    has_telem = _lap_has_valid_telemetry(ref_session, ref_lap) and _lap_has_valid_telemetry(
+        comp_session, comp_lap
+    )
+    comparison = compare_laps(ref_lap, comp_lap, track_name=ref_session.track)
     report = generate_setup_advice(
         comparison,
-        car=normalize_car_name(matched_session.car),
-        track=normalize_track_name(matched_session.track),
+        car=normalize_car_name(ref_session.car),
+        track=normalize_track_name(ref_session.track),
         synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
     )
 
     lang = req.lang or "es"
     system_prompt = PEP_SYSTEM_PROMPT_ES if lang.lower() != "en" else PEP_SYSTEM_PROMPT_EN
-    user_prompt = _build_review_prompt(report, matched_session.car, matched_session.track, lang)
+    user_prompt = _build_review_prompt(report, ref_session.car, ref_session.track, lang)
 
     review_text: str | None = None
     review_source = "rules"

@@ -219,17 +219,21 @@ export async function fetchStintAnalysis(sessionId?: string): Promise<StintAnaly
 }
 
 export async function fetchSetupAdvice(
-  refLapId: string,
-  compLapId: string,
-  sessionId?: string
+  refLapId?: string | null,
+  compLapId?: string | null,
+  sessionId?: string | null,
+  refSessionId?: string | null,
+  compSessionId?: string | null
 ): Promise<SetupAdviceReport> {
   const res = await fetch(`${API_BASE}/setup-advice`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      ref_lap_id: refLapId,
-      comp_lap_id: compLapId,
-      session_id: sessionId,
+      ref_lap_id: refLapId || undefined,
+      comp_lap_id: compLapId || undefined,
+      session_id: sessionId || undefined,
+      ref_session_id: refSessionId || undefined,
+      comp_session_id: compSessionId || undefined,
     }),
   });
   if (!res.ok) await failure(res, 'Failed to fetch setup advice');
@@ -237,18 +241,22 @@ export async function fetchSetupAdvice(
 }
 
 export async function fetchSetupAdviceReview(
-  refLapId: string,
-  compLapId: string,
-  sessionId: string | undefined,
-  lang: string
+  refLapId?: string | null,
+  compLapId?: string | null,
+  sessionId?: string | null,
+  lang: string = 'es',
+  refSessionId?: string | null,
+  compSessionId?: string | null
 ): Promise<SetupAdviceReview> {
   const res = await fetch(`${API_BASE}/setup-advice/review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      ref_lap_id: refLapId,
-      comp_lap_id: compLapId,
-      session_id: sessionId,
+      ref_lap_id: refLapId || undefined,
+      comp_lap_id: compLapId || undefined,
+      session_id: sessionId || undefined,
+      ref_session_id: refSessionId || undefined,
+      comp_session_id: compSessionId || undefined,
       lang,
     }),
   });

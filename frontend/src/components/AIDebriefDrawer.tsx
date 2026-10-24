@@ -8,6 +8,7 @@ import {
   FileText,
   Lightbulb,
   MessageSquare,
+  Radio,
   RefreshCw,
   Send,
   Sparkles,
@@ -59,7 +60,8 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   initialTab,
 }) => {
   const { lang, t } = useLanguage();
-  const waitingChatter = useWaitingChatter(chatLoading, lang);
+  const chatWaitingChatter = useWaitingChatter(chatLoading, lang);
+  const reportWaitingChatter = useWaitingChatter(loadingReport, lang);
   const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>(initialTab || 'debrief');
   const [debriefViewMode, setDebriefViewMode] = useState<'structured' | 'full'>('structured');
   const [inputMessage, setInputMessage] = useState('');
@@ -349,8 +351,32 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
           {activeTab === 'debrief' && (
             <>
+              {loadingReport && (
+                <div className="p-5 rounded-xl bg-night-7 border border-brand/30 text-center space-y-3.5 mb-4 shadow-xl shadow-brand/5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-center gap-2.5">
+                    <RefreshCw className="w-5 h-5 text-brand animate-spin" />
+                    <span className="text-sm font-bold text-white uppercase font-telemetry tracking-wide">
+                      {t('analyzing')}
+                    </span>
+                    <span className="text-xs text-gray-400 font-telemetry">
+                      • {activeModel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 font-telemetry">
+                    {t('pep_analyzing_telemetry', { track: trackName })}
+                  </p>
+                  <div className="p-3.5 rounded-lg bg-black/60 border border-brand/20 max-w-lg mx-auto text-xs text-brand font-telemetry flex items-center gap-3 text-left shadow-inner">
+                    <Radio className="w-4 h-4 shrink-0 text-brand animate-pulse" />
+                    <span className="leading-relaxed">
+                      {reportWaitingChatter ?? t('pep_thinking', { track: trackName })}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {report ? (
-                debriefViewMode === 'full' && report.raw_report ? (
+                <div className={loadingReport ? 'opacity-40 pointer-events-none' : ''}>
+                  {debriefViewMode === 'full' && report.raw_report ? (
                   /* Full Markdown Technical Report View */
                   <div className="p-4 rounded-xl bg-night-7 border border-white/5 font-sans space-y-2">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
@@ -467,8 +493,9 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                       </div>
                     </div>
                   </div>
-                )
-              ) : (
+                )}
+              </div>
+            ) : (
                 !loadingReport && (
                   <div className="p-8 rounded-xl bg-night-7 border border-white/5 text-center space-y-3 my-6">
                     <Sparkles className="w-10 h-10 text-brand mx-auto opacity-80" />
@@ -596,7 +623,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-night-7/60 border border-white/5">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                     <span>
-                      {waitingChatter ?? t('pep_thinking', { track: trackName })}
+                      {chatWaitingChatter ?? t('pep_thinking', { track: trackName })}
                     </span>
                   </div>
                 )}

@@ -386,6 +386,8 @@ export interface CarSetupData extends SingleLapSetup {
   track_name: string;
   game_name?: string | null;
   setup_advice: SetupAdviceItem[];
+  ref_lap_id?: string | null;
+  comp_lap_id?: string | null;
   ref_lap_label?: string | null;
   comp_lap_label?: string | null;
   ref_lap_number?: number | null;
