@@ -122,7 +122,7 @@ def _corner_brief(corner: dict[str, Any], is_en: bool) -> str:
             else ""
         )
         return (
-            f"\n\n**Telemetry Focus — T{c_num} ({c_name}) [P2 vs P1 & 👻 Ideal]:**\n"
+            f"\n\n**Telemetry Focus — T{c_num} ({c_name}) [P2 vs P1 & 👻 Bubota]:**\n"
             f"{loss_alert}"
             f"- **Time Delta (P2 vs P1):** `{sign}{d_time:.3f}s`\n"
             f"- **Apex Speed:** `P2: {vmin_c:.0f} km/h` vs `P1: {vmin_r:.0f} km/h` (ΔV: `{delta_vmin_str}`)\n"
@@ -137,7 +137,7 @@ def _corner_brief(corner: dict[str, Any], is_en: bool) -> str:
         else ""
     )
     return (
-        f"\n\n**Datos de Telemetría en T{c_num} ({c_name}) [P2 vs P1 y 👻 Ideal]:**\n"
+        f"\n\n**Datos de Telemetría en T{c_num} ({c_name}) [P2 vs P1 y 👻 Bubota]:**\n"
         f"{loss_alert}"
         f"- **Diferencia de tiempo (P2 vs P1):** `{sign}{d_time:.3f}s`\n"
         f"- **Velocidad en vértice:** `P2: {vmin_c:.0f} km/h` vs `P1: {vmin_r:.0f} km/h` (ΔV: `{delta_vmin_str}`)\n"

@@ -287,7 +287,7 @@ def _measure(
                 "ablanda 1 clic Fast Bump para absorber el bordillo sin perder tracción."
             )
 
-    # Ideal Ghost ("Fantasma Ideal") & Both-Laps Fault detection
+    # Ideal Ghost ("👻 Bubota") & Both-Laps Fault detection
     is_braking_corner = (
         max(ref_max_brake, comp_max_brake) > 0.25 and min(ref_min_speed, comp_min_speed) < FAST_CORNER_KMH
     )
@@ -302,7 +302,7 @@ def _measure(
         both_laps_fault = True
         both_laps_fault_reason = (
             f"Fallo compartido en {ref_label} ({ref_trail_pct:.0f}% trail) y {comp_label} ({comp_trail_pct:.0f}% trail): "
-            f"en ambas vueltas sueltas el freno de golpe antes del vértice (<25%). El 👻 Fantasma Ideal mantiene "
+            f"en ambas vueltas sueltas el freno de golpe antes del vértice (<25%). 👻 Bubota mantiene "
             f"~{ideal_trail_pct:.0f}% de presión en regresión diagonal hasta el ápice para cargar el eje delantero."
         )
     elif (
@@ -314,7 +314,7 @@ def _measure(
         both_laps_fault = True
         both_laps_fault_reason = (
             f"Fallo compartido en {ref_label} y {comp_label}: ambas vueltas retrasan la apertura de gas más de 18m "
-            "tras el vértice. El 👻 Fantasma Ideal inicia la rampa progresiva de acelerador justo en el ápice."
+            "tras el vértice. 👻 Bubota inicia la rampa progresiva de acelerador justo en el ápice."
         )
 
     best_vmin = max(ref_min_speed, comp_min_speed)
@@ -398,7 +398,7 @@ def _evaluate_trail_braking(s: CornerSignals) -> Evaluation:
             "early_release",
             f"En {s.comp_label} sueltas el freno de golpe ({s.comp_trail_pct:.0f}% de trail braking vs "
             f"{s.ref_trail_pct:.0f}% en {s.ref_label}); el morro se aligera al girar y pierdes rotación en entrada "
-            f"(👻 Ideal: >{s.ideal_trail_pct:.0f}%).",
+            f"(👻 Bubota: >{s.ideal_trail_pct:.0f}%).",
         )
     if s.significant_loss:
         if s.released_early:
@@ -452,7 +452,7 @@ def _evaluate_balance(s: CornerSignals) -> Evaluation:
     brake_delta, throttle_delta = s.brake_delta, s.throttle_delta
     if s.both_laps_fault:
         return Evaluation(
-            "Margen frente a 👻 Fantasma Ideal (P1 y P2)",
+            "Margen frente a 👻 Bubota (P1 y P2)",
             "both_laps_fault",
             s.both_laps_fault_reason,
         )
@@ -489,7 +489,7 @@ def _evaluate_balance(s: CornerSignals) -> Evaluation:
     return Evaluation(
         "Equilibrio Estable",
         "stable",
-        f"Paso consistente en {s.comp_label} vs {s.ref_label} con margen de optimización hacia el 👻 Ideal (-{s.ideal_time_gain:.2f}s).",
+        f"Paso consistente en {s.comp_label} vs {s.ref_label} con margen de optimización hacia 👻 Bubota (-{s.ideal_time_gain:.2f}s).",
     )
 
 
@@ -498,9 +498,9 @@ def _evaluate_line(s: CornerSignals) -> Evaluation:
     if s.line_offsets is not None and abs(s.line_offsets[1]) < LINE_OFFSET_EVAL_M:
         if s.both_laps_fault:
             return Evaluation(
-                "Trazada idéntica en P1 y P2 (Mejorable vs 👻 Ideal)",
+                "Trazada idéntica en P1 y P2 (Mejorable vs 👻 Bubota)",
                 "both_laps_fault",
-                f"Tanto {s.comp_label} como {s.ref_label} trazan por el mismo sitio, pero pierden -{s.ideal_time_gain:.2f}s frente al 👻 Fantasma Ideal: {s.both_laps_fault_reason}",
+                f"Tanto {s.comp_label} como {s.ref_label} trazan por el mismo sitio, pero pierden -{s.ideal_time_gain:.2f}s frente a 👻 Bubota: {s.both_laps_fault_reason}",
             )
         return Evaluation(
             "Trazada como la Referencia",
@@ -556,7 +556,7 @@ def _evaluate_line(s: CornerSignals) -> Evaluation:
     return Evaluation(
         "Trazada Subóptima en Curva",
         "suboptimal",
-        f"En {s.comp_label} la trayectoria no optimiza el paso por el vértice frente a {s.ref_label} y el 👻 Ideal; abre la aproximación y asegura el piano interior.",
+        f"En {s.comp_label} la trayectoria no optimiza el paso por el vértice frente a {s.ref_label} y 👻 Bubota; abre la aproximación y asegura el piano interior.",
     )
 
 
@@ -594,20 +594,20 @@ def _diagnosis(s: CornerSignals) -> str:
         parts.append(f"Rebote pronunciado sobre piano en {s.comp_label}.")
 
     if abs(s.time_delta) < 0.04:
-        timing = f"Paso parejo {s.comp_label} vs {s.ref_label} (delta {s.time_delta:+.3f}s, 👻 Ideal -{s.ideal_time_gain:.3f}s)."
+        timing = f"Paso parejo {s.comp_label} vs {s.ref_label} (delta {s.time_delta:+.3f}s, 👻 Bubota -{s.ideal_time_gain:.3f}s)."
     elif s.time_delta < 0:
         timing = (
             f"En esta curva {s.comp_label} mejora en {s.time_delta:+.3f}s a {s.ref_label} "
-            f"(margen adicional vs 👻 Fantasma Ideal: -{s.ideal_time_gain:.3f}s)."
+            f"(margen adicional vs 👻 Bubota: -{s.ideal_time_gain:.3f}s)."
         )
     else:
-        timing = f"Pérdida de +{s.time_delta:.3f}s en {s.comp_label} vs {s.ref_label} (👻 Potencial Ideal: -{s.ideal_time_gain:.3f}s)."
+        timing = f"Pérdida de +{s.time_delta:.3f}s en {s.comp_label} vs {s.ref_label} (👻 Bubota: -{s.ideal_time_gain:.3f}s)."
     delta_v = f"ΔV: {s.delta_vmin:+.1f} km/h"
     if parts:
         return f"{timing} ({delta_v}) " + " ".join(parts)
     return (
         f"{timing} ({delta_v}) Velocidad en vértice {s.comp_label}: {s.comp_min_speed:.0f} km/h "
-        f"({s.ref_label}: {s.ref_min_speed:.0f} km/h · 👻 Ideal: {s.v_min_ideal:.0f} km/h)."
+        f"({s.ref_label}: {s.ref_min_speed:.0f} km/h · 👻 Bubota: {s.v_min_ideal:.0f} km/h)."
     )
 
 

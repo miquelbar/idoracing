@@ -540,6 +540,7 @@ def test_outlap_lap1_excluded_from_default_selection():
     assert is_outlap_detected(1, 111.5, 100.2, {**base_tel, "speed": outlap_speeds}, True) is True
     assert is_outlap_detected(1, 101.0, 100.2, {**base_tel, "speed": outlap_speeds}, True) is True
     assert is_outlap_detected(1, 106.0, 100.0, {**base_tel, "speed": flying_speeds}, True) is True
+    assert is_outlap_detected(5, 117.4, 100.15, {**base_tel, "speed": flying_speeds}, True) is True
     assert is_outlap_detected(2, 100.2, 100.2, {**base_tel, "speed": flying_speeds}, True) is False
 
     sess = Session(
@@ -551,9 +552,101 @@ def test_outlap_lap1_excluded_from_default_selection():
             Lap(lap_number=1, lap_time=111.4, is_valid=True, telemetry={**base_tel, "speed": outlap_speeds}),
             Lap(lap_number=2, lap_time=100.2, is_valid=True, telemetry={**base_tel, "speed": flying_speeds}),
             Lap(lap_number=3, lap_time=100.6, is_valid=True, telemetry={**base_tel, "speed": flying_speeds}),
+            Lap(lap_number=5, lap_time=117.4, is_valid=True, telemetry={**base_tel, "speed": flying_speeds}),
         ],
     )
     assert sess.laps[0].is_outlap is True
     assert sess.laps[1].is_outlap is False
+    assert sess.laps[3].is_outlap is True
     ranked = _rank_flying_laps(sess)
-    assert [l.lap_number for l in ranked[:2]] == [2, 3]
+    assert [l.lap_number for l in ranked] == [2, 3]
+
+
+def test_all_tracks_render_closed_complete_loops():
+    """
+    Verify across all supported circuits (Ricardo Tormo de Valencia, Sebring International Raceway,
+    Red Bull Ring, Zandvoort) and stored telemetry sessions that track_x, track_y from
+    generate_track_coordinates and /api/comparison:
+    1. Has >= 200 points (len(track_x) >= 200).
+    2. Covers >= 98% of the circuit length (never cut off after T14 or before finish line).
+    3. Contains zero abrupt jumps (max(step_dist) < 25.0 meters).
+    4. Closes smoothly at the finish line: hypot(track_x[-1] - track_x[0], track_y[-1] - track_y[0]) < 5.0m.
+    5. All numbered corners (T1..T14 Valencia, T1..T17 Sebring, T1..T10 Red Bull Ring) are present and positioned.
+    """
+    import numpy as np
+
+    from analysis.alignment import align_laps_by_distance
+    from analysis.corners import extract_corners_analysis
+    from analysis.telemetry_generator import generate_lap_telemetry_for_track
+    from analysis.tracks import (
+        generate_track_coordinates,
+        get_track_length,
+        known_track_corners,
+    )
+    from api.server import get_lap_comparison, storage
+
+    supported_tracks = [
+        ("Ricardo Tormo de Valencia", 98.5, 14),
+        ("Sebring International Raceway", 119.2, 17),
+        ("Red Bull Ring", 89.4, 10),
+        ("Zandvoort", 94.8, None),
+    ]
+
+    for track_name, base_lap_time, expected_corners in supported_tracks:
+        track_len = get_track_length(track_name)
+        ref_t = generate_lap_telemetry_for_track(track_name, base_lap_time, is_reference=True)
+        comp_t = generate_lap_telemetry_for_track(track_name, base_lap_time + 0.8, is_reference=False)
+        aligned = align_laps_by_distance(
+            {k: v.tolist() for k, v in ref_t.items()},
+            {k: v.tolist() for k, v in comp_t.items()},
+            step_m=2.0,
+        )
+        tx, ty = generate_track_coordinates(track_name, aligned["distance"], aligned)
+        tx_arr = np.asarray(tx, dtype=np.float64)
+        ty_arr = np.asarray(ty, dtype=np.float64)
+
+        assert len(tx_arr) >= 200, f"[{track_name}] Expected >= 200 points, got {len(tx_arr)}"
+        covered_len = float(aligned["distance"][-1] - aligned["distance"][0])
+        assert covered_len >= 0.98 * track_len, (
+            f"[{track_name}] Track cut short: covered {covered_len:.1f}m < 98% of {track_len:.1f}m"
+        )
+        step_dists = np.hypot(np.diff(tx_arr), np.diff(ty_arr))
+        assert float(np.max(step_dists)) < 25.0, (
+            f"[{track_name}] Abrupt step jump of {float(np.max(step_dists)):.2f}m >= 25.0m"
+        )
+        closure_gap = float(np.hypot(tx_arr[-1] - tx_arr[0], ty_arr[-1] - ty_arr[0]))
+        assert closure_gap < 5.0, (
+            f"[{track_name}] Track loop not closed at finish line: gap = {closure_gap:.2f}m >= 5.0m"
+        )
+
+        corners = extract_corners_analysis(aligned, track_name=track_name)
+        assert len(corners) >= 5, f"[{track_name}] Expected corners on outline, got {len(corners)}"
+        if expected_corners is not None:
+            assert len(corners) == expected_corners, (
+                f"[{track_name}] Expected {expected_corners} corners, got {len(corners)}"
+            )
+            assert [c.corner_number for c in corners] == list(range(1, expected_corners + 1))
+        for c in corners:
+            assert 0.0 <= (c.apex_dist or c.start_dist) <= aligned["distance"][-1]
+
+    # Also verify all stored real/demo sessions with 50Hz telemetry via get_lap_comparison
+    for summary in storage.list_sessions():
+        if not summary.has_telemetry:
+            continue
+        resp = get_lap_comparison(session_id=summary.session_id)
+        if not resp.has_telemetry:
+            continue
+        tx_arr = np.asarray(resp.track_x, dtype=np.float64)
+        ty_arr = np.asarray(resp.track_y, dtype=np.float64)
+        track_len = get_track_length(resp.track_name)
+        assert len(tx_arr) >= 200, f"[{summary.session_id}] len(track_x)={len(tx_arr)} < 200"
+        assert float(resp.distance[-1] - resp.distance[0]) >= 0.98 * track_len, (
+            f"[{summary.session_id}] distance ends at {resp.distance[-1]:.1f}m (< 98% of {track_len:.1f}m)"
+        )
+        step_dists = np.hypot(np.diff(tx_arr), np.diff(ty_arr))
+        assert float(np.max(step_dists)) < 25.0, f"[{summary.session_id}] step jump {float(np.max(step_dists)):.2f}m"
+        closure_gap = float(np.hypot(tx_arr[-1] - tx_arr[0], ty_arr[-1] - ty_arr[0]))
+        assert closure_gap < 5.0, f"[{summary.session_id}] loop closure gap {closure_gap:.2f}m >= 5.0m"
+        expected_tbl = known_track_corners(resp.track_name)
+        if expected_tbl is not None:
+            assert len(resp.corners) == len(expected_tbl)

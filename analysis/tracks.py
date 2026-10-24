@@ -497,6 +497,8 @@ def get_track_length(track_name: str | None = None) -> float:
         or "a1 ring" in t
     ):
         return 4318.0
+    if "zandvoort" in t:
+        return 4259.0
     return 4500.0
 
 
@@ -563,6 +565,62 @@ def _lateral_accel_channel(telemetry: dict[str, np.ndarray], length: int) -> tup
 
 MAX_TELEPORT_STEP_M = 25.0
 MAX_CLOSURE_GAP_M = 30.0
+MAX_COMPLETE_LAP_DRIFT_M = 80.0
+
+
+def apply_loop_closure_drift_correction(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Distribute the final loop-closure drift (x[-1] - x[0], y[-1] - y[0]) linearly
+    across all N points so a complete lap connects smoothly back to (x[0], y[0])
+    with zero step jump and hypot(x[-1] - x[0], y[-1] - y[0]) == 0.0.
+    """
+    x_arr = np.asarray(x, dtype=np.float64).copy()
+    y_arr = np.asarray(y, dtype=np.float64).copy()
+    if len(x_arr) < 2:
+        return x_arr, y_arr
+    dx_err = float(x_arr[-1] - x_arr[0])
+    dy_err = float(y_arr[-1] - y_arr[0])
+    ratios = np.linspace(0.0, 1.0, len(x_arr))
+    return x_arr - ratios * dx_err, y_arr - ratios * dy_err
+
+
+def is_complete_track_lap(telemetry: dict[str, Any] | None, track_name: str | None = None) -> bool:
+    """
+    True when a lap telemetry dict represents a 100% complete circuit lap suitable for
+    building the base circuit silhouette:
+    - covers >= 98% of the official track length
+    - does not enter the pit lane in the final 300m (speed > 60 km/h)
+    - has no intermediate spatial teleport jump (step_dist > 25m)
+    """
+    if not telemetry:
+        return False
+    dist = np.asarray(telemetry.get("distance", []), dtype=np.float64)
+    if len(dist) < 20:
+        return False
+    track_len = get_track_length(track_name)
+    if float(dist[-1] - dist[0]) < 0.98 * track_len:
+        return False
+    if np.any(np.diff(dist) < -25.0):
+        return False
+    for skey in ("speed", "ref_speed", "comp_speed"):
+        sp = telemetry.get(skey)
+        if sp is not None and len(sp) == len(dist):
+            sp_arr = np.asarray(sp, dtype=np.float64)
+            tail_mask = dist >= (dist[-1] - 300.0)
+            if np.any(tail_mask) and float(np.min(sp_arr[tail_mask])) < 60.0:
+                return False
+            break
+    if "x" in telemetry and "y" in telemetry:
+        x_arr = np.asarray(telemetry["x"], dtype=np.float64)
+        y_arr = np.asarray(telemetry["y"], dtype=np.float64)
+        if len(x_arr) >= 2 and len(x_arr) == len(y_arr):
+            _, _, is_inc = sanitize_xy_teleport(x_arr, y_arr, MAX_TELEPORT_STEP_M)
+            if is_inc:
+                return False
+            gap = float(np.hypot(x_arr[-1] - x_arr[0], y_arr[-1] - y_arr[0]))
+            if gap > MAX_COMPLETE_LAP_DRIFT_M:
+                return False
+    return True
 
 
 def sanitize_xy_teleport(
@@ -683,7 +741,7 @@ def orient_aligned_positions(aligned: dict[str, np.ndarray]) -> None:
     is_incomplete = bool(is_inc or aligned.get("is_incomplete", False))
     closure_gap = float(np.hypot(base_x[-1] - base_x[0], base_y[-1] - base_y[0])) if len(base_x) > 1 else 0.0
     if not is_incomplete and closure_gap <= MAX_CLOSURE_GAP_M:
-        base_x[-1], base_y[-1] = base_x[0], base_y[0]
+        base_x, base_y = apply_loop_closure_drift_correction(base_x, base_y)
 
     cx, cy, rot, sign = _canonical_transform(base_x, base_y)
     aligned["x"], aligned["y"] = _apply_canonical_transform(base_x, base_y, cx, cy, rot, sign)
@@ -696,6 +754,9 @@ def orient_aligned_positions(aligned: dict[str, np.ndarray]) -> None:
             if np.any(px != 0.0) or np.any(py != 0.0):
                 if mirrored:
                     py = -py
+                px_gap = float(np.hypot(px[-1] - px[0], py[-1] - py[0])) if len(px) > 1 else 0.0
+                if not is_incomplete and px_gap <= MAX_CLOSURE_GAP_M:
+                    px, py = apply_loop_closure_drift_correction(px, py)
                 aligned[kx], aligned[ky] = _apply_canonical_transform(px, py, cx, cy, rot, sign)
 
 
@@ -715,6 +776,8 @@ def generate_track_coordinates(
     Never closes the polygon if the lap is incomplete (teleport jump > 25m) or start-to-end gap > 30m.
     """
     distance = np.asarray(distance, dtype=np.float64)
+    track_len = get_track_length(track_name)
+    covered_len = float(distance[-1] - distance[0]) if len(distance) > 1 else 0.0
 
     if telemetry and "x" in telemetry and "y" in telemetry:
         raw_x = np.array(telemetry["x"], dtype=np.float64)
@@ -734,8 +797,9 @@ def generate_track_coordinates(
                     break
             raw_x, raw_y = _auto_orient(raw_x, raw_y, lat)
             closure_gap = float(np.hypot(raw_x[-1] - raw_x[0], raw_y[-1] - raw_y[0])) if len(raw_x) > 1 else 0.0
-            if not is_incomplete and closure_gap <= MAX_CLOSURE_GAP_M:
-                raw_x[-1], raw_y[-1] = raw_x[0], raw_y[0]
+            max_drift = MAX_COMPLETE_LAP_DRIFT_M if covered_len >= 0.98 * track_len else MAX_CLOSURE_GAP_M
+            if not is_incomplete and closure_gap <= max_drift:
+                raw_x, raw_y = apply_loop_closure_drift_correction(raw_x, raw_y)
             raw_x, raw_y = _canonical_frame(raw_x, raw_y)
             return raw_x.tolist(), raw_y.tolist()
 

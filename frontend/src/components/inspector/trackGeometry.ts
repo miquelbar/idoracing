@@ -74,14 +74,28 @@ export function buildTrackGeometry(comparison: ComparisonResponse) {
   });
 
   const svgPts: Array<{ x: number; y: number; wx: number; wy: number; dist: number }> = [];
+  const lastRecordedDist = dists.length > 0 ? dists[dists.length - 1] : 0;
   for (let i = 0; i < validLen; i++) {
     const pt = toSvg(cleanXs[i], cleanYs[i]);
-    svgPts.push({ x: pt.x, y: pt.y, wx: cleanXs[i], wy: cleanYs[i], dist: dists[i] || 0 });
+    const ptDist =
+      i < dists.length
+        ? dists[i]
+        : lastRecordedDist + (i - Math.max(0, dists.length - 1)) * 2.0;
+    svgPts.push({ x: pt.x, y: pt.y, wx: cleanXs[i], wy: cleanYs[i], dist: ptDist });
   }
 
   // Heatmap segments (skip any segment crossing a > 25m physical jump)
   const segments: Array<{ d: string; color: string; speedDelta: number }> = [];
   const step = 3;
+  const pickColor = (avgDelta: number) => {
+    if (avgDelta > 8) return COLORS.gain;
+    if (avgDelta > 2) return COLORS.brand;
+    if (avgDelta < -8) return COLORS.loss;
+    if (avgDelta < -2) return COLORS.lossSoft;
+    return '#798299';
+  };
+
+  let lastI = 0;
   for (let i = 0; i < svgPts.length - step; i += step) {
     let hasJump = false;
     for (let k = i; k < i + step; k++) {
@@ -95,18 +109,39 @@ export function buildTrackGeometry(comparison: ComparisonResponse) {
     const p1 = svgPts[i];
     const p2 = svgPts[i + step];
     const avgDelta = deltas[i] || 0;
-
-    let color = '#798299';
-    if (avgDelta > 8) color = COLORS.gain;
-    else if (avgDelta > 2) color = COLORS.brand;
-    else if (avgDelta < -8) color = COLORS.loss;
-    else if (avgDelta < -2) color = COLORS.lossSoft;
+    lastI = i + step;
 
     segments.push({
       d: `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`,
-      color,
+      color: pickColor(avgDelta),
       speedDelta: avgDelta,
     });
+  }
+
+  // Close the final tail segment up to the finish line and back to svgPts[0] when loop is complete
+  if (svgPts.length > 2) {
+    const lastPt = svgPts[svgPts.length - 1];
+    const firstPt = svgPts[0];
+    if (lastI < svgPts.length - 1) {
+      const prevPt = svgPts[lastI];
+      if (Math.hypot(lastPt.wx - prevPt.wx, lastPt.wy - prevPt.wy) <= MAX_TELEPORT_STEP_M) {
+        const avgDelta = deltas[lastI] || 0;
+        segments.push({
+          d: `M ${prevPt.x.toFixed(1)} ${prevPt.y.toFixed(1)} L ${lastPt.x.toFixed(1)} ${lastPt.y.toFixed(1)}`,
+          color: pickColor(avgDelta),
+          speedDelta: avgDelta,
+        });
+      }
+    }
+    const closureDistM = Math.hypot(lastPt.wx - firstPt.wx, lastPt.wy - firstPt.wy);
+    if (closureDistM <= MAX_CLOSURE_GAP_M) {
+      const avgDelta = deltas[svgPts.length - 1] || 0;
+      segments.push({
+        d: `M ${lastPt.x.toFixed(1)} ${lastPt.y.toFixed(1)} L ${firstPt.x.toFixed(1)} ${firstPt.y.toFixed(1)}`,
+        color: pickColor(avgDelta),
+        speedDelta: avgDelta,
+      });
+    }
   }
 
   // Corner positions

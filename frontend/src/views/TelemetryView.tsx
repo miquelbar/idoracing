@@ -76,7 +76,9 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         comparison.ref_lap_id,
         comparison.comp_lap_id,
         forceRefresh,
-        comparison.session_id
+        comparison.session_id,
+        comparison.ref_session_id,
+        comparison.comp_session_id
       );
       onReportGenerated(rep);
     } catch (err) {
@@ -478,6 +480,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
         selectedCorner={selectedCorner}
         trackName={comparison.track_name}
         carName={comparison.car_name}
+        comparison={comparison}
         initialTab={debriefTab}
       />
     </div>

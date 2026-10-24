@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import { useWaitingChatter } from '../i18n/waitingChatter';
-import type { ChatMessage, CoachReport, CornerDTO } from '../types/telemetry';
+import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse, CornerDTO } from '../types/telemetry';
+import { fetchCarSetup } from '../services/api';
 import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 import { renderFormattedMarkdown } from '../utils/markdown';
 
@@ -36,6 +37,7 @@ interface AIDebriefDrawerProps {
   selectedCorner?: CornerDTO | null;
   trackName?: string;
   carName?: string;
+  comparison?: ComparisonResponse | null;
   initialTab?: 'debrief' | 'radio';
 }
 
@@ -53,6 +55,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   selectedCorner,
   trackName = 'Circuito',
   carName = 'GT3',
+  comparison,
   initialTab,
 }) => {
   const { lang, t } = useLanguage();
@@ -62,7 +65,36 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   const [inputMessage, setInputMessage] = useState('');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
+  const [setupInfo, setSetupInfo] = useState<CarSetupData | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !comparison) return;
+    let mounted = true;
+    fetchCarSetup(
+      comparison.session_id,
+      comparison.ref_lap_id,
+      comparison.comp_lap_id,
+      comparison.ref_session_id,
+      comparison.comp_session_id
+    )
+      .then((d) => {
+        if (mounted) setSetupInfo(d);
+      })
+      .catch(() => {
+        if (mounted) setSetupInfo(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [
+    isOpen,
+    comparison?.session_id,
+    comparison?.ref_lap_id,
+    comparison?.comp_lap_id,
+    comparison?.ref_session_id,
+    comparison?.comp_session_id,
+  ]);
 
   // Sync initialTab when drawer opens
   useEffect(() => {
@@ -169,9 +201,35 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 font-telemetry">
                 {t('engineer_panel_title')}
               </h2>
-              <p className="text-[11px] text-gray-400 font-telemetry">
-                {trackName} • <strong className="text-brand">{activeModel}</strong>
-              </p>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-400 font-telemetry mt-0.5">
+                <span>{trackName}</span>
+                <span>•</span>
+                <strong className="text-brand">{activeModel}</strong>
+                {comparison && (
+                  <>
+                    <span>•</span>
+                    <span className="text-[#00D2BE] font-bold">
+                      P1 (V{comparison.ref_lap_id.replace(/\D+/g, '') || '1'})
+                    </span>
+                    <span>vs</span>
+                    <span className="text-[#D8B4FE] font-bold">
+                      P2 (V{comparison.comp_lap_id.replace(/\D+/g, '') || '2'})
+                    </span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    window.location.hash = '#/setup';
+                  }}
+                  className="ml-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-emerald-300 cursor-pointer"
+                >
+                  {setupInfo && setupInfo.same_garage_setup === false
+                    ? `[ 🔧 Setup Diff: ${[...(setupInfo.garage_diff_summary || []), ...(setupInfo.thermal_diff_summary || [])].slice(0, 2).join(', ')} ]`
+                    : '[ 🔧 Setup: Idéntico ]'}
+                </button>
+              </div>
             </div>
           </div>
 

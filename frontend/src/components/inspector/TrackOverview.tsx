@@ -211,6 +211,19 @@ export const TrackOverview: React.FC<TrackOverviewProps> = ({
         onMouseLeave={handleTrackMouseLeave}
         onClick={handleTrackSvgClick}
       >
+        {/* Base Closed Circuit Outline */}
+        {staticTrack.fullOutline && (
+          <path
+            d={staticTrack.fullOutline}
+            fill="none"
+            stroke="#475569"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.65"
+          />
+        )}
+
         {/* Colored Heatmap Ribbon */}
         {staticTrack.segments.map((seg, i) => (
           <path

@@ -181,8 +181,8 @@ export const TelemetryHeaderBar: React.FC<TelemetryHeaderBarProps> = ({
                     className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/35 text-amber-300 font-bold text-[10px] whitespace-nowrap"
                     title={
                       isEn
-                        ? 'Physical potential gain vs 👻 Ideal Ghost'
-                        : 'Potencial físico total frente al 👻 Fantasma Ideal'
+                        ? 'Physical potential gain vs 👻 Bubota'
+                        : 'Potencial físico total frente a 👻 Bubota'
                     }
                   >
                     👻 {isEn ? 'Potential:' : 'Potencial:'} -{comparison.ideal_potential_gain.toFixed(2)}s

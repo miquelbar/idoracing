@@ -192,7 +192,7 @@ export function computePhaseMetrics(selectedCorner: CornerDTO, comparison: Compa
 
 export type PhaseMetrics = ReturnType<typeof computePhaseMetrics>;
 
-/** The three-step improvement plan shown under the phase table, explicitly citing P1 (V...), P2 (V...) and 👻 Ideal. */
+/** The three-step improvement plan shown under the phase table, explicitly citing P1 (V...), P2 (V...) and 👻 Bubota. */
 export function buildActionPlan(
   phaseMetrics: PhaseMetrics,
   lang: string,
@@ -202,7 +202,7 @@ export function buildActionPlan(
   const { labels, ideal, braking, trail, position, min, throttle, exit } = phaseMetrics;
   const p1 = isEn ? `P1 (L${labels.refNum})` : `P1 (V${labels.refNum})`;
   const p2 = isEn ? `P2 (L${labels.compNum})` : `P2 (V${labels.compNum})`;
-  const ghost = isEn ? '👻 Ideal Ghost' : '👻 Fantasma Ideal';
+  const ghost = '👻 Bubota';
 
   let summaryBanner: string | undefined;
   if (cornerDeltaTime < -0.02) {

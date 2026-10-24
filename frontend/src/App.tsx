@@ -76,10 +76,22 @@ function readStoredLaps(sessionId: string): { ref: number; comp: number } | null
 }
 
 function isLapOutlap(
-  lap: { lap_number: number; lap_time: number; is_valid: boolean; is_outlap?: boolean; telemetry?: { speed?: number[]; distance?: number[] } },
+  lap: {
+    lap_number: number;
+    lap_time: number;
+    is_valid: boolean;
+    is_outlap?: boolean;
+    is_incomplete?: boolean;
+    telemetry?: { speed?: number[]; distance?: number[] };
+  },
   bestLapTime: number,
 ): boolean {
-  if (lap.is_outlap || lap.lap_time > 150) return true;
+  if (lap.is_outlap || lap.is_incomplete || lap.lap_time > 150 || (lap.lap_time > 0 && lap.lap_time < 20)) {
+    return true;
+  }
+  if (bestLapTime > 0 && lap.lap_time > bestLapTime * 1.07) {
+    return true;
+  }
   if (lap.lap_number === 1) {
     if (!lap.is_valid) return true;
     if (bestLapTime > 0 && lap.lap_time > bestLapTime * 1.05) return true;
@@ -99,7 +111,7 @@ function isLapOutlap(
   return false;
 }
 
-/** Fastest valid flying lap (PB) as P1, paired with the second fastest valid flying lap (excluding Lap 1 Out-laps) as P2. */
+/** Fastest valid flying lap (PB) as P1, paired with the second fastest valid flying lap within 107% of PB as P2. */
 function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (!session || session.laps.length === 0) return [1, 2];
   if (session.laps.length === 1) return [session.laps[0].lap_number, session.laps[0].lap_number];
@@ -120,24 +132,11 @@ function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (flyingAny.length >= 2) {
     return [flyingAny[0].lap_number, flyingAny[1].lap_number];
   }
-
-  const valid = session.laps
-    .filter((l) => l.lap_time > 0 && l.is_valid && !isLapOutlap(l, bestLapTime))
-    .sort((a, b) => a.lap_time - b.lap_time);
-  if (valid.length >= 2) {
-    return [valid[0].lap_number, valid[1].lap_number];
+  if (flyingValid.length === 1) {
+    return [flyingValid[0].lap_number, flyingValid[0].lap_number];
   }
-  if (valid.length === 1) {
-    const refLap = valid[0];
-    const nonOutlapOthers = session.laps.filter(
-      (l) => l.lap_number !== refLap.lap_number && l.lap_time > 0 && !isLapOutlap(l, bestLapTime),
-    );
-    if (nonOutlapOthers.length > 0) {
-      return [refLap.lap_number, nonOutlapOthers[0].lap_number];
-    }
-    const otherLaps = session.laps.filter((l) => l.lap_number !== refLap.lap_number && l.lap_time > 0);
-    const compLap = otherLaps.length > 0 ? otherLaps[0] : (session.laps.find((l) => l.lap_number !== refLap.lap_number) ?? refLap);
-    return [refLap.lap_number, compLap.lap_number];
+  if (flyingAny.length === 1) {
+    return [flyingAny[0].lap_number, flyingAny[0].lap_number];
   }
 
   const sorted = [...session.laps].sort((a, b) => {
@@ -207,6 +206,12 @@ export const App: React.FC = () => {
         crossCompSessionId || undefined,
       );
       setComparison(comp);
+      const returnedRefNum = Number(String(comp.ref_lap_id || '').replace(/\D+/g, ''));
+      const returnedCompNum = Number(String(comp.comp_lap_id || '').replace(/\D+/g, ''));
+      if (Number.isFinite(returnedRefNum) && returnedRefNum > 0) setRefLapNumber(returnedRefNum);
+      if (Number.isFinite(returnedCompNum) && returnedCompNum > 0) setCompLapNumber(returnedCompNum);
+      if (comp.ref_session_id) setRefSessionId(comp.ref_session_id);
+      if (comp.comp_session_id) setCompSessionId(comp.comp_session_id);
       setSelectedCorner(null);
       setCoachReport(null);
     } catch (err) {
@@ -566,6 +571,8 @@ export const App: React.FC = () => {
                 carName={activeCar}
                 refLapId={comparison?.ref_lap_id || null}
                 compLapId={comparison?.comp_lap_id || null}
+                refSessionId={comparison?.ref_session_id || refSessionId}
+                compSessionId={comparison?.comp_session_id || compSessionId}
                 onGoToTelemetry={() => handleNavigateTab('telemetry')}
               />
             )}
@@ -620,6 +627,8 @@ export const App: React.FC = () => {
         sessionId={selectedSessionId}
         refLapId={comparison?.ref_lap_id || null}
         compLapId={comparison?.comp_lap_id || null}
+        refSessionId={comparison?.ref_session_id || refSessionId}
+        compSessionId={comparison?.comp_session_id || compSessionId}
       />
 
       {/* Global Stint & Tyre Degradation Modal (Opened from Telemetry header pill) */}

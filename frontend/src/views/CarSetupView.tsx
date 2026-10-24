@@ -13,6 +13,8 @@ interface CarSetupViewProps {
   carName: string;
   refLapId: string | null;
   compLapId: string | null;
+  refSessionId?: string | null;
+  compSessionId?: string | null;
   onGoToTelemetry: () => void;
 }
 
@@ -22,6 +24,8 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
   carName: _carName,
   refLapId,
   compLapId,
+  refSessionId,
+  compSessionId,
   onGoToTelemetry,
 }) => {
   const { t } = useLanguage();
@@ -33,7 +37,13 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchCarSetup(selectedSessionId || undefined);
+      const data = await fetchCarSetup(
+        selectedSessionId || undefined,
+        refLapId,
+        compLapId,
+        refSessionId,
+        compSessionId
+      );
       setSetup(data);
     } catch (err) {
       setError(errorMessage(err, 'No se pudo cargar la configuración del vehículo'));
@@ -44,7 +54,7 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
 
   useEffect(() => {
     loadSetup();
-  }, [selectedSessionId]);
+  }, [selectedSessionId, refLapId, compLapId, refSessionId, compSessionId]);
 
   if (loading && !setup) {
     return (

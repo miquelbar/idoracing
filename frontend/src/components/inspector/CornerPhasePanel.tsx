@@ -203,7 +203,7 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
                     Math.abs(phaseMetrics.position.offsets.apex) < LINE_OFFSET_NOTE_M ? (
                       phaseMetrics.ideal.bothLapsFault ? (
                         <span className="inline-flex items-center px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[9.5px]">
-                          ⚠️ {isEn ? 'vs 👻 Ideal' : 'Mejorable vs 👻 Ideal'}
+                          ⚠️ {isEn ? 'vs 👻 Bubota' : 'Mejorable vs 👻 Bubota'}
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-1 py-0.5 rounded bg-gain/15 text-gain font-bold text-[9.5px]">
@@ -329,15 +329,15 @@ export const CornerPhasePanel: React.FC<CornerPhasePanelProps> = ({
         </div>
       )}
 
-      {/* Three-step improvement plan with explicit P1 / P2 / 👻 Ideal labels */}
+      {/* Three-step improvement plan with explicit P1 / P2 / 👻 Bubota labels */}
       {actionPlan && phaseMetrics && (
         <div className="pt-2 border-t border-white/10 shrink-0 flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-[10px] font-bold text-brand uppercase tracking-wider flex items-center gap-1">
               <Zap className="w-3 h-3 text-brand" />
               {isEn
-                ? `IMPROVEMENT PLAN FOR P2 (L${phaseMetrics.labels.compNum}) · vs P1 (L${phaseMetrics.labels.refNum}) & 👻 Ideal`
-                : `PLAN DE MEJORA EN P2 (V${phaseMetrics.labels.compNum}) · vs P1 (V${phaseMetrics.labels.refNum}) y 👻 Ideal`}
+                ? `IMPROVEMENT PLAN FOR P2 (L${phaseMetrics.labels.compNum}) · vs P1 (L${phaseMetrics.labels.refNum}) & 👻 Bubota`
+                : `PLAN DE MEJORA EN P2 (V${phaseMetrics.labels.compNum}) · vs P1 (V${phaseMetrics.labels.refNum}) y 👻 Bubota`}
             </span>
             <span className="text-[9px] font-telemetry font-bold px-1.5 py-0.5 rounded bg-white/5 text-brand">
               {t(RACING_LINE_LABEL[selectedCorner.racing_line_code] || 'line_suboptimal')}

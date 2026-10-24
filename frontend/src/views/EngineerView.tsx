@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -11,11 +11,12 @@ import {
   Sparkles,
   Target,
   User,
+  Wrench,
 } from 'lucide-react';
-import { fetchCoachReport, sendChatMessage } from '../services/api';
+import { fetchCarSetup, fetchCoachReport, sendChatMessage } from '../services/api';
 import { useLanguage } from '../i18n';
 import { useWaitingChatter } from '../i18n/waitingChatter';
-import type { ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
+import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
 import { formatMetricKey, formatMetricValue, errorMessage } from '../utils/formatters';
 
 interface EngineerViewProps {
@@ -34,6 +35,34 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   const { lang, t } = useLanguage();
   const [loadingReport, setLoadingReport] = useState(false);
   const [errorReport, setErrorReport] = useState<string | null>(null);
+  const [setupInfo, setSetupInfo] = useState<CarSetupData | null>(null);
+
+  useEffect(() => {
+    if (!comparison) return;
+    let mounted = true;
+    fetchCarSetup(
+      comparison.session_id,
+      comparison.ref_lap_id,
+      comparison.comp_lap_id,
+      comparison.ref_session_id,
+      comparison.comp_session_id
+    )
+      .then((d) => {
+        if (mounted) setSetupInfo(d);
+      })
+      .catch(() => {
+        if (mounted) setSetupInfo(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [
+    comparison?.session_id,
+    comparison?.ref_lap_id,
+    comparison?.comp_lap_id,
+    comparison?.ref_session_id,
+    comparison?.comp_session_id,
+  ]);
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -51,7 +80,14 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     try {
       setLoadingReport(true);
       setErrorReport(null);
-      const rep = await fetchCoachReport(comparison.ref_lap_id, comparison.comp_lap_id, forceRefresh, comparison.session_id);
+      const rep = await fetchCoachReport(
+        comparison.ref_lap_id,
+        comparison.comp_lap_id,
+        forceRefresh,
+        comparison.session_id,
+        comparison.ref_session_id,
+        comparison.comp_session_id
+      );
       onReportGenerated(rep);
     } catch (err) {
       setErrorReport(errorMessage(err, t('debrief_error')));
@@ -78,7 +114,10 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         comparison?.track_name,
         comparison?.car_name,
         undefined,
-        lang
+        lang,
+        comparison?.session_id,
+        comparison?.ref_session_id,
+        comparison?.comp_session_id
       );
       setChatMessages([...newMessages, { role: 'assistant', content: res.content }]);
     } catch {
@@ -94,16 +133,48 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     }
   };
 
+  const refNum = comparison?.ref_lap_id.replace(/\D+/g, '') || '1';
+  const compNum = comparison?.comp_lap_id.replace(/\D+/g, '') || '2';
+  const sameGarage = setupInfo?.same_garage_setup !== false;
+  const setupDiffItems = [
+    ...(setupInfo?.garage_diff_summary || []),
+    ...(setupInfo?.thermal_diff_summary || []),
+  ];
+  const setupBadgeText = sameGarage
+    ? '🔧 Setup: Idéntico'
+    : `🔧 Setup Diff: ${setupDiffItems.slice(0, 3).join(', ')}`;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Left Column: Official Structured Debrief (7 cols) */}
       <div className="lg:col-span-7 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Cpu className="w-5 h-5 text-comp" />
             <h3 className="text-base font-bold text-white uppercase tracking-wider">
               Informe Técnico del Ingeniero
             </h3>
+            {comparison && (
+              <span className="text-[11px] font-telemetry px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300">
+                <strong className="text-[#00D2BE]">P1 (V{refNum})</strong> vs{' '}
+                <strong className="text-[#D8B4FE]">P2 (V{compNum})</strong>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.hash = '#/setup';
+              }}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold font-telemetry border transition cursor-pointer ${
+                sameGarage
+                  ? 'bg-emerald-950/30 border-emerald-500/35 text-emerald-300 hover:bg-emerald-900/40'
+                  : 'bg-[#A855F7]/20 border-[#A855F7]/45 text-[#D8B4FE] hover:bg-[#A855F7]/30'
+              }`}
+              title="Ver comparativa de Setup P1 vs P2"
+            >
+              <Wrench className="w-3 h-3" />
+              <span>[ {setupBadgeText} ]</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">

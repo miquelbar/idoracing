@@ -325,6 +325,8 @@ class Storage:
                     "has_telemetry": sess_has_tel,
                     "is_outlap": bool(
                         r["lap_time"] > 150.0
+                        or (0.0 < float(r["lap_time"]) < 20.0)
+                        or (best_t > 0.0 and float(r["lap_time"]) > best_t * 1.07)
                         or (
                             r["lap_number"] == 1
                             and (not r["is_valid"] or (best_t > 0.0 and float(r["lap_time"]) > best_t * 1.05))

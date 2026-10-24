@@ -46,13 +46,16 @@ def is_outlap_detected(
     is_valid: bool = True,
 ) -> bool:
     """
-    Detect if a lap is a pit out-lap (especially Lap 1):
-    - Lap time > 150s
+    Detect if a lap is a pit out-lap, spin/off-track recovery lap, or incomplete lap:
+    - Lap time > 150s or < 20s
+    - Exceeds 107% of session PB (`lap_time > best_lap_time * 1.07`)
     - Lap 1 with initial speed at start line (distance < 50m) < 180 km/h
     - Lap 1 with lap_time > best_lap_time * 1.05 (> 5% slower than session PB)
     - Lap 1 marked invalid
     """
-    if lap_time > 150.0:
+    if lap_time > 150.0 or (0.0 < lap_time < 20.0):
+        return True
+    if best_lap_time > 0.0 and lap_time > best_lap_time * 1.07:
         return True
     if lap_number == 1:
         if not is_valid:

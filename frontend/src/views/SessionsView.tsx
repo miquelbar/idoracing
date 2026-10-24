@@ -257,6 +257,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             .map((l) => {
               const detailLap = fullLaps?.find((fl) => fl.lap_number === l.lap_number);
               const lap1Slow = l.lap_number === 1 && (!l.is_valid || (sessBest > 0 && l.lap_time > sessBest * 1.05));
+              const exceeds107 = sessBest > 0 && l.lap_time > sessBest * 1.07;
               return {
                 sessionId: sess.session_id,
                 sessionDate: sess.date,
@@ -264,7 +265,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 lap_time: l.lap_time,
                 is_valid: l.is_valid,
                 has_telemetry: l.has_telemetry ?? sess.has_telemetry ?? false,
-                is_outlap: Boolean(l.is_outlap || detailLap?.is_outlap || l.lap_time > 150 || lap1Slow),
+                is_outlap: Boolean(l.is_outlap || detailLap?.is_outlap || l.lap_time > 150 || lap1Slow || exceeds107),
                 sector_times: detailLap?.sector_times,
               };
             });
@@ -273,6 +274,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
           const posTimes = (activeFullSession?.laps || []).filter((x) => x.lap_time > 20).map((x) => x.lap_time);
           const sessBest = posTimes.length > 0 ? Math.min(...posTimes) : 0;
           const lap1Slow = l.lap_number === 1 && (!l.is_valid || (sessBest > 0 && l.lap_time > sessBest * 1.05));
+          const exceeds107 = sessBest > 0 && l.lap_time > sessBest * 1.07;
           return {
             sessionId: activeFullSession?.session_id || selectedSessionId || '',
             sessionDate: activeSessionSummary?.date || '',
@@ -280,7 +282,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             lap_time: l.lap_time,
             is_valid: l.is_valid,
             has_telemetry: l.has_telemetry ?? activeSessionSummary?.has_telemetry ?? false,
-            is_outlap: Boolean(l.is_outlap || l.lap_time > 150 || lap1Slow),
+            is_outlap: Boolean(l.is_outlap || l.lap_time > 150 || lap1Slow || exceeds107),
             sector_times: l.sector_times,
           };
         });

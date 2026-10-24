@@ -96,7 +96,9 @@ export async function fetchCoachReport(
   refLapId: string,
   compLapId: string,
   forceRefresh = false,
-  sessionId?: string
+  sessionId?: string,
+  refSessionId?: string | null,
+  compSessionId?: string | null
 ): Promise<CoachReport> {
   const res = await fetch(`${API_BASE}/coach/report`, {
     method: 'POST',
@@ -105,6 +107,8 @@ export async function fetchCoachReport(
       ref_lap_id: refLapId,
       comp_lap_id: compLapId,
       session_id: sessionId,
+      ref_session_id: refSessionId || undefined,
+      comp_session_id: compSessionId || undefined,
       force_refresh: forceRefresh,
     }),
   });
@@ -119,13 +123,19 @@ export async function sendChatMessage(
   trackName?: string,
   carName?: string,
   selectedCorner?: Partial<CornerDTO>,
-  lang?: string
+  lang?: string,
+  sessionId?: string,
+  refSessionId?: string | null,
+  compSessionId?: string | null
 ): Promise<ChatReply> {
   const res = await fetch(`${API_BASE}/coach/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messages,
+      session_id: sessionId,
+      ref_session_id: refSessionId || undefined,
+      comp_session_id: compSessionId || undefined,
       ref_lap_id: refLapId,
       comp_lap_id: compLapId,
       track_name: trackName,
@@ -180,9 +190,19 @@ export async function fetchLapHistory(sessionId?: string, compLapNumber?: number
   return res.json();
 }
 
-export async function fetchCarSetup(sessionId?: string): Promise<CarSetupData> {
+export async function fetchCarSetup(
+  sessionId?: string,
+  refLapId?: string | null,
+  compLapId?: string | null,
+  refSessionId?: string | null,
+  compSessionId?: string | null
+): Promise<CarSetupData> {
   const params = new URLSearchParams();
   if (sessionId) params.append('session_id', sessionId);
+  if (refLapId) params.append('ref_lap_id', refLapId);
+  if (compLapId) params.append('comp_lap_id', compLapId);
+  if (refSessionId) params.append('ref_session_id', refSessionId);
+  if (compSessionId) params.append('comp_session_id', compSessionId);
   const query = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API_BASE}/car-setup${query}`);
   if (!res.ok) await failure(res, 'Failed to fetch car setup');

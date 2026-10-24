@@ -150,3 +150,56 @@ def test_knowledge_base_retrieval():
     )
     assert "Dinámica de Neumáticos" in kb_tyres
     assert "26.5" in kb_tyres and "27.0" in kb_tyres
+
+
+def test_pep_setup_comparison_cases_a_b_c_and_bubota_naming():
+    from analysis.demo_session import create_synthetic_session
+    from analysis.lap_comparison import compare_laps
+    from coach.advisor import CoachAdvisor
+
+    session = create_synthetic_session()
+    comparison = compare_laps(session.laps[0], session.laps[1], track_name="Ricardo Tormo de Valencia")
+
+    class OfflineLLM:
+        def is_available(self) -> bool:
+            return False
+
+    advisor = CoachAdvisor(llm_client=OfflineLLM())
+
+    # Case A: Same Garage Setup and optimal hot pressures -> 100% driving fault, no "Fantasma Ideal"
+    rep_a = advisor.generate_report(
+        comparison,
+        car=session.car,
+        track=session.track,
+        setup_comparison={"same_garage_setup": True, "garage_diff_summary": [], "thermal_diff_summary": []},
+    )
+    assert "Fantasma Ideal" not in rep_a.raw_report
+    assert "👻 Bubota" in rep_a.raw_report
+    assert any("mismo setup de garaje" in h for h in rep_a.hypotheses)
+
+    # Case B: Same Garage Setup but dynamic on-track hot pressure variation
+    rep_b = advisor.generate_report(
+        comparison,
+        car=session.car,
+        track=session.track,
+        setup_comparison={
+            "same_garage_setup": True,
+            "garage_diff_summary": [],
+            "thermal_diff_summary": ["FL +0.6 psi"],
+        },
+    )
+    assert any("Aunque no tocaste el setup en el garaje" in h for h in rep_b.hypotheses)
+
+    # Case C: Modified Garage Setup between P1 and P2 (e.g. BB +0.6%, TC1 -1)
+    rep_c = advisor.generate_report(
+        comparison,
+        car=session.car,
+        track=session.track,
+        setup_comparison={
+            "same_garage_setup": False,
+            "garage_diff_summary": ["BB +0.6%", "TC1 -1"],
+            "thermal_diff_summary": ["FL +0.3 psi"],
+        },
+    )
+    assert any("Reparto de Frenada" in h for h in rep_c.hypotheses)
+    assert any("BB +0.6%" in f for f in rep_c.facts)

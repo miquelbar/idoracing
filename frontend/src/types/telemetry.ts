@@ -346,11 +346,7 @@ export interface StintAnalysisData {
   lap_times: number[];
 }
 
-export interface CarSetupData {
-  session_id: string;
-  car_name: string;
-  track_name: string;
-  game_name?: string | null;
+export interface SingleLapSetup {
   tyres: {
     compound: string;
     pressures_hot: { FL: number; FR: number; RL: number; RR: number };
@@ -382,7 +378,31 @@ export interface CarSetupData {
     toe_rear_deg: number;
     preload_diff_nm: number;
   };
+}
+
+export interface CarSetupData extends SingleLapSetup {
+  session_id: string;
+  car_name: string;
+  track_name: string;
+  game_name?: string | null;
   setup_advice: SetupAdviceItem[];
+  ref_lap_label?: string | null;
+  comp_lap_label?: string | null;
+  ref_lap_number?: number | null;
+  comp_lap_number?: number | null;
+  ref_lap_time?: number | null;
+  comp_lap_time?: number | null;
+  ref_date?: string | null;
+  comp_date?: string | null;
+  ref_session_id?: string | null;
+  comp_session_id?: string | null;
+  same_session?: boolean;
+  same_garage_setup?: boolean;
+  garage_diff_count?: number;
+  garage_diff_summary?: string[];
+  thermal_diff_summary?: string[];
+  p1_setup?: SingleLapSetup | null;
+  p2_setup?: SingleLapSetup | null;
 }
 
 export interface SetupRecommendation {

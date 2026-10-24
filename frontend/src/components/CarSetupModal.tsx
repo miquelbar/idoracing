@@ -13,6 +13,8 @@ interface CarSetupModalProps {
   sessionId?: string | null;
   refLapId?: string | null;
   compLapId?: string | null;
+  refSessionId?: string | null;
+  compSessionId?: string | null;
 }
 
 export const CarSetupModal: React.FC<CarSetupModalProps> = ({
@@ -21,6 +23,8 @@ export const CarSetupModal: React.FC<CarSetupModalProps> = ({
   sessionId,
   refLapId,
   compLapId,
+  refSessionId,
+  compSessionId,
 }) => {
   const { t } = useLanguage();
   const [setup, setSetup] = useState<CarSetupData | null>(null);
@@ -34,7 +38,7 @@ export const CarSetupModal: React.FC<CarSetupModalProps> = ({
     setLoading(true);
     setError(null);
 
-    fetchCarSetup(sessionId || undefined)
+    fetchCarSetup(sessionId || undefined, refLapId, compLapId, refSessionId, compSessionId)
       .then((data) => {
         if (isMounted) setSetup(data);
       })
@@ -54,7 +58,7 @@ export const CarSetupModal: React.FC<CarSetupModalProps> = ({
       isMounted = false;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, sessionId, onClose]);
+  }, [isOpen, sessionId, refLapId, compLapId, refSessionId, compSessionId, onClose]);
 
   if (!isOpen) return null;
 

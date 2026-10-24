@@ -25,6 +25,7 @@ class CoachAdvisor:
         car: str,
         track: str,
         synthetic: bool = False,
+        setup_comparison: dict[str, Any] | None = None,
     ) -> CoachReport:
         """
         Generate a complete coaching report. Uses the configured LLM if available;
@@ -40,16 +41,20 @@ class CoachAdvisor:
         primary = loss_corners[0] if loss_corners else (comparison.corners[0] if comparison.corners else None)
 
         metrics = _metrics(comparison, sector_str, primary)
-        facts = _facts(comparison, primary, synthetic)
+        facts = _facts(comparison, primary, synthetic, setup_comparison)
         hypotheses, exercises = _hypotheses_and_exercises(
-            primary, ref_lap=comparison.reference_lap, comp_lap=comparison.comparison_lap
+            primary,
+            ref_lap=comparison.reference_lap,
+            comp_lap=comparison.comparison_lap,
+            setup_comparison=setup_comparison,
         )
         verification_indicator = _verification_indicator(comparison, primary)
 
         llm_report = None
         if self.llm.is_available():
             llm_report = self.llm.generate(
-                prompt=_llm_prompt(comparison, car, track, sector_str, synthetic), system_prompt=SYSTEM_PROMPT
+                prompt=_llm_prompt(comparison, car, track, sector_str, synthetic, setup_comparison),
+                system_prompt=SYSTEM_PROMPT,
             )
 
         level = _confidence_level(comparison, synthetic)
@@ -109,7 +114,64 @@ def _metrics(comparison: LapComparison, sector_str: str, primary: CornerAnalysis
     return metrics
 
 
-def _facts(comparison: LapComparison, primary: CornerAnalysis | None, synthetic: bool) -> list[str]:
+def _setup_case_insight(
+    setup_comparison: dict[str, Any] | None,
+    primary: CornerAnalysis | None,
+    p1: str,
+    p2: str,
+) -> tuple[str | None, str | None]:
+    """
+    Generate Pep's setup correlation insight (Case A, B, or C) and any setup action item.
+    """
+    if not setup_comparison:
+        return None, None
+
+    same_garage = bool(setup_comparison.get("same_garage_setup", True))
+    garage_diffs: list[str] = setup_comparison.get("garage_diff_summary") or []
+    thermal_diffs: list[str] = setup_comparison.get("thermal_diff_summary") or []
+    c_label = f"en T{primary.corner_number} ({primary.corner_name})" if primary else "en pista"
+    loss_str = f"+{primary.time_delta_corner:.2f}s" if primary and primary.time_delta_corner > 0 else "ese tiempo"
+
+    if same_garage and not thermal_diffs:
+        # Case A — Identical Garage Setup & similar hot pressures
+        return (
+            f"Idò, en {p1} y {p2} llevas calcado el mismo setup de garaje y las presiones en caliente están "
+            f"en ventana óptima (~26.8 psi), así que hoy no le eches la culpa al mecánico: esos {loss_str} "
+            f"que te mete {p1} (y 👻 Bubota) {c_label} son 100% de tus manos y pies en los pedales.",
+            None,
+        )
+
+    if same_garage and thermal_diffs:
+        # Case B — Identical Garage Setup, different on-track hot pressures/temps
+        diff_txt = ", ".join(thermal_diffs[:2])
+        first_wheel = thermal_diffs[0].split()[0] if thermal_diffs else "FL"
+        return (
+            f"Aunque no tocaste el setup en el garaje entre {p1} y {p2}, en {p2} variaron las presiones en caliente "
+            f"en pista ({diff_txt} respecto a {p1}) por temperatura de asfalto o por arrastrar el morro en apoyo.",
+            f"Ajuste térmico para la próxima tanda: compensa la presión en frío en {first_wheel} para devolverla a 26.7-26.9 psi en caliente.",
+        )
+
+    # Case C — Modified Garage Setup between P1 and P2
+    diff_txt = ", ".join(garage_diffs) if garage_diffs else "parámetros modificados"
+    if any("BB +" in d for d in garage_diffs):
+        return (
+            f"Setup modificado entre {p1} y {p2} ({diff_txt}): haber adelantado el Reparto de Frenada (Brake Bias) "
+            f"en {p2} sobrecarga el neumático delantero al girar {c_label}, induciendo subviraje en entrada.",
+            f"Reglaje en {p2}: vuelve al Reparto de Frenada de {p1} para recuperar rotación en la fase de trail braking.",
+        )
+    return (
+        f"Setup de garaje modificado entre {p1} y {p2} ({diff_txt}): correlaciona este cambio mecánico "
+        f"con la variación de equilibrio {c_label}.",
+        f"Reglaje: si tras clavar la referencia de frenada de {p1} persiste la pérdida, revierte ({diff_txt}) hacia la base de {p1}.",
+    )
+
+
+def _facts(
+    comparison: LapComparison,
+    primary: CornerAnalysis | None,
+    synthetic: bool,
+    setup_comparison: dict[str, Any] | None = None,
+) -> list[str]:
     side = "más lenta" if comparison.time_difference > 0 else "más rápida"
     facts = [
         f"La vuelta comparada P2 (V{comparison.comparison_lap}) es {abs(comparison.time_difference):.3f}s {side} "
@@ -122,8 +184,23 @@ def _facts(comparison: LapComparison, primary: CornerAnalysis | None, synthetic:
         facts.append(
             f"Mayor pérdida focalizada en {primary.corner_name} (Curva {primary.corner_number}): "
             f"+{primary.time_delta_corner:.3f}s perdidos en P2 (V{comparison.comparison_lap}) frente a P1 (V{comparison.reference_lap}) "
-            f"(👻 Potencial Ideal: -{primary.ideal_time_gain or 0.15:.3f}s)."
+            f"(👻 Bubota: -{primary.ideal_time_gain or 0.15:.3f}s)."
         )
+    if setup_comparison and not synthetic:
+        if setup_comparison.get("same_garage_setup", True):
+            t_diffs = setup_comparison.get("thermal_diff_summary") or []
+            if t_diffs:
+                facts.append(
+                    f"Setup de garaje idéntico en P1 y P2; variación térmica dinámica en pista: {', '.join(t_diffs)}."
+                )
+            else:
+                facts.append(
+                    "Setup de garaje idéntico en P1 y P2 y neumáticos en ventana óptima (26.7-26.9 psi): "
+                    "el 100% de la diferencia proviene del pilotaje."
+                )
+        else:
+            g_diffs = setup_comparison.get("garage_diff_summary") or []
+            facts.append(f"Setup de garaje modificado entre P1 y P2: {', '.join(g_diffs)}.")
     if synthetic or not comparison.corners:
         facts.append(
             "⚠️ Estas vueltas solo contienen tiempos cronometrados (sin canales de telemetría a 50Hz). "
@@ -136,6 +213,7 @@ def _hypotheses_and_exercises(
     primary: CornerAnalysis | None,
     ref_lap: str = "1",
     comp_lap: str = "2",
+    setup_comparison: dict[str, Any] | None = None,
 ) -> tuple[list[str], list[str]]:
     if primary is None:
         return [
@@ -146,37 +224,50 @@ def _hypotheses_and_exercises(
     name, number = primary.corner_name, primary.corner_number
     p1 = f"P1 (V{ref_lap})"
     p2 = f"P2 (V{comp_lap})"
+    setup_hyp, setup_ex = _setup_case_insight(setup_comparison, primary, p1, p2)
+
     if primary.both_laps_fault and primary.both_laps_fault_reason:
-        return [primary.both_laps_fault_reason], [
+        hyps = [primary.both_laps_fault_reason]
+        exs = [
             f"Curva {number} ({name}): En tanto {p1} como {p2}, mantén presión regresiva de freno (~{primary.ideal_trail_pct or 50:.0f}% -> 0%) "
-            f"hasta el vértice siguiendo al 👻 Fantasma Ideal para ganar -{primary.ideal_time_gain or 0.20:.3f}s."
+            f"hasta el vértice siguiendo a 👻 Bubota para ganar -{primary.ideal_time_gain or 0.20:.3f}s."
         ]
-    if primary.brake_delta_dist and primary.brake_delta_dist < -15.0:
-        return [
+    elif primary.brake_delta_dist and primary.brake_delta_dist < -15.0:
+        hyps = [
             f"En {name}, en {p2} inicias la frenada {abs(primary.brake_delta_dist):.1f}m antes "
             f"que en {p1}. Esto provoca una reducción excesiva de velocidad antes del vértice "
             f"({primary.comp_min_speed:.1f} km/h en {p2} vs {primary.ref_min_speed:.1f} km/h en {p1})."
-        ], [
+        ]
+        exs = [
             f"Curva {number} ({name}): En {p2}, retrasa la referencia de frenada "
             f"progresivamente 10-15 metros hacia la marca de {p1}, soltando en regresión diagonal (trail braking) "
             f"para transportar más velocidad hasta el ápice."
         ]
-    if primary.throttle_delta_dist and primary.throttle_delta_dist > 15.0:
-        return [
+    elif primary.throttle_delta_dist and primary.throttle_delta_dist > 15.0:
+        hyps = [
             f"En {name}, la velocidad mínima en {p2} es {primary.comp_min_speed:.1f} km/h, "
             f"pero la aplicación del acelerador se demora {primary.throttle_delta_dist:.1f}m respecto a {p1}, "
             f"restando velocidad en toda la recta posterior."
-        ], [
-            f"Curva {number} ({name}): En {p2}, abre dirección antes en la salida "
-            f"para iniciar la rampa progresiva de acelerador junto a {p1} y el 👻 Fantasma Ideal."
         ]
-    return [
-        f"Diferencia de trazada y velocidad de paso en {name}: la velocidad mínima en vértice en {p2} "
-        f"es {primary.speed_delta_min:.1f} km/h respecto a {p1} ({primary.comp_min_speed:.1f} vs {primary.ref_min_speed:.1f} km/h)."
-    ], [
-        f"Curva {number} ({name}): En {p2}, apunta a alcanzar los {primary.ref_min_speed:.1f} km/h de {p1} "
-        f"(y los {primary.v_min_ideal or primary.ref_min_speed + 2.0:.1f} km/h del 👻 Fantasma Ideal) en el vértice."
-    ]
+        exs = [
+            f"Curva {number} ({name}): En {p2}, abre dirección antes en la salida "
+            f"para iniciar la rampa progresiva de acelerador junto a {p1} y 👻 Bubota."
+        ]
+    else:
+        hyps = [
+            f"Diferencia de trazada y velocidad de paso en {name}: la velocidad mínima en vértice en {p2} "
+            f"es {primary.speed_delta_min:.1f} km/h respecto a {p1} ({primary.comp_min_speed:.1f} vs {primary.ref_min_speed:.1f} km/h)."
+        ]
+        exs = [
+            f"Curva {number} ({name}): En {p2}, apunta a alcanzar los {primary.ref_min_speed:.1f} km/h de {p1} "
+            f"(y los {primary.v_min_ideal or primary.ref_min_speed + 2.0:.1f} km/h de 👻 Bubota) en el vértice."
+        ]
+
+    if setup_hyp:
+        hyps.append(setup_hyp)
+    if setup_ex:
+        exs.append(setup_ex)
+    return hyps, exs
 
 
 def _verification_indicator(comparison: LapComparison, primary: CornerAnalysis | None) -> str:
@@ -189,15 +280,36 @@ def _verification_indicator(comparison: LapComparison, primary: CornerAnalysis |
     return f"Reducir la diferencia total de {comparison.time_difference:+.3f}s respecto a la vuelta de referencia."
 
 
-def _llm_prompt(comparison: LapComparison, car: str, track: str, sector_str: str, synthetic: bool) -> str:
+def _llm_prompt(
+    comparison: LapComparison,
+    car: str,
+    track: str,
+    sector_str: str,
+    synthetic: bool,
+    setup_comparison: dict[str, Any] | None = None,
+) -> str:
     prompt_data = (
         f"VEHÍCULO: {car}\n"
         f"CIRCUITO: {track}\n"
-        f"VUELTA REFERENCIA: Vuelta {comparison.reference_lap}\n"
-        f"VUELTA COMPARACIÓN: Vuelta {comparison.comparison_lap}\n"
+        f"VUELTA REFERENCIA: P1 (V{comparison.reference_lap})\n"
+        f"VUELTA COMPARACIÓN: P2 (V{comparison.comparison_lap})\n"
         f"DIFERENCIA TOTAL: {comparison.time_difference:+.3f}s\n"
         f"SECTORES: {sector_str}\n"
     )
+    if setup_comparison:
+        same_g = setup_comparison.get("same_garage_setup", True)
+        g_diffs = setup_comparison.get("garage_diff_summary") or []
+        t_diffs = setup_comparison.get("thermal_diff_summary") or []
+        if same_g and not t_diffs:
+            prompt_data += (
+                "SETUP (P1 vs P2): Idéntico setup de garaje y presiones óptimas (100% diferencia de pilotaje).\n"
+            )
+        elif same_g and t_diffs:
+            prompt_data += (
+                f"SETUP (P1 vs P2): Idéntico setup de garaje, variación térmica en pista: {', '.join(t_diffs)}.\n"
+            )
+        else:
+            prompt_data += f"SETUP MODIFICADO (P2 vs P1): {', '.join(g_diffs)}.\n"
     if synthetic:
         prompt_data += (
             "AVISO: estas vueltas solo tienen tiempos; las trazas por curva son simuladas. "
@@ -266,7 +378,7 @@ def _rules_report(
             b_info = f", punto de frenada {c.brake_delta_dist:+.1f}m" if c.brake_delta_dist else ""
             report += (
                 f"- **{c.corner_name} (T{c.corner_number}):** Pérdida de **{c.time_delta_corner:.3f}s** en {p2} vs {p1} "
-                f"(👻 Potencial Ideal: -{c.ideal_time_gain or 0.15:.3f}s). "
+                f"(👻 Bubota: -{c.ideal_time_gain or 0.15:.3f}s). "
                 f"Vértice: {c.comp_min_speed:.1f} km/h ({p2}) frente a {c.ref_min_speed:.1f} km/h ({p1}) ({c.speed_delta_min:+.1f} km/h){b_info}.\n"
                 f"  *Diagnóstico técnico:* {c.diagnosis}\n"
             )
