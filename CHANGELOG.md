@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Multi-simulator support in `idoracing-recorder`: standalone Go recorder now supports **Le Mans Ultimate (LMU)**, **Assetto Corsa 1 (AC)**, and **Assetto Corsa EVO (AC EVO)** in addition to ACC with zero regressions.
+  - LMU memory mapping for `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$` with `#pragma pack(push, 4)`.
+  - Kunos shared memory mapping for AC1 (`Local\acpmf_*`) and AC EVO (`Local\acevo_pmf_*` with fallback).
+  - Dedicated Linux/Steam Proton launch option scripts (`lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`) and universal auto-detecting launcher `sim-with-recorder.sh`.
+- Ideal Ghost engine ("Bubota" 👻): synthesizes theoretical maximum-potential traces (speed, lateral acceleration, throttle pickup, and braking points) based on corner apex minimum speeds and vehicle geometry.
+- Telemetry chart enhancements: interactive P1/P2/Bubota toggles, semantic brake/gas palette, and shaded Ideal Trail Braking wedge.
+- Smart diff setup comparison: side-by-side P1 vs P2 car setup parameter comparison highlighting changes across Aero, Suspension, Drivetrain, Electronics, and Tyres.
+- Multi-sim auto-import: scans and automatically imports telemetry files and session results from all installed simulators (ACC, LMU, AC1, AC EVO) on startup.
+- Live debrief radio chatter: periodic radio status messages ("Copy, analyzing telemetry...", "Comparing against reference lap...", "Reviewing vehicle balance...") while Pep evaluates the stint.
+- Red Bull Ring (Spielberg) corner reference table with authentic clockwise geometry.
+- 107% flying lap rule to automatically filter outlaps, inlaps, and unrepresentative times from rankings.
 - `idoracing-recorder`, a standalone Windows recorder for ACC that writes CSV sessions with car position from the game's shared memory, and CSV import of its metadata, position and lap validity.
 - Line offset in metres versus the reference lap at corner entry, apex and exit, for laps recorded with position data (LMU and AC MoTeC exports).
 - Structured setup advice from Pep: `POST /api/setup-advice` analyzes the lap comparison telemetry and returns prioritized, telemetry-grounded setup recommendations (brake bias, ARBs, TC, ABS, wing, dampers, camber) with numerical evidence and affected corners. Shown in the Car Setup view as an expandable panel below the setup inspector.
@@ -15,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The car setup modal (opened from the telemetry header) now includes the structured setup advice panel below the setup inspector, so recommendations and Pep's review are accessible without leaving the telemetry view.
 
 ### Changed
+- Sessions workspace redesign: group sessions primarily by track with per-car rows and right-hand workspace for comparing laps across different sessions.
+- Consolidated project brand identity across UI, internationalization, and documentation: IdoRacing, Pep (Race Engineer), and Bubota (Ideal Ghost).
 - The structured setup advisor no longer emits contradictory recommendations for the same parameter: corners with early braking are classified as a driving technique issue and excluded from understeer detection, and a deduplication pass keeps only the strongest recommendation per category.
 - The recorder can be started from ACC's Steam launch options on Linux (`acc-with-recorder.sh`) and stops by itself when ACC closes.
 - English users see the racing-line evaluation in English for all six labels.
@@ -29,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The legacy Streamlit UI.
 
 ### Fixed
+- Fixed setup advice review failing with "Laps not found for setup advice review" by falling back to session laps when ranked flying laps are unavailable.
+- Closed circuit loop drift correction preventing trajectory gaps at start/finish line.
+- Eliminated garage teleport spikes and enforced turn chirality in 2D track map and segment zoom.
+- Filtered partial and pit-lane laps that corrupted inferred circuit outlines.
+- Corrected AC EVO session results importer and scanned its native MoTeC directory.
+- Decoded ACC MoTeC speed correctly in km/h and synchronized laps with `.ldx` beacons.
 - Uploading or importing `.ld` and `.csv` files returned HTTP 500.
 - MoTeC laps now carry their own telemetry, split by `.ldx` markers or lap-distance resets, with pedals rescaled from percent.
 - CSV laps start at zero time and distance.
