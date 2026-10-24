@@ -9,6 +9,12 @@ MSG_FILE="$1"
 # Strip comment lines (git commit --verbose, merge messages, etc.)
 MSG=$(grep -v '^#' "$MSG_FILE" | sed '/^$/d')
 
+# --- Rule 0: No Co-Authored-By trailers ---
+if grep -qiE '^[[:space:]]*co-authored-by:' "$MSG_FILE"; then
+	echo "commit-msg: Co-authored-by trailers are not allowed in this repository." >&2
+	exit 1
+fi
+
 # --- Rule 1: exactly one line ---
 LINE_COUNT=$(printf '%s\n' "$MSG" | wc -l | tr -d ' ')
 if [ "$LINE_COUNT" -ne 1 ]; then
