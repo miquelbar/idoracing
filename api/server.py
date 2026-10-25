@@ -12,7 +12,13 @@ import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
+import certifi
 import numpy as np
+
+# Enforce secure CA trust store via certifi (revoking compromised CAs like eMudhra)
+# even when running natively without Docker on systems with outdated OS certificates.
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.staticfiles import StaticFiles

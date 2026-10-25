@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mitigated compromised intermediate CAs vulnerability (eMudhra CAs CVE):
   - Updated Dockerfile multi-stage builds (`frontend-builder` Alpine and release Debian) to install and update system `ca-certificates`.
   - Pinned `certifi>=2026.10.19` in `requirements.txt` and `pyproject.toml` to revoke compromised root/intermediate CAs at Python SSL/TLS runtime.
+  - Enforced `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` pointing to `certifi.where()` at server startup (`api/server.py`), protecting host execution without Docker against unpatched OS certificate stores.
   - Audited dependencies with `pip-audit` and `npm audit` achieving 0 vulnerabilities across Python and Node ecosystems.
   - Configured ES2022 build target in `frontend/vite.config.ts`.
   - Upgraded Go runtime module directive to Go 1.26 in `recorder/go.mod` and verified with `govulncheck` reporting 0 vulnerabilities.
