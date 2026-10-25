@@ -260,3 +260,63 @@ func TestSpotterCustomToggleKey(t *testing.T) {
 		t.Fatal("F10 should toggle mute")
 	}
 }
+
+func TestSpotterGenericTurnFallback(t *testing.T) {
+	s := NewSpotter()
+	s.TrackSlug = "custom_unknown_track_123"
+
+	// When track-specific audio does not exist, resolveHotspotClip must fallback to turn_{corner_id}
+	h := SpotterHotspot{
+		Slot:     1,
+		CornerID: 7,
+		ClipID:   "hotspot_1",
+	}
+	clip := s.resolveHotspotClip(h)
+	if clip != "turn_7" {
+		t.Fatalf("expected fallback clip 'turn_7', got: %s", clip)
+	}
+
+	// If corner_id is invalid (0), fallback to slot
+	h0 := SpotterHotspot{
+		Slot:     4,
+		CornerID: 0,
+		ClipID:   "hotspot_4",
+	}
+	clip0 := s.resolveHotspotClip(h0)
+	if clip0 != "turn_4" {
+		t.Fatalf("expected fallback clip 'turn_4', got: %s", clip0)
+	}
+}
+
+func TestSpotterParseVKCodeMappings(t *testing.T) {
+	cases := []struct {
+		keyName string
+		wantVK  uintptr
+	}{
+		{"F9", 120},
+		{"f9", 120},
+		{"F1", 112},
+		{"F12", 123},
+		{"A", 65},
+		{"z", 90},
+		{"0", 48},
+		{"9", 57},
+		{"Num 0", 96},
+		{"NUM *", 106},
+		{"SPACE", 32},
+		{"Tab", 9},
+		{"INS", 45},
+		{"DEL", 46},
+		{"HOME", 36},
+		{"END", 35},
+		{"PGUP", 33},
+		{"PGDN", 34},
+	}
+
+	for _, c := range cases {
+		got := parseVKCode(c.keyName)
+		if got != c.wantVK {
+			t.Errorf("parseVKCode(%q) = %d; want %d", c.keyName, got, c.wantVK)
+		}
+	}
+}

@@ -46,6 +46,7 @@ coverage.xml
 # Data and SQLite databases
 data/*.db
 data/*.db-journal
+data/spotter_config.json
 test_data/
 
 # Environment variables & secrets
@@ -76,4 +77,8 @@ results.json
 # Recorder build output
 recorder/*.exe
 recorder/**/*.exe
+
+# Spotter dynamic user track data
+recorder/voices/tracks/
+
 

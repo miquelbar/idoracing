@@ -104,6 +104,22 @@ else
 					if [ -z "$target_ogg" ] && [ -f "$voices_dir/$spotter_lang/$clip_id.ogg" ]; then
 						target_ogg="$voices_dir/$spotter_lang/$clip_id.ogg"
 					fi
+					if [ -z "$target_ogg" ]; then
+						case "$clip_id" in
+						hotspot_*)
+							slot="${clip_id#hotspot_}"
+							corner_id="$slot"
+							manifest="$voices_dir/tracks/$current_track/manifest.json"
+							if [ -f "$manifest" ]; then
+								cid="$(grep -B2 -A10 "\"slot\":[[:space:]]*$slot" "$manifest" 2>/dev/null | grep "\"corner_id\"" | head -n1 | sed -E 's/[^0-9]//g')"
+								[ -n "$cid" ] && corner_id="$cid"
+							fi
+							if [ -f "$voices_dir/$spotter_lang/turn_${corner_id}.ogg" ]; then
+								target_ogg="$voices_dir/$spotter_lang/turn_${corner_id}.ogg"
+							fi
+							;;
+						esac
+					fi
 					if [ -n "$target_ogg" ] && [ -f "$target_ogg" ]; then
 						play_clip "$target_ogg"
 					fi

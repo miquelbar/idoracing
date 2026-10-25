@@ -74,31 +74,49 @@ type Spotter struct {
 	KeyChecker func(vk uintptr) bool
 }
 
-var functionKeyMap = map[string]uintptr{
-	"F1":  0x70,
-	"F2":  0x71,
-	"F3":  0x72,
-	"F4":  0x73,
-	"F5":  0x74,
-	"F6":  0x75,
-	"F7":  0x76,
-	"F8":  0x77,
-	"F9":  0x78,
-	"F10": 0x79,
-	"F11": 0x7A,
-	"F12": 0x7B,
+var vkCodeMap = map[string]uintptr{
+	// Function keys
+	"F1": 112, "F2": 113, "F3": 114, "F4": 115, "F5": 116, "F6": 117,
+	"F7": 118, "F8": 119, "F9": 120, "F10": 121, "F11": 122, "F12": 123,
+	// Letters
+	"A": 65, "B": 66, "C": 67, "D": 68, "E": 69, "F": 70, "G": 71,
+	"H": 72, "I": 73, "J": 74, "K": 75, "L": 76, "M": 77, "N": 78,
+	"O": 79, "P": 80, "Q": 81, "R": 82, "S": 83, "T": 84, "U": 85,
+	"V": 86, "W": 87, "X": 88, "Y": 89, "Z": 90,
+	// Digits
+	"0": 48, "1": 49, "2": 50, "3": 51, "4": 52,
+	"5": 53, "6": 54, "7": 55, "8": 56, "9": 57,
+	// Numpad
+	"NUM 0": 96, "NUM 1": 97, "NUM 2": 98, "NUM 3": 99, "NUM 4": 100,
+	"NUM 5": 101, "NUM 6": 102, "NUM 7": 103, "NUM 8": 104, "NUM 9": 105,
+	"NUM *": 106, "NUMPADMULTIPLY": 106,
+	"NUM +": 107, "NUMPADADD": 107,
+	"NUM -": 109, "NUMPADSUBTRACT": 109,
+	"NUM .": 110, "NUMPADDECIMAL": 110,
+	"NUM /": 111, "NUMPADDIVIDE": 111,
+	// Control / Navigation
+	"SPACE": 32,
+	"TAB":   9,
+	"`":     192, "BACKQUOTE": 192,
+	"INS": 45, "INSERT": 45,
+	"DEL": 46, "DELETE": 46,
+	"HOME": 36,
+	"END":  35,
+	"PGUP": 33, "PAGEUP": 33,
+	"PGDN": 34, "PAGEDOWN": 34,
 }
 
 func parseVKCode(keyName string) uintptr {
 	k := strings.ToUpper(strings.TrimSpace(keyName))
-	if vk, ok := functionKeyMap[k]; ok {
+	if vk, ok := vkCodeMap[k]; ok {
 		return vk
 	}
-	return 0x78 // Default to VK_F9
+	return 120 // Default to VK_F9 (0x78)
 }
 
-func loadSpotterConfigKey() (keyName string, enabled bool) {
+func loadSpotterConfigKey() (keyName string, vkCode uintptr, enabled bool) {
 	keyName = "F9"
+	vkCode = 120
 	enabled = true
 
 	candidates := []string{
@@ -119,28 +137,34 @@ func loadSpotterConfigKey() (keyName string, enabled bool) {
 		data, err := os.ReadFile(p)
 		if err == nil {
 			var cfg struct {
-				Enabled   bool   `json:"enabled"`
-				ToggleKey string `json:"toggle_key"`
+				Enabled      bool   `json:"enabled"`
+				ToggleKey    string `json:"toggle_key"`
+				ToggleVKCode int    `json:"toggle_vk_code"`
 			}
 			if err := json.Unmarshal(data, &cfg); err == nil {
 				if cfg.ToggleKey != "" {
 					keyName = cfg.ToggleKey
 				}
+				if cfg.ToggleVKCode > 0 {
+					vkCode = uintptr(cfg.ToggleVKCode)
+				} else {
+					vkCode = parseVKCode(keyName)
+				}
 				enabled = cfg.Enabled
-				return keyName, enabled
+				return keyName, vkCode, enabled
 			}
 		}
 	}
-	return keyName, enabled
+	return keyName, vkCode, enabled
 }
 
 // NewSpotter initializes an active spotter instance.
 func NewSpotter() *Spotter {
-	keyName, enabled := loadSpotterConfigKey()
+	keyName, vkCode, enabled := loadSpotterConfigKey()
 	return &Spotter{
 		Out:           os.Stdout,
 		ToggleKey:     keyName,
-		VKCode:        parseVKCode(keyName),
+		VKCode:        vkCode,
 		Muted:         !enabled,
 		hotspotsFired: make(map[int]bool),
 		measuredVmins: make(map[int]float32),
@@ -233,7 +257,8 @@ func (s *Spotter) Step(sample TelemetrySample, meta SessionMetadata, live bool, 
 					s.hotspotsFired[slot] = true
 					s.measuredVmins[slot] = 9999.0
 					s.inCorner[slot] = false
-					s.emitWithCooldown(h.ClipID, now)
+					clip := s.resolveHotspotClip(h)
+					s.emitWithCooldown(clip, now)
 				}
 			}
 
@@ -407,6 +432,60 @@ func crossedDistance(prev, curr, target, trackLen float32) bool {
 		return prev < target || curr >= target
 	}
 	return false
+}
+
+func (s *Spotter) hasTrackClip(clipID string) bool {
+	slug := s.TrackSlug
+	if slug == "" || clipID == "" {
+		return false
+	}
+	langs := []string{"es", "en"}
+	filename := fmt.Sprintf("%s.ogg", clipID)
+	candidates := []string{}
+	for _, lang := range langs {
+		candidates = append(candidates,
+			filepath.Join("recorder", "voices", "tracks", slug, lang, filename),
+			filepath.Join("voices", "tracks", slug, lang, filename),
+			filepath.Join("..", "recorder", "voices", "tracks", slug, lang, filename),
+			filepath.Join("..", "voices", "tracks", slug, lang, filename),
+		)
+		if s.VoicesDir != "" {
+			candidates = append(candidates, filepath.Join(s.VoicesDir, "tracks", slug, lang, filename))
+		}
+		if exe, err := os.Executable(); err == nil {
+			exeDir := filepath.Dir(exe)
+			candidates = append(candidates,
+				filepath.Join(exeDir, "voices", "tracks", slug, lang, filename),
+				filepath.Join(exeDir, "..", "voices", "tracks", slug, lang, filename),
+				filepath.Join(exeDir, "..", "recorder", "voices", "tracks", slug, lang, filename),
+			)
+		}
+	}
+	for _, p := range candidates {
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() && fi.Size() > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveHotspotClip returns track-specific clip if present, or falls back to turn_{corner_id}
+func (s *Spotter) resolveHotspotClip(h SpotterHotspot) string {
+	clip := h.ClipID
+	if clip == "" {
+		clip = fmt.Sprintf("hotspot_%d", h.Slot)
+	}
+	if s.hasTrackClip(clip) {
+		return clip
+	}
+	cornerID := h.CornerID
+	if cornerID <= 0 {
+		cornerID = h.Slot
+	}
+	if cornerID > 0 && cornerID <= 20 {
+		return fmt.Sprintf("turn_%d", cornerID)
+	}
+	return clip
 }
 
 // isInsideCorner reports whether dist lies inside [start, end], handling lap wraps.

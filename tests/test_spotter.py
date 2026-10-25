@@ -24,24 +24,39 @@ def test_spotter_config_api(client):
     assert "enabled" in data
     assert "language" in data
     assert "volume" in data
+    assert "toggle_key" in data
+    assert "toggle_vk_code" in data
 
-    # POST updated config
-    update_payload = {"enabled": False, "language": "en", "volume": 75}
-    res_post = client.post("/api/spotter/config", json=update_payload)
-    assert res_post.status_code == 200
-    post_data = res_post.json()
-    assert post_data["enabled"] is False
-    assert post_data["language"] == "en"
-    assert post_data["volume"] == 75
+    # PUT updated config with toggle_key and toggle_vk_code
+    update_payload = {
+        "enabled": False,
+        "language": "en",
+        "volume": 75,
+        "toggle_key": "F10",
+        "toggle_vk_code": 121,
+    }
+    res_put = client.put("/api/spotter/config", json=update_payload)
+    assert res_put.status_code == 200
+    put_data = res_put.json()
+    assert put_data["enabled"] is False
+    assert put_data["language"] == "en"
+    assert put_data["volume"] == 75
+    assert put_data["toggle_key"] == "F10"
+    assert put_data["toggle_vk_code"] == 121
 
     # Verify persistence via GET
     res_get2 = client.get("/api/spotter/config")
     assert res_get2.status_code == 200
     assert res_get2.json()["enabled"] is False
     assert res_get2.json()["language"] == "en"
+    assert res_get2.json()["toggle_key"] == "F10"
+    assert res_get2.json()["toggle_vk_code"] == 121
 
-    # Restore to enabled = True, es
-    client.post("/api/spotter/config", json={"enabled": True, "language": "es", "volume": 85, "toggle_key": "F9"})
+    # Restore to enabled = True, es, F9, 120
+    client.put(
+        "/api/spotter/config",
+        json={"enabled": True, "language": "es", "volume": 85, "toggle_key": "F9", "toggle_vk_code": 120},
+    )
 
 
 def test_spotter_audio_endpoint(client):
@@ -49,6 +64,10 @@ def test_spotter_audio_endpoint(client):
     assert res_on.status_code == 200
     assert res_on.headers["content-type"].startswith("audio/ogg")
     assert len(res_on.content) > 1000
+
+    res_turn = client.get("/api/spotter/audio/turn_1?lang=es")
+    assert res_turn.status_code == 200
+    assert res_turn.headers["content-type"].startswith("audio/ogg")
 
     res_off = client.get("/api/spotter/audio/radio_off?lang=en")
     assert res_off.status_code == 200

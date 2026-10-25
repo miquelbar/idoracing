@@ -273,7 +273,7 @@ export async function fetchSpotterConfig(): Promise<SpotterConfigDTO> {
 
 export async function updateSpotterConfig(cfg: Partial<SpotterConfigDTO>): Promise<SpotterConfigDTO> {
   const res = await fetch(`${API_BASE}/spotter/config`, {
-    method: 'POST',
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cfg),
   });

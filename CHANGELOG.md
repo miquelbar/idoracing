@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive Spotter Hotkey & Zero-Backend Turn Fallbacks**:
+  - Interactive keybind modal in Settings (`⚙️ Ajustes`) allowing drivers to bind any keyboard key with automatic Windows Virtual-Key code (`toggle_vk_code`) mapping (F1-F12, Letters, Digits, Numpad, Navigation).
+  - Persisted `toggle_key` and `toggle_vk_code` into `data/spotter_config.json` via `GET` / `PUT /api/spotter/config`, read natively at startup by `idoracing-recorder.exe` without requiring Python backend running.
+  - Pre-generated static turn audio clips (`turn_1` .. `turn_20`) in Spanish and English versioned in Git (`recorder/voices/`), providing autonomous zero-backend fallbacks in `spotter.go` and Linux launch wrappers.
+  - Configured `.gitignore` to ignore local user configurations `data/spotter_config.json` and generated sessions in `recorder/voices/tracks/`.
 - **Authentic Pep Pit-Wall Radio & Manifest-Aware Cues**:
   - Overhauled all spotter dialogues in Spanish (`es-ES-AlvaroNeural`) and English (`en-GB-RyanNeural`) with authentic GT3 pit-wall engineer terminology and walkie-talkie bandpass filtering.
   - Manifest-aware pit exit and unmute cues: distinguishes whether track baseline references (`manifest.json`) are loaded (`radio_start_guided` / `radio_unmute_guided`) or telemetry is still logging (`radio_start_nodata` / `radio_unmute_nodata`).

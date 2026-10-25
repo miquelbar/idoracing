@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   Globe,
+  Radio,
   Save,
   Server,
 } from 'lucide-react';
@@ -77,27 +78,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
-          <Cpu className="w-5 h-5 text-brand" />
-          {t('ai_engine_title')}
-        </h3>
-        <p className="text-xs text-gray-400">
-          {t('ai_engine_subtitle')}
-        </p>
-      </div>
-
-      <SpotterInfoCard />
-
-      {savedSuccess && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700 text-emerald-200 text-xs flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{t('settings_saved_alert')}</span>
+    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+      {/* 1. Sección Spotter / Radio en Pista */}
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Radio className="w-5 h-5 text-brand" />
+            {t('spotter_settings_title')}
+          </h3>
+          <p className="text-xs text-gray-400">
+            {t('spotter_settings_subtitle')}
+          </p>
         </div>
-      )}
 
-      <form onSubmit={handleSave} className="space-y-6">
+        <SpotterInfoCard />
+      </section>
+
+      {/* 2. Sección Motor de Inteligencia Artificial (IA) */}
+      <section className="space-y-4 pt-6 border-t border-white/10">
+        <div>
+          <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-comp" />
+            {t('ai_engine_title')}
+          </h3>
+          <p className="text-xs text-gray-400">
+            {t('ai_engine_subtitle')}
+          </p>
+        </div>
+
+        {savedSuccess && (
+          <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-700 text-emerald-200 text-xs flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{t('settings_saved_alert')}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSave} className="space-y-6">
         {/* Provider Selector Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Option 1: Local Ollama */}
@@ -274,6 +290,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ status, onSettingsSa
           <span>{saving ? t('saving_btn') : t('save_config_btn')}</span>
         </button>
       </form>
+      </section>
     </div>
   );
 };

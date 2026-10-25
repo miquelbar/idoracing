@@ -109,6 +109,13 @@ PEP_SCRIPTS: dict[str, dict[str, str]] = {
     },
 }
 
+# Generic Turn Cues (turn_1 .. turn_20) for 100% autonomous operation without backend
+for _turn_num in range(1, 21):
+    PEP_SCRIPTS[f"turn_{_turn_num}"] = {
+        "es": f"Atento en la curva {_turn_num}, clava la referencia de frenada y aguanta el trail braking al vértice.",
+        "en": f"Focus on turn {_turn_num}, hit your braking marker and trail brake to the apex.",
+    }
+
 
 def _generate_fallback_audio(dest_path: Path) -> None:
     """Generate a lightweight valid OGG audio file using ffmpeg fallback or template copy."""

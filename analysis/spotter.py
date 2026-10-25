@@ -69,11 +69,18 @@ def load_spotter_config() -> dict[str, Any]:
                     "language": "en" if str(data.get("language", "es")).lower().startswith("en") else "es",
                     "volume": max(0, min(100, int(data.get("volume", 85)))),
                     "toggle_key": str(data.get("toggle_key", "F9")).upper().strip() or "F9",
+                    "toggle_vk_code": int(data.get("toggle_vk_code", 120)),
                 }
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to parse spotter config %s: %s", SPOTTER_CONFIG_FILE, exc)
 
-    default_cfg = {"enabled": True, "language": "es", "volume": 100, "toggle_key": "F9"}
+    default_cfg = {
+        "enabled": True,
+        "language": "es",
+        "volume": 85,
+        "toggle_key": "F9",
+        "toggle_vk_code": 120,
+    }
     save_spotter_config(default_cfg)
     return default_cfg
 
@@ -86,6 +93,7 @@ def save_spotter_config(cfg: dict[str, Any]) -> dict[str, Any]:
         "language": "en" if str(cfg.get("language", "es")).lower().startswith("en") else "es",
         "volume": max(0, min(100, int(cfg.get("volume", 85)))),
         "toggle_key": str(cfg.get("toggle_key", "F9")).upper().strip() or "F9",
+        "toggle_vk_code": int(cfg.get("toggle_vk_code", 120)),
     }
     with open(SPOTTER_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(clean_cfg, f, indent=2)

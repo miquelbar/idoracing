@@ -273,6 +273,7 @@ class SpotterConfigDTO(BaseModel):
     language: str = "es"
     volume: int = 85
     toggle_key: str = "F9"
+    toggle_vk_code: int = 120
 
 
 class CornerDTO(BaseModel):
@@ -530,6 +531,7 @@ def get_spotter_config():
 
 
 @app.post("/api/spotter/config", response_model=SpotterConfigDTO)
+@app.put("/api/spotter/config", response_model=SpotterConfigDTO)
 def update_spotter_config_endpoint(cfg: SpotterConfigDTO):
     saved = save_spotter_config(cfg.model_dump())
     return SpotterConfigDTO(**saved)

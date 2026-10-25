@@ -445,6 +445,7 @@ export interface SpotterConfigDTO {
   language: 'es' | 'en';
   volume: number;
   toggle_key?: string;
+  toggle_vk_code?: number;
 }
 
 
