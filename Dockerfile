@@ -3,6 +3,7 @@
 # Stage 1: Build modern 2026 React/Vite frontend
 FROM node:22-alpine AS frontend-builder
 WORKDIR /build
+RUN apk add --no-cache ca-certificates
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
@@ -20,6 +21,7 @@ WORKDIR /app
 # Install system dependencies needed for health checks and runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
