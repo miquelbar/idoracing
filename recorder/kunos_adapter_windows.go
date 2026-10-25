@@ -27,9 +27,12 @@ type kunosAdapter struct {
 	lastID   int32
 	dist     distanceTracker
 
-	cachedLookup bool
-	cachedTrack  string
-	cachedCar    string
+	cachedLookup    bool
+	cachedTrack     string
+	cachedCar       string
+	cachedSplineLen float32
+
+	pitExited bool
 }
 
 func newACAdapter() *kunosAdapter {
@@ -114,6 +117,8 @@ func (a *kunosAdapter) Close() {
 	a.cachedLookup = false
 	a.cachedTrack = ""
 	a.cachedCar = ""
+	a.cachedSplineLen = 0.0
+	a.pitExited = false
 }
 
 var (
@@ -121,7 +126,7 @@ var (
 	reACEVOCar   = regexp.MustCompile(`content[\\/]cars[\\/]([a-zA-Z0-9_-]+)`)
 )
 
-func getACEVOFallbackTrackAndCar() (string, string) {
+func getACEVOFallbackTrackAndCar() (string, string, float32) {
 	candidates := []string{}
 	if u := os.Getenv("USERPROFILE"); u != "" {
 		candidates = append(candidates, filepath.Join(u, "Saved Games", "ACE", "last_season.seasondefinition"))
@@ -147,11 +152,22 @@ func getACEVOFallbackTrackAndCar() (string, string) {
 				car = string(m[1])
 			}
 			if track != "" || car != "" {
-				return track, car
+				trackLen := float32(0.0)
+				slug := normalizeTrackSlug(track)
+				if slug == "red_bull_ring" {
+					trackLen = 4318.0
+				} else if slug == "valencia" {
+					trackLen = 4005.0
+				} else if slug == "monza" {
+					trackLen = 5793.0
+				} else if slug == "spa" {
+					trackLen = 7004.0
+				}
+				return track, car, trackLen
 			}
 		}
 	}
-	return "", ""
+	return "", "", 0.0
 }
 
 func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bool, error) {
@@ -169,7 +185,7 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 
 	if a.simPrefix == "acevo" && (info.Track == "" || info.CarModel == "") {
 		if !a.cachedLookup {
-			a.cachedTrack, a.cachedCar = getACEVOFallbackTrackAndCar()
+			a.cachedTrack, a.cachedCar, a.cachedSplineLen = getACEVOFallbackTrackAndCar()
 			a.cachedLookup = true
 		}
 		if info.Track == "" && a.cachedTrack != "" {
@@ -178,12 +194,47 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 		if info.CarModel == "" && a.cachedCar != "" {
 			info.CarModel = a.cachedCar
 		}
+		if info.TrackSplineLength <= 0 && a.cachedSplineLen > 0 {
+			info.TrackSplineLength = a.cachedSplineLen
+		}
 	}
 
 	a.lastID = p.PacketID
 	x, y, ok := g.playerPosition()
-	lapDist := a.dist.step(x, y, ok, p.SpeedKmh, g.NormalizedCarPosition, info.TrackSplineLength, g.CompletedLaps+1, now)
+
+	lap := g.CompletedLaps + 1
+	if lap <= 0 || lap > 500 {
+		lap = 1
+	}
+
+	lapDist := a.dist.step(x, y, ok, p.SpeedKmh, g.NormalizedCarPosition, info.TrackSplineLength, lap, now)
 	sample := p.toSample(g, lapDist)
+
+	// Pit status handling:
+	// In AC EVO and AC, graphics shared memory does not expose a reliable IsInPitLane at 1236
+	// (in AC EVO offset 1236 falls inside SMEvoElectronics, reading active dial values).
+	// Maintain an accurate stateful pit tracker based on track progress and speed:
+	if a.simPrefix == "acevo" || a.simPrefix == "ac" {
+		if !a.pitExited {
+			if p.SpeedKmh > 70.0 || lapDist > 150.0 {
+				a.pitExited = true
+			}
+		} else {
+			// Stay on track unless the car comes to a stop in the pit area
+			if p.SpeedKmh < 2.0 && lapDist < 15.0 {
+				a.pitExited = false
+			}
+		}
+		if a.pitExited {
+			sample.InPit = 0
+		} else {
+			sample.InPit = 1
+		}
+	} else if p.SpeedKmh > 75.0 {
+		sample.InPit = 0
+		a.pitExited = true
+	}
+
 	meta := info.toMetadata(a.Name(), a.SimPrefix())
 	return sample, meta, g.Status == statusLive, nil
 }

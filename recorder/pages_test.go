@@ -160,3 +160,40 @@ func TestDistanceTrackerClosedCircuit(t *testing.T) {
 		t.Fatalf("lap 2 mid-lap distance = %v; want ~2000m", dMid)
 	}
 }
+
+func TestDistanceTrackerBogusLapAndGarbageCoords(t *testing.T) {
+	var dt distanceTracker
+	now := time.Now()
+
+	// In AC EVO, coordinates may be uninitialized, and lap may fluctuate.
+	// Speed integration should accumulate smoothly and not reset every frame.
+	speedKmh := float32(180.0)      // 50 m/s
+	dtStep := 20 * time.Millisecond // 50Hz
+
+	var lastDist float32
+	for i := 0; i < 50; i++ { // 1 second total -> 50m
+		tStep := now.Add(time.Duration(i) * dtStep)
+		// Alternating bogus lap 0 and 1
+		bogusLap := int32(i % 2)
+		lastDist = dt.step(4.3e21, 0, false, speedKmh, 0, 4318.0, bogusLap, tStep)
+	}
+
+	if lastDist < 45.0 || lastDist > 55.0 {
+		t.Fatalf("expected distance ~50m, got %v", lastDist)
+	}
+}
+
+func TestToSamplePitSpeedOverride(t *testing.T) {
+	p := physicsPage{SpeedKmh: 120.0}
+	g := graphicsPage{IsInPit: 1, IsInPitLane: 1}
+	sample := p.toSample(g, 100.0)
+	if sample.InPit != 0 {
+		t.Fatalf("expected InPit=0 at 120 km/h, got %d", sample.InPit)
+	}
+
+	pLow := physicsPage{SpeedKmh: 40.0}
+	sampleLow := pLow.toSample(g, 10.0)
+	if sampleLow.InPit != 1 {
+		t.Fatalf("expected InPit=1 at 40 km/h with pit flags, got %d", sampleLow.InPit)
+	}
+}

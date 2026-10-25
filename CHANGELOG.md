@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **AC EVO Distance Tracking & Stateful Pit Detection**:
+  - Fixed distance tracking in `recorder/pages.go` and `recorder/kunos_adapter_windows.go` falling through to speed integration when `normPos == 0.0` (zeroed in AC EVO) and sanitizing uninitialized coordinates and fluctuating lap counters.
+  - Resolved spotter silence during laps in AC EVO: graphics shared memory (`Local\acevo_pmf_graphics`) shifts byte 1236 (`IsInPitLane`) inside `SMEvoElectronics`, reading non-zero dial settings and locking `InPit` to 1. Added stateful pit detection in `recorder/kunos_adapter_windows.go` and racing speed override (`SpeedKmh > 75.0`), allowing Pep to cleanly detect pit exit and announce hotspots and corner feedback throughout the entire lap.
+  - Fixed CI test `TestSpotterCalibratedValenciaFlow` by isolating audio clip lookup with `t.TempDir()` in `recorder/spotter_test.go` and prioritizing `s.VoicesDir` in `recorder/spotter.go`, resolving failures on clean git checkouts where local `recorder/voices/tracks/` is gitignored.
+
 ### Added
 - **AC EVO Track/Car Auto-Detection in Recorder & Spotter**:
   - Added fallback metadata scanner in `recorder/kunos_adapter_windows.go` that inspects `Saved Games/ACE/last_season.seasondefinition` when AC EVO leaves the static shared memory page empty, populating track and car names in live telemetry.

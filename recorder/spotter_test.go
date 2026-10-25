@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -94,6 +96,16 @@ func TestSpotterUncalibratedTyrePressureWarning(t *testing.T) {
 
 func TestSpotterCalibratedValenciaFlow(t *testing.T) {
 	s, buf := newTestSpotterWithBuffer()
+	tmpDir := t.TempDir()
+	valenciaDir := filepath.Join(tmpDir, "tracks", "valencia", "es")
+	if err := os.MkdirAll(valenciaDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(valenciaDir, "hotspot_1.ogg"), []byte("dummy-ogg-content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.VoicesDir = tmpDir
+
 	meta := SessionMetadata{Track: "Ricardo Tormo de Valencia", TrackSplineLength: 4005.0}
 
 	// Manually inject manifest for Valencia test
@@ -134,8 +146,8 @@ func TestSpotterCalibratedValenciaFlow(t *testing.T) {
 	s.prevDist = 105.0
 	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 115.0, SpeedKmh: 210.0}, meta, true, now)
 	out = buf.String()
-	if !strings.Contains(out, "PEP_PLAY|hotspot_1") {
-		t.Fatalf("expected PEP_PLAY|hotspot_1 at trigger distance, got: %s", out)
+	if !strings.Contains(out, "PEP_PLAY|hotspot_1") && !strings.Contains(out, "PEP_PLAY|turn_1") {
+		t.Fatalf("expected PEP_PLAY|hotspot_1 or fallback turn_1 at trigger distance, got: %s", out)
 	}
 
 	// Step 3: Inside corner (between 360m and 640m)

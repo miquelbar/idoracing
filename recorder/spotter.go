@@ -443,15 +443,15 @@ func (s *Spotter) hasTrackClip(clipID string) bool {
 	filename := fmt.Sprintf("%s.ogg", clipID)
 	candidates := []string{}
 	for _, lang := range langs {
+		if s.VoicesDir != "" {
+			candidates = append(candidates, filepath.Join(s.VoicesDir, "tracks", slug, lang, filename))
+		}
 		candidates = append(candidates,
 			filepath.Join("recorder", "voices", "tracks", slug, lang, filename),
 			filepath.Join("voices", "tracks", slug, lang, filename),
 			filepath.Join("..", "recorder", "voices", "tracks", slug, lang, filename),
 			filepath.Join("..", "voices", "tracks", slug, lang, filename),
 		)
-		if s.VoicesDir != "" {
-			candidates = append(candidates, filepath.Join(s.VoicesDir, "tracks", slug, lang, filename))
-		}
 		if exe, err := os.Executable(); err == nil {
 			exeDir := filepath.Dir(exe)
 			candidates = append(candidates,

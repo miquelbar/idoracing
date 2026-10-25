@@ -107,8 +107,15 @@ type distanceTracker struct {
 }
 
 func (dt *distanceTracker) step(x, y float32, hasXY bool, speedKmh float32, normPos float32, splineLen float32, lap int32, now time.Time) float32 {
-	if splineLen > 0 && normPos >= 0.0 && normPos <= 1.0 {
+	// If the simulator provides active normalized spline position (e.g. ACC 0.001 .. 1.0), use official spline distance.
+	// When normPos is 0.0 (unsupported or zeroed by Kunos in AC EVO), fall through to speed/coordinate tracking.
+	if splineLen > 0 && normPos > 0.0001 && normPos <= 1.0 {
 		return normPos * splineLen
+	}
+
+	// Sanitize lap to avoid resetting distance on uninitialized or negative packet counters
+	if lap <= 0 || lap > 500 {
+		lap = 1
 	}
 
 	// New lap detected on a closed circuit
@@ -146,6 +153,11 @@ func (dt *distanceTracker) step(x, y float32, hasXY bool, speedKmh float32, norm
 		}
 	}
 	dt.prevX, dt.prevY, dt.prevTime = x, y, now
+
+	// Wrap around at official circuit spline length if known
+	if splineLen > 500.0 && dt.lapDist >= splineLen {
+		dt.lapDist -= splineLen
+	}
 	return dt.lapDist
 }
 
@@ -226,7 +238,10 @@ func (g graphicsPage) playerPosition() (x, y float32, ok bool) {
 	for i := 0; i < int(g.ActiveCars) && i < len(g.CarID); i++ {
 		if g.CarID[i] == g.PlayerCarID {
 			c := g.CarCoordinates[i]
-			return c[0], c[2], true
+			// Sanitize garbage/uninitialized memory coordinates (e.g. 4.3e21 in AC EVO)
+			if math.Abs(float64(c[0])) < 50000 && math.Abs(float64(c[2])) < 50000 && !math.IsNaN(float64(c[0])) && !math.IsNaN(float64(c[2])) {
+				return c[0], c[2], true
+			}
 		}
 	}
 	return 0, 0, false
@@ -249,6 +264,10 @@ func (p physicsPage) toSample(g graphicsPage, lapDistance float32) TelemetrySamp
 	inPit := int32(0)
 	if g.IsInPit != 0 || g.IsInPitLane != 0 {
 		inPit = 1
+	}
+	// A car traveling at racing speed (> 75 km/h) cannot physically be in the pits
+	if p.SpeedKmh > 75.0 {
+		inPit = 0
 	}
 
 	lap := g.CompletedLaps + 1
