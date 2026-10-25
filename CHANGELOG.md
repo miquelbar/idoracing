@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **AC EVO Track/Car Auto-Detection in Recorder & Spotter**:
+  - Added fallback metadata scanner in `recorder/kunos_adapter_windows.go` that inspects `Saved Games/ACE/last_season.seasondefinition` when AC EVO leaves the static shared memory page empty, populating track and car names in live telemetry.
+  - Added `redbull_ring` normalization matching `content\tracks\redbull_ring` in `recorder/spotter.go`, ensuring the live spotter immediately identifies the circuit, loads `manifest.json`, and guides drivers with authentic pit-wall calls instead of falling back to no-data cues.
+
+### Added
 - **AC EVO Binary Setup Decoder (`.carsetup`) & Garage Linking**:
   - Implemented proprietary Protobuf binary decoder for Assetto Corsa EVO `.carsetup` files (`importers/acevo_setup_loader.py`), reading static garage setup parameters (wings, ride heights, TC/ABS dials, ARBs, camber, toe, differential preload, cold tyre pressures) from `Saved Games/ACE/Car Setups/<Car>/<Track>/`.
   - Clarified garage setup linking across AC EVO and AC Rally/AC1 in `CarSetupInspector.tsx`, `CarSetupView.tsx`, `SessionsView.tsx`, `README.md`, and `AGENTS.md`. Instructs drivers that saving a setup in the in-game garage generates disk files (`.carsetup` / `.ini`), while driving on default settings keeps static garage parameters as `N/D` for technical honesty without affecting 50Hz dynamic physics telemetry.

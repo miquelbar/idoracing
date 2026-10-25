@@ -517,7 +517,7 @@ func normalizeTrackSlug(track string) string {
 	if strings.Contains(lower, "zandvoort") {
 		return "zandvoort"
 	}
-	if strings.Contains(lower, "red bull") || strings.Contains(lower, "spielberg") {
+	if strings.Contains(lower, "red bull") || strings.Contains(lower, "redbull") || strings.Contains(lower, "spielberg") {
 		return "red_bull_ring"
 	}
 	if strings.Contains(lower, "nurburgring") || strings.Contains(lower, "nuerburgring") {

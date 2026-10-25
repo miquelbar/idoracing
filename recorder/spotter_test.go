@@ -320,3 +320,12 @@ func TestSpotterParseVKCodeMappings(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeTrackSlugRedBullRing(t *testing.T) {
+	for _, raw := range []string{"Red Bull Ring", "redbull_ring", "redbull", "red_bull_ring", "Spielberg"} {
+		got := normalizeTrackSlug(raw)
+		if got != "red_bull_ring" {
+			t.Fatalf("expected red_bull_ring for %q, got %q", raw, got)
+		}
+	}
+}

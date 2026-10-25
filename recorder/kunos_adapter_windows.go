@@ -4,6 +4,9 @@ package main
 
 import (
 	"encoding/binary"
+	"os"
+	"path/filepath"
+	"regexp"
 	"time"
 )
 
@@ -23,6 +26,10 @@ type kunosAdapter struct {
 	sbuf     []byte
 	lastID   int32
 	dist     distanceTracker
+
+	cachedLookup bool
+	cachedTrack  string
+	cachedCar    string
 }
 
 func newACAdapter() *kunosAdapter {
@@ -104,6 +111,47 @@ func (a *kunosAdapter) Close() {
 		a.static.close()
 		a.static = nil
 	}
+	a.cachedLookup = false
+	a.cachedTrack = ""
+	a.cachedCar = ""
+}
+
+var (
+	reACEVOTrack = regexp.MustCompile(`content[\\/]tracks[\\/]([a-zA-Z0-9_-]+)`)
+	reACEVOCar   = regexp.MustCompile(`content[\\/]cars[\\/]([a-zA-Z0-9_-]+)`)
+)
+
+func getACEVOFallbackTrackAndCar() (string, string) {
+	candidates := []string{}
+	if u := os.Getenv("USERPROFILE"); u != "" {
+		candidates = append(candidates, filepath.Join(u, "Saved Games", "ACE", "last_season.seasondefinition"))
+	}
+	if h := os.Getenv("HOME"); h != "" {
+		candidates = append(candidates,
+			filepath.Join(h, "Saved Games", "ACE", "last_season.seasondefinition"),
+			filepath.Join(h, ".local", "share", "Steam", "steamapps", "compatdata", "3058630", "pfx", "drive_c", "users", "steamuser", "Saved Games", "ACE", "last_season.seasondefinition"),
+		)
+	}
+	candidates = append(candidates,
+		`C:\users\steamuser\Saved Games\ACE\last_season.seasondefinition`,
+	)
+
+	for _, p := range candidates {
+		data, err := os.ReadFile(p)
+		if err == nil && len(data) > 0 {
+			var track, car string
+			if m := reACEVOTrack.FindSubmatch(data); len(m) > 1 {
+				track = string(m[1])
+			}
+			if m := reACEVOCar.FindSubmatch(data); len(m) > 1 {
+				car = string(m[1])
+			}
+			if track != "" || car != "" {
+				return track, car
+			}
+		}
+	}
+	return "", ""
 }
 
 func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bool, error) {
@@ -118,6 +166,19 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 	}
 	a.sbuf = a.static.snapshot(a.sbuf)
 	info := decodeStatic(a.sbuf)
+
+	if a.simPrefix == "acevo" && (info.Track == "" || info.CarModel == "") {
+		if !a.cachedLookup {
+			a.cachedTrack, a.cachedCar = getACEVOFallbackTrackAndCar()
+			a.cachedLookup = true
+		}
+		if info.Track == "" && a.cachedTrack != "" {
+			info.Track = a.cachedTrack
+		}
+		if info.CarModel == "" && a.cachedCar != "" {
+			info.CarModel = a.cachedCar
+		}
+	}
 
 	a.lastID = p.PacketID
 	x, y, ok := g.playerPosition()

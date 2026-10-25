@@ -16,5 +16,9 @@ for _lang in ("es", "en"):
         shutil.copytree(_src, Path(_voices_dir) / _lang)
 os.environ["IDORACING_VOICES_DIR"] = _voices_dir
 
+# Isolate AC EVO setup search directory so tests are isolated from local user Saved Games
+_acevo_setups_dir = tempfile.mkdtemp(prefix="idoracing-test-acevo-setups-")
+os.environ["ACEVO_SETUPS_DIR"] = _acevo_setups_dir
+
 os.environ.setdefault("AI_ENABLED", "false")
 os.environ.setdefault("IDORACING_SKIP_AUTO_IMPORT", "1")
