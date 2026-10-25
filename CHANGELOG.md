@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **AC EVO Binary Setup Decoder (`.carsetup`) & Garage Linking**:
+  - Implemented proprietary Protobuf binary decoder for Assetto Corsa EVO `.carsetup` files (`importers/acevo_setup_loader.py`), reading static garage setup parameters (wings, ride heights, TC/ABS dials, ARBs, camber, toe, differential preload, cold tyre pressures) from `Saved Games/ACE/Car Setups/<Car>/<Track>/`.
+  - Clarified garage setup linking across AC EVO and AC Rally/AC1 in `CarSetupInspector.tsx`, `CarSetupView.tsx`, `SessionsView.tsx`, `README.md`, and `AGENTS.md`. Instructs drivers that saving a setup in the in-game garage generates disk files (`.carsetup` / `.ini`), while driving on default settings keeps static garage parameters as `N/D` for technical honesty without affecting 50Hz dynamic physics telemetry.
+- **Auto-Discovery Timestamp & Descending Date Sorting**:
+  - Auto-discovery scanner (`/api/autodiscover`) returns file modification timestamps (`mtime`, `modified_at`).
+  - Added formatted date chips with clock icons (`Hoy 16:39`, `Ayer 22:31`, etc.) and format badges (`50Hz CSV`, `MoTeC .ld`, `Resultados`, `SETUP`) in `SessionsView.tsx` sorted strictly newest-first.
+- **Intervention Flag vs Dial Level Discrimination**:
+  - Discriminated active physical intervention flags (`tc`, `abs` $\le 1.0$) in `SPageFilePhysics` from garage dial levels ($> 1.0$), preventing slip pulses from falsely displaying as `TC: 1` or `ABS: 1`.
+
+### Added
 - **Interactive Spotter Hotkey & Zero-Backend Turn Fallbacks**:
   - Interactive keybind modal in Settings (`⚙️ Ajustes`) allowing drivers to bind any keyboard key with automatic Windows Virtual-Key code (`toggle_vk_code`) mapping (F1-F12, Letters, Digits, Numpad, Navigation).
   - Persisted `toggle_key` and `toggle_vk_code` into `data/spotter_config.json` via `GET` / `PUT /api/spotter/config`, read natively at startup by `idoracing-recorder.exe` without requiring Python backend running.

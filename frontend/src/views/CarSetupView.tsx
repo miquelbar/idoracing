@@ -84,13 +84,18 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
     <div className="space-y-6">
       {/* Top action row */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-brand/10 border border-brand/30 text-brand">
             <SlidersHorizontal className="w-4 h-4" />
           </div>
-          <h2 className="text-lg font-bold text-white font-brand tracking-wide">
-            {t('car_setup_title')}
-          </h2>
+          <div>
+            <h2 className="text-lg font-bold text-white font-brand tracking-wide">
+              {t('car_setup_title')}
+            </h2>
+            <p className="text-[11px] text-gray-400 font-telemetry">
+              En AC EVO y AC Rally, recuerda pulsar &quot;Guardar Setup&quot; en el garaje del simulador (.carsetup / .ini) para vincular los reglajes mecánicos estáticos.
+            </p>
+          </div>
         </div>
 
         <button

@@ -262,6 +262,8 @@ export interface SessionGroup {
 export interface AutoDiscoverFile {
   filename: string;
   path: string;
+  mtime?: number;
+  modified_at?: string;
 }
 
 export interface SimDiscovery {

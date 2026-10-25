@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -6,6 +6,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  Clock,
   Flag,
   FolderOpen,
   HelpCircle,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { fetchSessionGroups, uploadTelemetryFile } from '../services/api';
 import type { AutoDiscoverData, AutoDiscoverFile, ComparisonResponse, SessionDetail, SessionGroup, SessionSummary } from '../types/telemetry';
-import { errorMessage, formatDate, formatLapTime, simBadge } from '../utils/formatters';
+import { errorMessage, formatDate, formatFileDateTime, formatLapTime, parseDateFromFilename, simBadge } from '../utils/formatters';
 import { useLanguage, type TranslationKey } from '../i18n';
 import { StintDegradationView } from '../components/StintDegradationView';
 
@@ -30,7 +31,28 @@ interface SimDiscoverySectionProps {
   onImport: (path: string) => void;
   emptyText: string;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+  lang: string;
 }
+
+const getFileFormatBadge = (filename: string, lang: string) => {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.ld')) {
+    return { label: 'MoTeC .ld', className: 'bg-blue-500/15 text-blue-300 border-blue-500/30' };
+  }
+  if (lower.endsWith('.csv')) {
+    return { label: '50Hz CSV', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+  }
+  if (lower.endsWith('.carsetup') || lower.endsWith('.setup')) {
+    return { label: 'SETUP', className: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' };
+  }
+  if (lower.endsWith('.json')) {
+    return { label: lang === 'en' ? 'Results' : 'Resultados', className: 'bg-purple-500/15 text-purple-300 border-purple-500/30' };
+  }
+  if (lower.endsWith('.xml')) {
+    return { label: 'XML', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+  }
+  return { label: 'FILE', className: 'bg-white/10 text-gray-300 border-white/10' };
+};
 
 const SimDiscoverySection: React.FC<SimDiscoverySectionProps> = ({
   label,
@@ -39,39 +61,82 @@ const SimDiscoverySection: React.FC<SimDiscoverySectionProps> = ({
   onImport,
   emptyText,
   t,
-}) => (
-  <div className="p-3.5 rounded-xl bg-night-3 border border-white/5">
-    <div className="flex items-center justify-between mb-2">
-      <span className="text-xs font-bold text-white flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-        {label}
-      </span>
-      <span className="text-[10px] text-gray-400 font-telemetry">
-        {files.length} {t('sessions_found')}
-      </span>
-    </div>
+  lang,
+}) => {
+  // Sort strictly newest to oldest (by mtime, modified_at, or filename-inferred date)
+  const sortedFiles = useMemo(() => {
+    return [...files].sort((a, b) => {
+      const getTimestamp = (f: AutoDiscoverFile): number => {
+        if (f.mtime && f.mtime > 0) return f.mtime * 1000;
+        if (f.modified_at) {
+          const tm = new Date(f.modified_at).getTime();
+          if (!isNaN(tm)) return tm;
+        }
+        const fromFn = parseDateFromFilename(f.filename);
+        if (fromFn) return fromFn.getTime();
+        return 0;
+      };
+      return getTimestamp(b) - getTimestamp(a);
+    });
+  }, [files]);
 
-    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-      {files.slice(0, 10).map((f) => (
-        <div
-          key={f.path}
-          className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-telemetry"
-        >
-          <span className="truncate max-w-[220px] text-gray-300">{f.filename}</span>
-          <button
-            onClick={() => onImport(f.path)}
-            className="px-2 py-0.5 rounded bg-brand text-black font-bold text-[10px] hover:bg-brand-light cursor-pointer"
-          >
-            {t('load_action')}
-          </button>
-        </div>
-      ))}
-      {files.length === 0 && (
-        <p className="text-[11px] text-gray-500 text-center py-2">{emptyText}</p>
-      )}
+  return (
+    <div className="p-3.5 rounded-xl bg-night-3 border border-white/5 shadow-sm">
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="text-xs font-bold text-white flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${dotColor} shadow-sm`} />
+          {label}
+        </span>
+        <span className="text-[11px] text-gray-400 font-telemetry">
+          {sortedFiles.length} {t('sessions_found')}
+        </span>
+      </div>
+
+      <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+        {sortedFiles.slice(0, 15).map((f) => {
+          const formatBadge = getFileFormatBadge(f.filename, lang);
+          const dateStr = formatFileDateTime(f.mtime, f.modified_at, f.filename, lang);
+
+          return (
+            <div
+              key={f.path}
+              className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 transition text-xs font-telemetry gap-2 group"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-1.5 text-white font-medium text-[11px]">
+                    <Clock className="w-3.5 h-3.5 text-brand shrink-0" />
+                    <span>{dateStr || f.filename}</span>
+                  </div>
+                  <span
+                    className={`px-1.5 py-0.2 rounded text-[9px] font-bold border uppercase tracking-wider ${formatBadge.className}`}
+                  >
+                    {formatBadge.label}
+                  </span>
+                </div>
+                <span
+                  className="truncate block text-[10px] text-gray-400 font-mono group-hover:text-gray-300 transition"
+                  title={f.filename}
+                >
+                  {f.filename}
+                </span>
+              </div>
+              <button
+                onClick={() => onImport(f.path)}
+                className="px-2.5 py-1 rounded bg-brand text-black font-bold text-xs hover:bg-brand-light active:scale-95 transition shadow cursor-pointer shrink-0"
+              >
+                {t('load_action')}
+              </button>
+            </div>
+          );
+        })}
+        {sortedFiles.length === 0 && (
+          <p className="text-[11px] text-gray-500 text-center py-3">{emptyText}</p>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface SessionsViewProps {
   sessions: SessionSummary[];
@@ -1126,6 +1191,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     onImport={onImportLocal}
                     emptyText={t('no_acc_files_found')}
                     t={t}
+                    lang={lang}
                   />
                   <SimDiscoverySection
                     label="Le Mans Ultimate"
@@ -1134,6 +1200,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     onImport={onImportLocal}
                     emptyText={t('no_lmu_files_found')}
                     t={t}
+                    lang={lang}
                   />
                   <SimDiscoverySection
                     label="Assetto Corsa EVO"
@@ -1142,6 +1209,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     onImport={onImportLocal}
                     emptyText={t('no_acevo_files_found')}
                     t={t}
+                    lang={lang}
                   />
                   <SimDiscoverySection
                     label="Assetto Corsa"
@@ -1150,6 +1218,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                     onImport={onImportLocal}
                     emptyText={t('no_ac1_files_found')}
                     t={t}
+                    lang={lang}
                   />
                 </div>
               )}
@@ -1192,6 +1261,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 <p className="text-[11px] text-gray-400">
                   O usa el grabador con <code className="text-brand">acevo-with-recorder.sh %command%</code>.
                 </p>
+                <p className="text-[11px] text-cyan-300 font-semibold pt-1 border-t border-white/5">
+                  💡 Para ver setup completo (alerón, alturas, electrónica): pulsa <strong>&quot;Guardar Setup&quot;</strong> en el garaje (genera el <code>.carsetup</code>).
+                </p>
               </div>
 
               <div className="p-4 rounded-xl bg-night-3 border border-orange-500/20 space-y-1.5">
@@ -1201,6 +1273,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 </p>
                 <p className="text-[11px] text-gray-400">
                   O exporta telemetría MoTeC con Content Manager / ACTIR a archivos .ld.
+                </p>
+                <p className="text-[11px] text-cyan-300 font-semibold pt-1 border-t border-white/5">
+                  💡 Reglajes de taller: guarda tu setup en el garaje (archivo <code>.ini</code>) para vincular los clics de suspensión y caídas.
                 </p>
               </div>
 

@@ -40,6 +40,65 @@ export function formatDate(dateVal: string | Date, lang: string): string {
   }
 }
 
+export function parseDateFromFilename(fn: string): Date | null {
+  let m = fn.match(/(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+
+  m = fn.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+
+  m = fn.match(/(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})_(\d{2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+
+  m = fn.match(/^(\d{2})(\d{2})(\d{2})-(\d{2})(\d{2})/);
+  if (m) return new Date(2000 + +m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+
+  return null;
+}
+
+export function formatFileDateTime(
+  mtime?: number | null,
+  isoStr?: string | null,
+  filename?: string,
+  lang: string = 'es'
+): string {
+  try {
+    let d: Date | null = null;
+    if (mtime && mtime > 0) {
+      d = new Date(mtime < 1e11 ? mtime * 1000 : mtime);
+    } else if (isoStr) {
+      d = new Date(isoStr);
+    } else if (filename) {
+      d = parseDateFromFilename(filename);
+    }
+
+    if (!d || isNaN(d.getTime())) return '';
+
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = d.getHours().toString().padStart(2, '0');
+    const mins = d.getMinutes().toString().padStart(2, '0');
+
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return `${lang === 'en' ? 'Today' : 'Hoy'} ${hours}:${mins}`;
+    }
+    if (isYesterday) {
+      return `${lang === 'en' ? 'Yesterday' : 'Ayer'} ${hours}:${mins}`;
+    }
+
+    return `${day}/${month}/${year} · ${hours}:${mins}`;
+  } catch {
+    return '';
+  }
+}
+
 export function detectSimGame(
   session?: { session_id?: string; simulator?: string | null } | null,
   comparison?: { game_name?: string | null } | null

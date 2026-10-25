@@ -174,12 +174,17 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
   - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `ac-with-recorder.sh %command%`).
   - **Windows**: Run `idoracing-recorder.exe -sim ac -exit-with "acs.exe,AssettoCorsa.exe"` (or use `-sim auto`).
   - **Point-to-Point Handling**: The recorder detects when start and finish positions differ by more than 30 metres, preserving the authentic linear trajectory without closing false loops.
+- **Garage Setup Linking (`.ini`)**:
+  - To view and link static garage setup parameters (suspension, ARBs, camber, toe), save your setup in the in-game garage (saves to `Documents/Assetto Corsa/setups/<car>/<track>/`). If running on the default setup without saving, static parameters remain `N/D` while 50Hz dynamic physics telemetry stays 100% active.
 
 ### ⚡ Assetto Corsa EVO (AC EVO)
 - **Automatic Live Recorder (50Hz + GPS coords)**:
   - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `acevo-with-recorder.sh %command%`).
   - **Windows**: Run `idoracing-recorder.exe -sim acevo -exit-with AssettoCorsaEVO.exe` (or use `-sim auto`).
   - **Data Captured**: Shared memory (`Local\acevo_pmf_*` with fallback to `Local\acpmf_*`), capturing 50Hz physics channels and world $(x, y)$ coordinates.
+- **Garage Setup Linking (`.carsetup`)**:
+  - AC EVO stores garage setups in proprietary binary `.carsetup` files in `Saved Games/ACE/Car Setups/<Car>/<Track>/`.
+  - **To inspect full garage telemetry (rear wing, ride heights, TC/ABS dials, suspension)**, click **"Save Setup"** in the garage. If driving on the factory default setup without saving, AC EVO does not write a file to disk and static parameters show as `N/D` (dynamic 50Hz tyre pressures, IMO temperatures and brake bias remain 100% active).
 - **Native MoTeC Export**:
   - In the in-game garage setup menu, set **Telemetry Laps > 0**. Files are saved to `Saved Games/ACE/MoTec/<car>/<track>/` and auto-imported.
 - **Native Session Results**:

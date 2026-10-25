@@ -47,7 +47,14 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
     epsilon = 0.05
   ) => {
     if (p1Val == null && p2Val == null) {
-      return <span className="text-sm font-semibold text-gray-500">N/D</span>;
+      return (
+        <span
+          className="text-sm font-semibold text-gray-500 cursor-help"
+          title="Parámetro no disponible. Guarda un setup (.carsetup / .ini) en el simulador para que IdoRacing lo lea."
+        >
+          N/D
+        </span>
+      );
     }
     const safeP1 = p1Val ?? p2Val ?? 0;
     const safeP2 = p2Val ?? p1Val ?? 0;
@@ -238,10 +245,10 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
         {/* Right: Identical Garage Setup Badge OR Modified Setup Segmented Control */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start lg:self-auto">
           {setup.has_garage_setup === false || setup.setup_source === 'not_available' ? (
-            <div className="flex items-center gap-2 bg-blue-950/40 px-3.5 py-2 rounded-xl border border-blue-500/30 text-xs font-telemetry text-blue-300">
-              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+            <div className="flex items-center gap-2 bg-amber-950/40 px-3.5 py-2 rounded-xl border border-amber-500/40 text-xs font-telemetry text-amber-200">
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                ℹ️ Telemetría de Pista Activa · Reglaje estático no exportado por {setup.game_name || 'el simulador'}
+                ℹ️ Telemetría 50Hz Activa · Para vincular setup estático: guarda un setup en el garaje ({setup.game_name?.toLowerCase().includes('evo') ? '.carsetup' : '.ini / .json'})
               </span>
             </div>
           ) : setup.setup_source === 'recorded_telemetry' ? (
@@ -312,13 +319,46 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
       </div>
 
       {setup.has_garage_setup === false && (
-        <div className="p-4 rounded-xl bg-blue-950/30 border border-blue-500/30 text-blue-200 text-xs font-telemetry space-y-1">
-          <div className="flex items-center gap-2 font-bold text-blue-300 text-xs">
-            <Info className="w-4 h-4 text-blue-400 shrink-0" />
-            <span>Reglajes de Garaje no registrados en esta sesión</span>
+        <div className="p-4 rounded-xl bg-blue-950/30 border border-blue-500/30 text-blue-200 text-xs font-telemetry space-y-2.5">
+          <div className="flex items-center justify-between border-b border-blue-500/20 pb-2">
+            <div className="flex items-center gap-2 font-bold text-blue-300 text-xs">
+              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>Reglajes mecánicos de garaje no expuestos en la Shared Memory</span>
+            </div>
+            <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-200 border border-blue-500/30">
+              Requiere guardar setup
+            </span>
           </div>
+
           <p className="text-[11px] text-gray-300 leading-relaxed">
-            {setup.game_name || 'Este simulador'} no exporta archivos de setup ni canales de electrónica en la telemetría grabada. Para mantener total fidelidad sin inventar datos, los ajustes de garaje (TC, ABS, alerón, presiones en frío) se indican como <strong>N/D</strong>. Las presiones en caliente mostradas a continuación sí se calculan a partir de la telemetría física real a 50Hz.
+            {setup.game_name?.toLowerCase().includes('evo') ? (
+              <>
+                A diferencia de ACC (<code>.json</code>) o AC1 (<code>.ini</code>), <strong>Assetto Corsa EVO</strong> guarda los reglajes en un formato propietario binario (<code>.carsetup</code>) en <code>Saved Games\ACE\Car Setups\</code>. La memoria compartida (Shared Memory) de Kunos emite física en vivo a 50Hz (presiones de neumáticos, reparto de frenada, fuerzas G y pedales), pero <strong>no expone los reglajes mecánicos estáticos de garaje</strong> (alerón, muelles, barras ARB, amortiguadores o caídas).
+              </>
+            ) : (
+              <>
+                La memoria compartida (Shared Memory) de <strong>{setup.game_name || 'este simulador'} (incluyendo AC EVO y AC Rally)</strong> emite física en vivo a 50Hz (presiones de neumáticos, reparto de frenada y fuerzas G), pero <strong>no expone los reglajes mecánicos estáticos del garaje</strong> (muelles, barras ARB, caídas o alturas).
+              </>
+            )}
+          </p>
+
+          <div className="p-3 rounded-lg bg-black/40 border border-amber-500/40 flex items-start gap-2.5 text-amber-200">
+            <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-[11px] leading-relaxed space-y-1">
+              <strong className="text-amber-100 block">
+                ¿Cómo obtener la telemetría de setup completa (Electrónica, Aerodinámica y Chasis)?
+              </strong>
+              <p className="text-gray-300">
+                Para que IdoRacing pueda leer tus reglajes de garaje, <strong>debes pulsar "Guardar Setup" dentro del garaje del simulador</strong> (esto genera el archivo <code>{setup.game_name?.toLowerCase().includes('evo') ? '.carsetup' : '.ini / .json'}</code> en disco). Si ruedas con el setup por defecto sin guardarlo, el juego no crea ningún archivo y los clics de taller se muestran como <strong>N/D</strong> por honestidad técnica (mientras que la telemetría de pista a 50Hz de pedales, presiones dinámicas y delta time sigue activa al 100%).
+              </p>
+              <p className="text-[10px] text-amber-300/90 font-medium">
+                👉 <em>En <strong>AC Rally</strong> y Assetto Corsa 1 aplica exactamente el mismo principio: es necesario guardar el setup en el garaje (archivo <code>.ini</code>) para que la aplicación pueda analizar tus clics de amortiguación, barras y caídas.</em>
+              </p>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Por honestidad técnica y cero datos inventados, los parámetros mecánicos de garaje no guardados se muestran como <strong>N/D</strong>. Las presiones dinámicas en caliente y el balance de frenada mostrados a continuación provienen de la telemetría física real a 50Hz.
           </p>
         </div>
       )}

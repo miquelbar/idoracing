@@ -10,6 +10,7 @@ import struct
 import tempfile
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any, Literal
 
 import certifi
@@ -59,6 +60,7 @@ from domain.session import (
 )
 from importers.acc_setup_loader import load_acc_setup
 from importers.acevo_importer import ACEVOImporter
+from importers.acevo_setup_loader import load_acevo_setup
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
 from importers.moteclib.importer import MoTeCImporter
@@ -83,11 +85,18 @@ ACEVO_SAVED_GAMES_DIR = os.path.expanduser(
 # MoTeC .ld files are nested as MoTec/<car>/<track>/, so this directory is scanned recursively.
 ACEVO_MOTEC_DIR = os.path.join(ACEVO_SAVED_GAMES_DIR, "MoTec")
 ACEVO_RESULTS_DIR = os.path.join(ACEVO_SAVED_GAMES_DIR, "Results")
+# AC EVO stores proprietary binary setups as .carsetup under Saved Games/ACE/Car Setups/<car>/<track>/
+ACEVO_SETUPS_DIR = os.path.join(ACEVO_SAVED_GAMES_DIR, "Car Setups")
+ACEVO_DOCUMENTS_DIR = os.path.expanduser(
+    "~/.local/share/Steam/steamapps/compatdata/3058630/pfx/drive_c/users/steamuser/Documents"
+)
+ACEVO_RECORDINGS_DIR = os.path.join(ACEVO_DOCUMENTS_DIR, "IdoRacing", "recordings")
 # Assetto Corsa 1 (app 244210) — telemetry lives in Documents under the game folder.
 AC1_DOCUMENTS_DIR = os.path.expanduser(
     "~/.local/share/Steam/steamapps/compatdata/244210/pfx/drive_c/users/steamuser/Documents"
 )
 AC1_MOTEC_DIR = os.path.join(AC1_DOCUMENTS_DIR, "Assetto Corsa", "MoTeC")
+AC1_RECORDINGS_DIR = os.path.join(AC1_DOCUMENTS_DIR, "IdoRacing", "recordings")
 # iRacing — telemetry in ~/Documents/iRacing/Telemetry (Windows) or via Proton.
 IRACING_TELEMETRY_DIR = os.path.expanduser("~/Documents/iRacing/Telemetry")
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
@@ -1177,18 +1186,22 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
     1. For ACC sessions: loads the user's actual saved setup JSON file if present on disk.
     2. For sessions with explicit setup channels in telemetry: reads them directly.
     3. For demo/synthetic sessions: provides demo baseline values.
-    4. For sessions without setup data (e.g. AC EVO Early Access): marks has_garage_setup=False
-       and sets garage parameters to None (honest representation, zero invented data).
+    4. For sessions without linked setup files or where shared memory only provides dynamic physics
+       (e.g. AC EVO Early Access v0.9 stores binary .carsetup in Saved Games/ACE/Car Setups/, but
+       does not link the active preset in telemetry or expose static garage clicks in shared memory):
+       marks has_garage_setup=False and sets garage parameters to None (honest representation, zero invented data).
        Dynamic hot tyre pressures and I/M/O temperatures remain calculated from real 50Hz telemetry.
     """
     tel = (lap.telemetry if lap and lap.telemetry else None) or session.telemetry or {}
     sim_name = session.simulator or _detect_simulator(session)
     is_demo = session.session_id.startswith("synth_") or getattr(session, "is_demo", False)
 
-    # 1. Try loading real setup from ACC setup directory
+    # 1. Try loading real setup from ACC / AC EVO setup directory
     real_setup = None
     if "competizione" in sim_name.lower():
         real_setup = load_acc_setup(session.car, session.track)
+    elif "evo" in sim_name.lower():
+        real_setup = load_acevo_setup(session.car, session.track)
 
     has_garage_setup = False
     setup_source = "not_available"
@@ -1201,7 +1214,7 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
         electronics = real_setup["electronics"]
         aero = real_setup["aero"]
         chassis = real_setup["chassis"]
-        pressures_cold = {
+        pressures_cold = real_setup.get("tyres", {}).get("pressures_cold") or {
             "FL": 24.5,
             "FR": 24.6,
             "RL": 24.2,
@@ -1238,7 +1251,16 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
     elif any(
         k in tel for k in ("setup_tc1", "setup_abs", "setup_brake_bias", "tc", "abs", "brake_bias", "pressure_fl")
     ):
-        has_garage_setup = True
+        has_garage_setup = any(
+            k in tel
+            for k in (
+                "setup_front_splitter",
+                "setup_rear_wing",
+                "setup_camber_front_deg",
+                "setup_arb_front",
+                "setup_tc1",
+            )
+        )
         setup_source = "recorded_telemetry"
         setup_file_name = "Live 50Hz Telemetry"
 
@@ -1256,16 +1278,35 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
                         return round(float(v), 2)
             return None
 
-        tc_raw = _get_val("tc", "setup_tc1")
-        abs_raw = _get_val("abs", "setup_abs")
+        def _get_setting(setting_key: str, active_flag_key: str) -> int | None:
+            if setting_key in tel:
+                v = _get_val(setting_key)
+                if v is not None:
+                    return int(round(v))
+            if active_flag_key in tel:
+                arr = [
+                    float(x)
+                    for x in tel[active_flag_key]
+                    if x is not None and not (isinstance(x, float) and np.isnan(x))
+                ]
+                if arr:
+                    max_v = max(arr)
+                    # If max > 1.0, it is an actual dial setting (e.g. TC: 1..12 in ACC)
+                    # Values in [0, 1] are active slip/intervention flags, NOT the garage dial setting
+                    if max_v > 1.0:
+                        return int(round(max_v))
+            return None
+
+        tc_raw = _get_setting("setup_tc1", "tc")
+        abs_raw = _get_setting("setup_abs", "abs")
         bb_raw = _get_val("brake_bias", "setup_brake_bias")
         if bb_raw is not None and 0.0 < bb_raw <= 1.0:
             bb_raw = round(bb_raw * 100.0, 1)
 
         electronics = {
-            "tc1": int(round(tc_raw)) if tc_raw is not None else None,
+            "tc1": tc_raw,
             "tc2": _get_val("setup_tc2"),
-            "abs": int(round(abs_raw)) if abs_raw is not None else None,
+            "abs": abs_raw,
             "brake_bias": bb_raw,
             "ecu_map": _get_val("setup_ecu_map"),
         }
@@ -2073,19 +2114,50 @@ def chat_with_engineer(req: ChatRequest):
 
 @app.get("/api/autodiscover")
 def autodiscover_files():
-    def _scan(directory: str, patterns: list[str]) -> list[dict[str, str]]:
-        if not os.path.exists(directory):
-            return []
-        files: list[str] = []
-        for pat in patterns:
-            files.extend(glob.glob(os.path.join(directory, pat), recursive=True))
-        files = sorted(set(files), key=os.path.getmtime, reverse=True)
-        return [{"filename": os.path.basename(f), "path": f} for f in files]
+    def _scan_dirs(dirs_and_patterns: list[tuple[str, list[str]]]) -> list[dict[str, Any]]:
+        files: set[str] = set()
+        for directory, patterns in dirs_and_patterns:
+            if not os.path.exists(directory):
+                continue
+            for pat in patterns:
+                files.update(glob.glob(os.path.join(directory, pat), recursive=True))
 
-    acc_files = _scan(ACC_MOTEC_DIR, ["*.ld"]) + _scan(ACC_RECORDINGS_DIR, ["*.csv"])
-    lmu_files = _scan(LMU_RESULTS_DIR, ["*.xml"])
-    acevo_files = _scan(ACEVO_MOTEC_DIR, ["**/*.ld"]) + _scan(ACEVO_RESULTS_DIR, ["*.sessionresults.json"])
-    ac1_files = _scan(AC1_MOTEC_DIR, ["*.ld"])
+        items: list[dict[str, Any]] = []
+        for f in files:
+            try:
+                mtime = os.path.getmtime(f)
+            except OSError:
+                mtime = 0.0
+            items.append(
+                {
+                    "filename": os.path.basename(f),
+                    "path": f,
+                    "mtime": mtime,
+                    "modified_at": datetime.fromtimestamp(mtime).isoformat() if mtime else "",
+                }
+            )
+        # Strictly sort newest to oldest
+        items.sort(key=lambda x: x["mtime"], reverse=True)
+        return items
+
+    extra_acc_csv: list[tuple[str, list[str]]] = []
+    extra_acevo_csv: list[tuple[str, list[str]]] = []
+    if os.path.exists(NATIVE_RECORDINGS_DIR):
+        extra_acc_csv.append((NATIVE_RECORDINGS_DIR, ["acc_*.csv"]))
+        extra_acevo_csv.append((NATIVE_RECORDINGS_DIR, ["acevo*.csv"]))
+
+    acc_files = _scan_dirs([(ACC_MOTEC_DIR, ["*.ld"]), (ACC_RECORDINGS_DIR, ["*.csv"])] + extra_acc_csv)
+    lmu_files = _scan_dirs([(LMU_RESULTS_DIR, ["*.xml"])])
+    acevo_files = _scan_dirs(
+        [
+            (ACEVO_MOTEC_DIR, ["**/*.ld"]),
+            (ACEVO_RESULTS_DIR, ["*.sessionresults.json"]),
+            (ACEVO_RECORDINGS_DIR, ["*.csv"]),
+            (ACEVO_SETUPS_DIR, ["**/*.carsetup", "**/*.setup"]),
+        ]
+        + extra_acevo_csv
+    )
+    ac1_files = _scan_dirs([(AC1_MOTEC_DIR, ["*.ld"]), (AC1_RECORDINGS_DIR, ["*.csv"])])
 
     return {
         "acc_path": ACC_MOTEC_DIR,
@@ -2143,7 +2215,10 @@ def import_local_file(req: LocalImportRequest):
             LMU_RESULTS_DIR,
             ACEVO_MOTEC_DIR,
             ACEVO_RESULTS_DIR,
+            ACEVO_RECORDINGS_DIR,
+            ACEVO_SETUPS_DIR,
             AC1_MOTEC_DIR,
+            AC1_RECORDINGS_DIR,
         )
     ]
     for d in glob.glob(COMPATDATA_RECORDINGS_GLOB):

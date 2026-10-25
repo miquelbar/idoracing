@@ -123,3 +123,61 @@ def test_resolve_acevo_session_info(tmp_path):
     assert sess.car == "Porsche 911 GT2 RS Clubsport Evo (991II)"
     assert sess.simulator == "Assetto Corsa EVO"
     assert len(sess.laps) > 0
+
+
+def test_acevo_carsetup_binary_decoder(tmp_path):
+    """Test decoding binary Protobuf .carsetup files from AC EVO."""
+    import struct
+
+    from importers.acevo_setup_loader import parse_carsetup_file
+
+    def enc_varint(value: int) -> bytes:
+        res = bytearray()
+        while value >= 0x80:
+            res.append((value & 0x7F) | 0x80)
+            value >>= 7
+        res.append(value & 0x7F)
+        return bytes(res)
+
+    def enc_f32(field: int, val: float) -> bytes:
+        return enc_varint((field << 3) | 5) + struct.pack("<f", val)
+
+    def enc_varint_field(field: int, val: int) -> bytes:
+        return enc_varint((field << 3) | 0) + enc_varint(val)
+
+    def enc_msg(field: int, payload: bytes) -> bytes:
+        return enc_varint((field << 3) | 2) + enc_varint(len(payload)) + payload
+
+    # Build synthetic .carsetup:
+    # 1.1[0] = 55000 (front ARB)
+    # 1.1[1] = 12000 (rear ARB)
+    # 1.3.1 = 58.5 (brake bias)
+    # 5.1 = 3 (TC1)
+    # 5.2 = 4 (TC2)
+    # 5.3 = 6 (ABS)
+    # 6.2 = 54.0 (front ride height)
+    # 6.3 = 72.0 (rear ride height)
+    # 6.5 = 8.0 (rear wing)
+    node_1_3 = enc_f32(1, 58.5)
+    node_1 = enc_f32(1, 55000.0) + enc_f32(1, 12000.0) + enc_msg(3, node_1_3)
+    node_5 = enc_varint_field(1, 3) + enc_varint_field(2, 4) + enc_varint_field(3, 6)
+    node_6 = enc_f32(2, 54.0) + enc_f32(3, 72.0) + enc_f32(5, 8.0)
+
+    setup_bytes = enc_msg(1, node_1) + enc_msg(5, node_5) + enc_msg(6, node_6)
+
+    setup_file = tmp_path / "baseline.carsetup"
+    setup_file.write_bytes(setup_bytes)
+
+    res = parse_carsetup_file(setup_file)
+    assert res is not None
+    assert res["setup_file_name"] == "baseline.carsetup"
+    assert res["electronics"]["tc1"] == 3
+    assert res["electronics"]["tc2"] == 4
+    assert res["electronics"]["abs"] == 6
+    assert res["electronics"]["brake_bias"] == 58.5
+    assert res["aero"]["rear_wing"] == 8.0
+    assert res["aero"]["ride_height_front_mm"] == 54.0
+    assert res["aero"]["ride_height_rear_mm"] == 72.0
+    assert res["aero"]["rake_mm"] == 18.0
+    assert res["chassis"]["arb_front"] == 55000.0
+    assert res["chassis"]["arb_rear"] == 12000.0

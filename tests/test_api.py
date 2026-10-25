@@ -123,6 +123,22 @@ def test_api_autodiscover(client):
     data = res.json()
     assert "acc_path" in data
     assert "lmu_path" in data
+    assert "acevo_path" in data
+    assert "ac1_path" in data
+
+    for key in ("acc_files", "lmu_files", "acevo_files", "ac1_files"):
+        assert key in data
+        files = data[key]
+        assert isinstance(files, list)
+        for f in files:
+            assert "filename" in f
+            assert "path" in f
+            assert "mtime" in f
+            assert "modified_at" in f
+            assert isinstance(f["mtime"], (int, float))
+        # Verify strict descending sort order (newest first)
+        mtimes = [f["mtime"] for f in files]
+        assert mtimes == sorted(mtimes, reverse=True)
 
 
 @pytest.mark.parametrize(
@@ -254,6 +270,32 @@ def test_car_setup_for_acevo_does_not_invent_fake_electronics(client):
     # Never return fabricated 3-4-5
     assert data["electronics"]["tc1"] is None
     assert data["electronics"]["abs"] is None
+
+
+def test_car_setup_with_binary_intervention_flags_does_not_report_fake_level_one(client):
+    """Binary TC/ABS slip flags (0.0/1.0) must not be treated as garage dial setting level 1."""
+    csv_content = (
+        "# simulator: Assetto Corsa EVO\n"
+        "# track: Red Bull Ring\n"
+        "# car: Porsche 911 GT2 RS Clubsport Evo (991II)\n"
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid,pressure_fl,pressure_fr,pressure_rl,pressure_rr,tc,abs,brake_bias\n"
+        "0.0,1,0.0,50.0,0.5,0.0,2,0.0,4000,0.1,0.2,0.0,0.0,0.0,0,1,25.5,25.5,25.0,25.0,0.0,0.0,65.0\n"
+        "0.1,1,10.0,60.0,0.8,0.0,2,0.0,4500,0.1,0.2,0.0,1.0,0.0,0,1,26.0,26.0,25.2,25.2,1.0,1.0,65.0\n"
+    )
+    up = client.post(
+        "/api/import/upload",
+        files={"file": ("acevo_test.csv", csv_content.encode(), "text/csv")},
+    )
+    assert up.status_code == 200
+    sid = up.json()["session_id"]
+
+    res = client.get("/api/car-setup", params={"session_id": sid})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["has_garage_setup"] is False
+    assert data["electronics"]["tc1"] is None
+    assert data["electronics"]["abs"] is None
+    assert data["electronics"]["brake_bias"] == 65.0
 
 
 def test_stint_analysis_endpoint(client):
