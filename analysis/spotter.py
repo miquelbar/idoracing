@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import threading
 from pathlib import Path
@@ -28,7 +29,7 @@ logger = logging.getLogger("pep_spotter")
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SPOTTER_CONFIG_FILE = ROOT_DIR / "data" / "spotter_config.json"
-VOICES_DIR = ROOT_DIR / "recorder" / "voices"
+VOICES_DIR = Path(os.environ.get("IDORACING_VOICES_DIR") or (ROOT_DIR / "recorder" / "voices"))
 
 TRACK_SLUG_MAP: dict[str, str] = {
     "valencia": "valencia",
@@ -107,7 +108,7 @@ async def synthesize_track_hotspots_async(track_slug: str, hotspots: list[dict[s
         for lang, text in scripts.items():
             dest_ogg = track_dir / lang / f"{clip_id}.ogg"
             dest_ogg.parent.mkdir(parents=True, exist_ok=True)
-            await generate_clip(clip_id, lang, text, dest_ogg, force=True)
+            await generate_clip(clip_id, lang, text, dest_ogg, force=False)
 
 
 def synthesize_track_hotspots_sync(track_slug: str, hotspots: list[dict[str, Any]]) -> None:
