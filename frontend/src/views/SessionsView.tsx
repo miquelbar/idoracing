@@ -156,6 +156,7 @@ interface SessionsViewProps {
   autoData: AutoDiscoverData | null;
   onImportLocal: (path: string) => void;
   onRefreshAutoData?: () => void;
+  onRescan?: () => Promise<number | void>;
   loading: boolean;
   comparison?: ComparisonResponse | null;
 }
@@ -178,6 +179,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   autoData,
   onImportLocal,
   onRefreshAutoData,
+  onRescan,
   loading,
   comparison,
 }) => {
@@ -185,6 +187,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'sessions' | 'stint' | 'import'>('sessions');
   const [filterGame, setFilterGame] = useState<'all' | 'acc' | 'lmu' | 'iracing' | 'acevo' | 'ac1' | 'dr2'>('all');
   const [uploading, setUploading] = useState(false);
+  const [rescanning, setRescanning] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sessionGroups, setSessionGroups] = useState<SessionGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -298,8 +301,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   );
   const isCurrentDemo = Boolean(selectedSessionId?.startsWith('synth_'));
   const nonDemoMatching = rawMatchingCarSessions.filter((s) => !s.is_demo && !s.session_id.startsWith('synth_'));
-  const matchingCarSessions =
-    !isCurrentDemo && nonDemoMatching.length > 0 ? nonDemoMatching : rawMatchingCarSessions;
+  const matchingCarSessions = (
+    !isCurrentDemo && nonDemoMatching.length > 0 ? nonDemoMatching : rawMatchingCarSessions
+  ).slice().sort((a, b) => (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0));
   const hasWorkspace50Hz = matchingCarSessions.some((s) => Boolean(s.has_telemetry));
 
   const formatSessionChipDate = (isoDate: string) => {
@@ -327,7 +331,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     sector_times?: number[];
   }
 
-  const allHistoricalLaps: HistoricalLapRow[] =
+  const allHistoricalLaps: HistoricalLapRow[] = (
     matchingCarSessions.length > 0
       ? matchingCarSessions.flatMap((sess) => {
           const fullLaps =
@@ -369,7 +373,15 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             is_outlap: Boolean(l.is_outlap || l.lap_time > 150 || lap1Slow || exceeds107),
             sector_times: l.sector_times,
           };
-        });
+        })
+  )
+    .slice()
+    .sort((a, b) => {
+      const timeA = new Date(a.sessionDate).getTime() || 0;
+      const timeB = new Date(b.sessionDate).getTime() || 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return a.lap_number - b.lap_number;
+    });
 
   const filteredHistoricalLaps =
     workspaceSessionFilter === 'all'
@@ -392,6 +404,26 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
       onSelectRefLapCross(historicalPbLap.sessionId, historicalPbLap.lap_number);
     } else {
       onSelectRefLap(historicalPbLap.lap_number);
+    }
+  };
+
+  const handleTriggerRescan = async () => {
+    if (!onRescan || rescanning) return;
+    setRescanning(true);
+    setStatusMsg(null);
+    try {
+      const count = await onRescan();
+      setStatusMsg({
+        type: 'success',
+        text:
+          typeof count === 'number' && count > 0
+            ? t('rescan_success').replace('{count}', String(count))
+            : `${t('rescan_success').replace('{count}', '0')} (${t('sessions_and_laps')})`,
+      });
+    } catch (e) {
+      setStatusMsg({ type: 'error', text: errorMessage(e, 'Error sincronizando simuladores') });
+    } finally {
+      setRescanning(false);
     }
   };
 
@@ -563,6 +595,19 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               >
                 DiRT / WRC
               </button>
+
+              {onRescan && (
+                <button
+                  type="button"
+                  onClick={handleTriggerRescan}
+                  disabled={rescanning || loading}
+                  title={t('rescan_btn')}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-brand text-gray-300 hover:text-black border border-white/10 hover:border-brand font-bold text-xs font-telemetry transition cursor-pointer shrink-0 disabled:opacity-50 ml-auto"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${rescanning ? 'animate-spin text-brand' : 'text-brand'}`} />
+                  <span>{rescanning ? t('rescanning') : t('rescan_btn')}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1026,7 +1071,9 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                               </div>
                               <div className="flex items-center gap-2 text-[10px] text-gray-400 font-telemetry mt-0.5">
                                 {lap.sessionDate && (
-                                  <span className="text-gray-400">{formatDate(lap.sessionDate, lang)}</span>
+                                  <span className="text-gray-400">
+                                    {formatFileDateTime(null, lap.sessionDate, undefined, lang) || formatSessionChipDate(lap.sessionDate)}
+                                  </span>
                                 )}
                                 {!lap.is_valid && (
                                   <span className="text-rose-400">({t('invalid_lap')})</span>

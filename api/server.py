@@ -133,8 +133,21 @@ def _already_imported_source_files() -> set[str]:
     """Return the set of source_file paths already stored in the database."""
     with storage._get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT source_file FROM sessions WHERE source_file IS NOT NULL")
-        return {row["source_file"] for row in cursor.fetchall()}
+        cols = {row["name"] for row in cursor.execute("PRAGMA table_info(sessions)")}
+        has_linked = "linked_result_file" in cols
+        query = (
+            "SELECT source_file, linked_result_file FROM sessions WHERE source_file IS NOT NULL"
+            if has_linked
+            else "SELECT source_file FROM sessions WHERE source_file IS NOT NULL"
+        )
+        cursor.execute(query)
+        sources = set()
+        for row in cursor.fetchall():
+            if row["source_file"]:
+                sources.add(row["source_file"])
+            if has_linked and row["linked_result_file"]:
+                sources.add(row["linked_result_file"])
+        return sources
 
 
 def _auto_import_from_dir(
@@ -173,6 +186,10 @@ def _auto_import_from_dir(
         if sess.laps:
             storage.save_session(sess)
             imported_sources.add(filepath)
+            if getattr(sess, "linked_result_file", None):
+                linked = sess.linked_result_file
+                imported_sources.add(linked)
+                storage.delete_session_by_source_file(linked)
             count += 1
             logger.info("Auto-imported %s: %s | %s | %d laps", sim_label, sess.track, sess.car, len(sess.laps))
         else:

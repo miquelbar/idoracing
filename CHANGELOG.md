@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Deduplication of AC EVO Results & Official Transponder PB Calibration**:
+  - Resolved duplicate "Solo Tiempos" sessions generated when driving with the recorder in Assetto Corsa EVO: `CSVImporter` now links the matching `.sessionresults.json` (`resolve_acevo_session_info`), calibrating the flying lap's duration and sector splits to official in-game transponder times (e.g. 1:43.701) with full 50Hz telemetry traces.
+  - Added database migration and storage deduplication: automatically eliminates bare `.sessionresults.json` entries (`duration == 0.0`) when a corresponding 50Hz `.csv` recording covers the same run.
+  - Enforced incomplete/in-lap detection for sessions cut short before crossing the finish line, preventing unfinished pit returns from masquerading as valid flying laps.
+- **Automatic Simulator Rescan & LMU Practice Lap Importer**:
+  - Fixed LMU XML result parser in `importers/lmu_importer.py` to gracefully handle practice stints and unclassified laps marked with `--.----`, recovering elapsed time deltas and sector splits as valid out-laps instead of discarding the session with `no timed laps`.
+  - Added background automatic rescan in `frontend/src/App.tsx` on application startup, on switching to the `/sessions` tab, and on window focus (alt-tabbing back from a driving session), automatically syncing new simulator runs without requiring backend restarts.
+  - Added a manual **"Sincronizar Simuladores"** button with spinning refresh icon in `frontend/src/views/SessionsView.tsx` with localized feedback toasts.
+- **Unified Track Canonical Normalization & Single Track Workspaces**:
+  - Expanded `TRACK_ALIASES` and keyword fallback matching in `domain/session.py` to capture all permutations of `"redbull ring"`, `"Redbull Ring"`, `"redbull"`, `"red_bull_ring"`, and `"spielberg"`.
+  - Added automatic database migration in `storage/database.py` that consolidates split session records (e.g. `Redbull Ring` and `Red Bull Ring`) into a single canonical workspace (`Red Bull Ring`), unifying telemetry recordings (50Hz CSVs) and simulator result files under the same circuit PB.
+- **Descending Session/Lap Ordering & Detailed Timestamps in Workspace**:
+  - Enhanced lap cards in `frontend/src/views/SessionsView.tsx` with human-readable time-of-day timestamps (`Hoy 21:29`, `25/10 21:23`) via `formatFileDateTime`, replacing raw date-only strings (`25/10/2026`).
+  - Sorted workspace sessions and recorded laps strictly descending by session timestamp (`new Date(sessionDate).getTime()`), ensuring newly driven stints appear immediately at the top of the active workspace.
+- **High-Fidelity Spotter Lead Times, Lap Wraps & Actionable GT3 Cues**:
+  - Added distance-wrap lap reset in `recorder/spotter.go`: detects circuit wraps (`sample.LapDistance < prevDist - 2000.0`) resetting hotspot fired states on every lap, enabling continuous corner calls on flying laps even when simulators leave `CompletedLaps` unpopulated.
+  - Reduced anti-overlap cooldown from 10.0s to 3.5s in `recorder/spotter.go`, preventing exit pace evaluations from suppressing the approach cues of subsequent corners.
+  - Advanced hotspot lead times in `analysis/spotter.py` from 250m to 380m (~5.5s before braking at 240 km/h) and tailored actionable engineer calls referencing realistic track brake markers (150m, 100m, 50m boards), apex gears, and throttle application.
 - **AC EVO Distance Tracking & Stateful Pit Detection**:
   - Fixed distance tracking in `recorder/pages.go` and `recorder/kunos_adapter_windows.go` falling through to speed integration when `normPos == 0.0` (zeroed in AC EVO) and sanitizing uninitialized coordinates and fluctuating lap counters.
   - Resolved spotter silence during laps in AC EVO: graphics shared memory (`Local\acevo_pmf_graphics`) shifts byte 1236 (`IsInPitLane`) inside `SMEvoElectronics`, reading non-zero dial settings and locking `InPit` to 1. Added stateful pit detection in `recorder/kunos_adapter_windows.go` and racing speed override (`SpeedKmh > 75.0`), allowing Pep to cleanly detect pit exit and announce hotspots and corner feedback throughout the entire lap.

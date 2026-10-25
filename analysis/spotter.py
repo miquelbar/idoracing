@@ -107,10 +107,24 @@ async def synthesize_track_hotspots_async(track_slug: str, hotspots: list[dict[s
         corner_id = h["corner_id"]
         target_brake = h["target_brake_m"]
         clip_id = h["clip_id"]
+        c_name = h.get("corner_name") or f"Curva {corner_id}"
+
+        if target_brake >= 175:
+            board_es = "en el 200"
+            board_en = "at the 200 board"
+        elif target_brake >= 125:
+            board_es = "en el 150"
+            board_en = "at the 150 board"
+        elif target_brake >= 75:
+            board_es = "en el 100"
+            board_en = "at the 100 board"
+        else:
+            board_es = "en el 50"
+            board_en = "at the 50 board"
 
         scripts = {
-            "es": f"Atento en la {corner_id}: frena en el {target_brake} y aguanta el trail braking al vértice.",
-            "en": f"Focus on turn {corner_id}: brake at the {target_brake} board and trail brake to the apex.",
+            "es": f"{c_name}: frena {board_es}, vértice limpio y tracciona pronto.",
+            "en": f"{c_name}: brake {board_en}, clean apex and early on throttle.",
         }
 
         for lang, text in scripts.items():
@@ -174,12 +188,14 @@ def export_track_spotter_manifest(
         key=lambda c: getattr(c, "ideal_time_gain", 0.0) or 0.0,
         reverse=True,
     )
-    top_corners = sorted_corners[:3]
+    # Take up to 6 key corners with highest deficit, sorted sequentially around track
+    top_corners = sorted(sorted_corners[:6], key=lambda c: c.start_dist)
 
     hotspots: list[dict[str, Any]] = []
     for i, c in enumerate(top_corners):
         slot = i + 1
-        trigger_dist_m = round((c.start_dist - 250.0) % track_len, 1)
+        # Give ~380m lead time before corner start (~5.5s at 240 km/h) for crisp engineer call
+        trigger_dist_m = round((c.start_dist - 380.0) % track_len, 1)
 
         apex = c.apex_dist if c.apex_dist is not None else (c.start_dist + c.end_dist) / 2.0
         bp = c.ideal_brake_point

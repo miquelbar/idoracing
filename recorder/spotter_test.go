@@ -341,3 +341,55 @@ func TestNormalizeTrackSlugRedBullRing(t *testing.T) {
 		}
 	}
 }
+
+func TestSpotterLapWrapResetsHotspots(t *testing.T) {
+	s, buf := newTestSpotterWithBuffer()
+	tmpDir := t.TempDir()
+	valDir := filepath.Join(tmpDir, "tracks", "valencia", "es")
+	if err := os.MkdirAll(valDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(valDir, "hotspot_1.ogg"), []byte("dummy"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.VoicesDir = tmpDir
+
+	meta := SessionMetadata{Track: "valencia", TrackSplineLength: 4005.0}
+	s.Manifest = &SpotterManifest{
+		TrackSlug:    "valencia",
+		TrackLengthM: 4005.0,
+		Hotspots: []SpotterHotspot{
+			{Slot: 1, CornerID: 1, TriggerDistM: 110.0, CornerStartM: 360.0, CornerEndM: 640.0, ClipID: "hotspot_1"},
+		},
+	}
+	s.Calibrated = true
+	s.ManifestLoaded = true
+	s.TrackSlug = "valencia"
+	s.pitExitAnnounced = true // bypass pit exit greeting in this lap wrap test
+
+	now := time.Now()
+	s.prevDist = 100.0
+	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 120.0, SpeedKmh: 180.0}, meta, true, now)
+	if !strings.Contains(buf.String(), "PEP_PLAY|hotspot_1") && !strings.Contains(buf.String(), "PEP_PLAY|turn_1") {
+		t.Fatalf("expected hotspot_1 on first lap, got %s", buf.String())
+	}
+
+	// Move near end of lap
+	buf.Reset()
+	now = now.Add(40 * time.Second)
+	s.prevDist = 3980.0
+	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 4000.0, SpeedKmh: 200.0}, meta, true, now)
+
+	// Lap wrap: distance drops from 4000m to 10m, but Lap counter stays 1 (AC EVO behavior)
+	now = now.Add(5 * time.Second)
+	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 10.0, SpeedKmh: 210.0}, meta, true, now)
+
+	// Approach hotspot_1 on Lap 2
+	now = now.Add(5 * time.Second)
+	s.prevDist = 100.0
+	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 120.0, SpeedKmh: 210.0}, meta, true, now)
+
+	if !strings.Contains(buf.String(), "PEP_PLAY|hotspot_1") && !strings.Contains(buf.String(), "PEP_PLAY|turn_1") {
+		t.Fatalf("expected hotspot_1 to trigger again on Lap 2 after distance wrap, got: %s", buf.String())
+	}
+}

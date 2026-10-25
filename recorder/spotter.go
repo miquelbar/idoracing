@@ -229,10 +229,11 @@ func (s *Spotter) Step(sample TelemetrySample, meta SessionMetadata, live bool, 
 	}
 
 	// 4. Lap transition and session PB tracking
+	lapWrapped := s.prevDist > 0 && sample.LapDistance < s.prevDist-2000.0
 	if s.currentLap == 0 {
 		s.currentLap = sample.Lap
 		s.resetLapHotspots()
-	} else if sample.Lap != s.currentLap {
+	} else if sample.Lap != s.currentLap || lapWrapped {
 		// Check personal best in uncalibrated mode (or when a valid lap completed)
 		if sample.LapValid != 0 && sample.LastLapTimeMs > 20000 {
 			if s.bestLapMs <= 0 || sample.LastLapTimeMs < s.bestLapMs {
@@ -326,12 +327,12 @@ func (s *Spotter) ToggleMute(now time.Time) {
 	}
 }
 
-// emitWithCooldown emits an audio event respecting the strict 10s cooldown.
+// emitWithCooldown emits an audio event respecting the 3.5s anti-overlap cooldown.
 func (s *Spotter) emitWithCooldown(clipID string, now time.Time) bool {
 	if s.Muted {
 		return false
 	}
-	if !s.lastEmittedAt.IsZero() && now.Sub(s.lastEmittedAt) < 10*time.Second {
+	if !s.lastEmittedAt.IsZero() && now.Sub(s.lastEmittedAt) < 3500*time.Millisecond {
 		return false
 	}
 	s.emit(clipID, now)

@@ -47,12 +47,17 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
     epsilon = 0.05
   ) => {
     if (p1Val == null && p2Val == null) {
+      const isGarageLinked = setup.has_garage_setup;
       return (
         <span
-          className="text-sm font-semibold text-gray-500 cursor-help"
-          title="Parámetro no disponible. Guarda un setup (.carsetup / .ini) en el simulador para que IdoRacing lo lea."
+          className={`text-xs font-semibold ${isGarageLinked ? 'text-gray-300' : 'text-gray-500'} cursor-help`}
+          title={
+            isGarageLinked
+              ? 'Reglaje fijo o no regulable en el garaje para este modelo de coche'
+              : 'Parámetro no disponible. Guarda un setup (.carsetup / .ini) en el simulador para que IdoRacing lo lea.'
+          }
         >
-          N/D
+          {isGarageLinked ? 'Fijo / De serie' : 'N/D'}
         </span>
       );
     }
@@ -541,7 +546,16 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
                     {activeSetup.electronics.ecu_map != null ? (
                       <span className="text-sm font-black text-white">Mapa #{activeSetup.electronics.ecu_map}</span>
                     ) : (
-                      <span className="text-sm font-semibold text-gray-500">N/D</span>
+                      <span
+                        className={`text-xs font-semibold ${setup.has_garage_setup ? 'text-gray-300' : 'text-gray-500'} cursor-help`}
+                        title={
+                          setup.has_garage_setup
+                            ? 'Mapa único / no regulable en este vehículo'
+                            : 'Reglaje no disponible sin guardar setup en garaje'
+                        }
+                      >
+                        {setup.has_garage_setup ? 'Fijo / De serie' : 'N/D'}
+                      </span>
                     )}
                   </div>
                 </div>

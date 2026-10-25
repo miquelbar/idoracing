@@ -63,3 +63,33 @@ def test_lmu_importer_skips_voided_laps():
         # Voided laps ("--.----") must not become fake 139-second laps from et deltas.
         assert [(l.lap_number, l.lap_time) for l in session.laps] == [(3, 147.431)]
         assert session.laps[0].sector_times == [54.9635, 43.4607, 49.0065]
+
+
+def test_lmu_importer_parses_practice_sessions_with_only_voided_laps():
+    content = """<?xml version="1.0" encoding="utf-8"?>
+<rFactorXML version="1.0">
+<RaceResults>
+<TrackVenue>Algarve International Circuit</TrackVenue>
+<Driver>
+<Name>Miquel</Name>
+<VehName>Porsche 911 GT3 R LMGT3</VehName>
+<isPlayer>1</isPlayer>
+<Lap num="1" et="--.---">--.----</Lap>
+<Lap num="2" et="58.7323">--.----</Lap>
+<Lap num="3" et="295.9164">--.----</Lap>
+</Driver>
+</RaceResults>
+</rFactorXML>
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        xml_p = os.path.join(tmpdir, "lmu_test.xml")
+        with open(xml_p, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        session = LMUImporter(xml_p).parse()
+
+        # Sessions with only voided laps must not be dropped completely; they should recover elapsed deltas as outlaps
+        assert session.track == "Algarve International Circuit"
+        assert len(session.laps) >= 1
+        assert session.laps[-1].lap_time == 237.184
+        assert session.laps[-1].is_valid is False

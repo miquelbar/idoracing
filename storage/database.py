@@ -3,12 +3,15 @@ SQLite storage for IdoRacing sessions, laps and coaching reports.
 """
 
 import json
+import logging
 import os
 import sqlite3
 from datetime import datetime
 from typing import Any
 
 from domain.session import CoachReport, Lap, Session, SessionSummary, normalize_car_name, normalize_track_name
+
+logger = logging.getLogger(__name__)
 
 
 class Storage:
@@ -79,6 +82,9 @@ class Storage:
                 cursor.execute("ALTER TABLE sessions ADD COLUMN simulator TEXT")
                 cursor.execute("UPDATE sessions SET simulator = 'Le Mans Ultimate' WHERE source_file LIKE '%.xml'")
 
+            if "linked_result_file" not in session_columns:
+                cursor.execute("ALTER TABLE sessions ADD COLUMN linked_result_file TEXT")
+
             lap_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(laps)")}
             if "synthetic" not in lap_columns:
                 cursor.execute("ALTER TABLE laps ADD COLUMN synthetic INTEGER NOT NULL DEFAULT 0")
@@ -103,6 +109,35 @@ class Storage:
             cursor.execute("""
             UPDATE sessions SET track = 'Ricardo Tormo de Valencia'
             WHERE LOWER(track) IN ('valencia', 'ricardo tormo', 'circuit ricardo tormo', 'cheste')
+               OR LOWER(track) LIKE '%valencia%'
+               OR LOWER(track) LIKE '%ricardo tormo%'
+            """)
+            cursor.execute("""
+            UPDATE sessions SET track = 'Red Bull Ring'
+            WHERE LOWER(track) IN ('redbull ring', 'redbullring', 'red_bull_ring', 'redbull', 'spielberg', 'austria', 'rbr')
+               OR LOWER(track) LIKE '%redbull%'
+               OR LOWER(track) LIKE '%red bull%'
+               OR LOWER(track) LIKE '%spielberg%'
+            """)
+
+            # Remove bare AC EVO sessionresults.json entries if a corresponding 50Hz CSV recording exists
+            cursor.execute("""
+            DELETE FROM laps WHERE session_id IN (
+                SELECT b.id FROM sessions b
+                JOIN sessions c ON b.track = c.track AND b.car = c.car
+                WHERE b.simulator = 'Assetto Corsa EVO' AND b.source_file LIKE '%.json' AND (b.duration IS NULL OR b.duration = 0.0)
+                  AND c.source_file LIKE '%.csv' AND c.duration > 0.0
+                  AND abs(strftime('%s', b.date) - strftime('%s', c.date)) < 1200
+            )
+            """)
+            cursor.execute("""
+            DELETE FROM sessions WHERE id IN (
+                SELECT b.id FROM sessions b
+                JOIN sessions c ON b.track = c.track AND b.car = c.car
+                WHERE b.simulator = 'Assetto Corsa EVO' AND b.source_file LIKE '%.json' AND (b.duration IS NULL OR b.duration = 0.0)
+                  AND c.source_file LIKE '%.csv' AND c.duration > 0.0
+                  AND abs(strftime('%s', b.date) - strftime('%s', c.date)) < 1200
+            )
             """)
             conn.commit()
 
@@ -116,6 +151,26 @@ class Storage:
         valid_laps = [l.lap_time for l in session.laps if l.is_valid and l.lap_time > 0]
         best_lap = min(valid_laps) if valid_laps else 0.0
 
+        # For AC EVO: if saving a bare results session (duration == 0), don't insert if a 50Hz CSV session exists
+        if (
+            session.simulator == "Assetto Corsa EVO"
+            and (session.source_file or "").endswith(".json")
+            and duration <= 0.0
+        ):
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                SELECT 1 FROM sessions
+                WHERE track = ? AND car = ? AND source_file LIKE '%.csv' AND duration > 0.0
+                  AND abs(strftime('%s', date) - strftime('%s', ?)) < 1200
+                """,
+                    (session.track, session.car, session.date.isoformat()),
+                )
+                if cursor.fetchone():
+                    logger.info("Skipping bare AC EVO session %s: covered by 50Hz CSV", session.session_id)
+                    return session.id
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM sessions WHERE session_id = ?", (session.session_id,))
@@ -125,13 +180,21 @@ class Storage:
                 # Clean up old laps for this session before inserting new ones
                 cursor.execute("DELETE FROM laps WHERE session_id = ?", (session.id,))
 
+            # If this session links to a result file (e.g. AC EVO .sessionresults.json), delete any bare duplicate
+            if getattr(session, "linked_result_file", None):
+                cursor.execute("SELECT id FROM sessions WHERE source_file = ?", (session.linked_result_file,))
+                dup = cursor.fetchone()
+                if dup:
+                    cursor.execute("DELETE FROM laps WHERE session_id = ?", (dup["id"],))
+                    cursor.execute("DELETE FROM sessions WHERE id = ?", (dup["id"],))
+
             # Insert or replace session
             cursor.execute(
                 """
             INSERT OR REPLACE INTO sessions (
                 id, session_id, car, track, date, source_file, best_lap_time, duration, average_speed, created_at,
-                simulator
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                simulator, linked_result_file
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     session.id,
@@ -145,6 +208,7 @@ class Storage:
                     avg_speed,
                     datetime.now().isoformat(),
                     session.simulator,
+                    getattr(session, "linked_result_file", None),
                 ),
             )
 
@@ -279,6 +343,7 @@ class Storage:
                         simulator=r["simulator"],
                         has_telemetry=not is_times_only,
                         is_demo=is_demo,
+                        source_file=r["source_file"],
                     )
                 )
             return summaries
@@ -289,6 +354,19 @@ class Storage:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM laps WHERE session_id = ?", (session_id,))
             cursor.execute("DELETE FROM sessions WHERE id = ? OR session_id = ?", (session_id, session_id))
+            conn.commit()
+
+    def delete_session_by_source_file(self, source_file: str):
+        """Delete any session imported from a specific source file and its laps."""
+        if not source_file:
+            return
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM sessions WHERE source_file = ?", (source_file,))
+            rows = cursor.fetchall()
+            for r in rows:
+                cursor.execute("DELETE FROM laps WHERE session_id = ?", (r["id"],))
+            cursor.execute("DELETE FROM sessions WHERE source_file = ?", (source_file,))
             conn.commit()
 
     def get_lap_summaries(self, session_id: str) -> list[dict[str, Any]]:

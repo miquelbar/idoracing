@@ -68,6 +68,9 @@ def resolve_acevo_session_info(csv_filepath: str | None = None, date_hint: datet
                     return abs(os.path.getmtime(f) - date_hint.timestamp())
 
                 json_files.sort(key=_time_diff)
+                # If closest result file is more than 2 hours away from date_hint, don't match
+                if date_hint and json_files and _time_diff(json_files[0]) > 7200:
+                    json_files = []
             else:
                 json_files.sort(key=os.path.getmtime, reverse=True)
 

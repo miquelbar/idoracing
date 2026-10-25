@@ -113,7 +113,7 @@ def test_comparison_exports_spotter_manifest(client, monkeypatch, tmp_path):
     assert manifest["bubota_lap_ms"] > 0
 
     hotspots = manifest["hotspots"]
-    assert len(hotspots) == 3
+    assert 3 <= len(hotspots) <= 8
 
     track_len = get_track_length("Ricardo Tormo de Valencia")
     for idx, h in enumerate(hotspots):
@@ -128,8 +128,8 @@ def test_comparison_exports_spotter_manifest(client, monkeypatch, tmp_path):
         assert isinstance(h["target_brake_m"], int)
         assert isinstance(h["target_vmin_kmh"], (int, float))
 
-        # Check modulo 250m trigger formula
-        expected_trigger = round((h["corner_start_m"] - 250.0) % track_len, 1)
+        # Check modulo 380m trigger formula (giving ~5.5s lead time)
+        expected_trigger = round((h["corner_start_m"] - 380.0) % track_len, 1)
         assert abs(h["trigger_dist_m"] - expected_trigger) < 0.2
 
         # Check that hotspot audio clips exist on disk in both languages

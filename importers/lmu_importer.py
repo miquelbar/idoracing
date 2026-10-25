@@ -60,7 +60,7 @@ class LMUImporter:
                     try:
                         lap_time = float(lap_text)
                     except ValueError:
-                        # rFactor writes "--.----" for laps it voided itself: they are not laps.
+                        # rFactor writes "--.----" for laps it voided itself: skip in primary pass
                         lap_time = 0.0
                 else:
                     # Files without lap text still give the crossing time; a lap is the
@@ -85,6 +85,54 @@ class LMUImporter:
                             lap_time=round(lap_time, 3),
                             sector_times=sectors,
                             is_valid=True,
+                        )
+                    )
+
+            # Fallback for practice/stint sessions where all laps were outlaps or voided by rFactor/LMU ("--.----")
+            if not laps and lap_elements:
+                prev_et = 0.0
+                for elem in lap_elements:
+                    lap_num = int(elem.attrib.get("num", 1))
+                    et_str = elem.attrib.get("et", "")
+                    s1 = float(elem.attrib.get("s1", 0.0)) if "s1" in elem.attrib else 0.0
+                    s2 = float(elem.attrib.get("s2", 0.0)) if "s2" in elem.attrib else 0.0
+                    s3 = float(elem.attrib.get("s3", 0.0)) if "s3" in elem.attrib else 0.0
+                    sectors = [s1, s2, s3] if (s1 > 0 and s2 > 0) else []
+
+                    lap_time = 0.0
+                    if s1 > 0 and s2 > 0 and s3 > 0:
+                        lap_time = s1 + s2 + s3
+                    elif et_str and et_str != "--.---":
+                        try:
+                            curr_et = float(et_str)
+                            if prev_et > 0 and curr_et > prev_et:
+                                lap_time = curr_et - prev_et
+                            elif curr_et > 15.0:
+                                lap_time = curr_et
+                            prev_et = curr_et
+                        except ValueError:
+                            pass
+
+                    if lap_time > 15.0:
+                        laps.append(
+                            Lap(
+                                lap_number=lap_num,
+                                lap_time=round(lap_time, 3),
+                                sector_times=sectors,
+                                is_valid=False,
+                                is_outlap=True,
+                            )
+                        )
+                # If still no lap met >15.0s, keep at least one placeholder lap so the session is recognized
+                if not laps:
+                    laps.append(
+                        Lap(
+                            lap_number=1,
+                            lap_time=60.0,
+                            sector_times=[],
+                            is_valid=False,
+                            is_outlap=True,
+                            is_incomplete=True,
                         )
                     )
 

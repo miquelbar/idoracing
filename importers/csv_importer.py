@@ -11,7 +11,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from domain.session import Lap, Session
+from domain.session import Lap, Session, normalize_track_name
 from importers.acevo_importer import resolve_acevo_session_info
 from importers.laps import distance_covered, truncate_teleport_jumps, without_boundary_wrap
 
@@ -71,6 +71,14 @@ class CSVImporter:
         acevo_info = {}
         if is_acevo:
             acevo_info = resolve_acevo_session_info(self.filepath, session_date)
+            if acevo_info:
+                csv_track = metadata.get("track", "")
+                if (
+                    csv_track
+                    and csv_track not in ("", "Unknown track", "Ricardo Tormo de Valencia")
+                    and normalize_track_name(csv_track) != normalize_track_name(acevo_info.get("track", ""))
+                ):
+                    acevo_info = {}
             if acevo_info:
                 if not metadata.get("track") or metadata.get("track") in (
                     "",
@@ -145,9 +153,16 @@ class CSVImporter:
         if "lap" in telemetry:
             lap_arr = np.array(telemetry["lap"])
             unique_laps = np.unique(lap_arr)
+            dist_series = telemetry.get("distance", [])
+            total_dist = dist_series[-1] if len(dist_series) > 0 else 0.0
             # In AC EVO Early Access, the shared memory offset for CompletedLaps contains NormalizedCarPosition (float32)
-            # resulting in hundreds/thousands of pseudo-unique lap numbers or negative numbers.
-            if is_acevo and (len(unique_laps) > 20 or np.any(lap_arr < -100) or np.any(lap_arr > 10000)):
+            # resulting in hundreds/thousands of pseudo-unique lap numbers, or remains stuck on 1 for the whole session.
+            if is_acevo and (
+                len(unique_laps) > 20
+                or np.any(lap_arr < -100)
+                or np.any(lap_arr > 10000)
+                or (len(unique_laps) <= 1 and total_dist > 4500.0)
+            ):
                 corrupted_laps = True
             else:
                 for l_num in unique_laps:
@@ -207,7 +222,11 @@ class CSVImporter:
 
             # 2. From official session result lap time (best_lap_s) and telemetry flying speed
             if track_len < 100.0:
-                best_lap_s = acevo_info.get("best_lap_s", 0.0) if (is_acevo and acevo_info) else 0.0
+                best_lap_s = (
+                    float(acevo_info.get("best_lap") or acevo_info.get("best_lap_s") or 0.0)
+                    if (is_acevo and acevo_info)
+                    else 0.0
+                )
                 if best_lap_s > 20.0 and "speed" in telemetry and "time" in telemetry:
                     flying_speeds = [
                         s for s, t in zip(telemetry["speed"], telemetry["time"], strict=False) if s > 60.0 and t > 60.0
@@ -225,7 +244,8 @@ class CSVImporter:
                 current_target = track_len
                 lap_idx = 1
                 for i, d in enumerate(dist_series):
-                    if d >= current_target or i == len(dist_series) - 1:
+                    is_last_sample = i == len(dist_series) - 1
+                    if d >= current_target or is_last_sample:
                         if i - lap_start_idx >= 30:
                             lap_tel = {k: telemetry[k][lap_start_idx:i] for k in telemetry}
                             t0 = lap_tel["time"][0]
@@ -235,7 +255,7 @@ class CSVImporter:
                             lap_time = float(lap_tel["time"][-1] - lap_tel["time"][0])
 
                             span = d - dist_series[lap_start_idx]
-                            is_inc = span < 0.7 * track_len
+                            is_inc = span < 0.7 * track_len or (is_last_sample and d < current_target)
                             is_out = (lap_idx == 1 and lap_time > 120.0) or is_inc
                             is_val = not is_out and not is_inc and (0.7 * track_len <= span <= 1.3 * track_len)
 
@@ -255,6 +275,22 @@ class CSVImporter:
                             lap_idx += 1
                         lap_start_idx = i
                         current_target += track_len
+
+        # For AC EVO: if official session result best lap is available, calibrate the flying lap
+        if is_acevo and acevo_info:
+            official_best = float(acevo_info.get("best_lap") or 0.0)
+            splits = acevo_info.get("splits") or []
+            if official_best > 20.0 and laps:
+                valid_laps = [l for l in laps if l.is_valid and not l.is_outlap and not l.is_incomplete]
+                if not valid_laps:
+                    valid_laps = [l for l in laps if not l.is_outlap and not l.is_incomplete]
+                if valid_laps:
+                    flying_lap = min(valid_laps, key=lambda l: abs(l.lap_time - official_best))
+                    if abs(flying_lap.lap_time - official_best) <= max(10.0, official_best * 0.10):
+                        flying_lap.lap_time = round(official_best, 3)
+                        flying_lap.is_valid = True
+                        if splits:
+                            flying_lap.sector_times = splits
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:
@@ -283,6 +319,7 @@ class CSVImporter:
             laps=laps,
             source_file=self.filepath,
             simulator=metadata.get("simulator"),
+            linked_result_file=acevo_info.get("result_file") if (is_acevo and acevo_info) else None,
         )
 
     def _read_metadata(self) -> dict[str, str]:

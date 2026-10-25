@@ -10,6 +10,7 @@ import {
   fetchSessions,
   generateDemoSession,
   importLocalFile,
+  rescanSimulators,
 } from './services/api';
 import type {
   AutoDiscoverData,
@@ -240,9 +241,42 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Auto-rescan when window gains focus (e.g. driver alt-tabs back from simulator)
+  useEffect(() => {
+    let focusTimer: number;
+    const handleFocus = () => {
+      clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(() => {
+        rescanSimulators()
+          .then((res) => {
+            if (res.imported > 0) {
+              fetchSessions().then(setSessions);
+              autodiscoverSims().then(setAutoData);
+            }
+          })
+          .catch(() => {});
+      }, 500);
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearTimeout(focusTimer);
+    };
+  }, []);
+
   const handleNavigateTab = (tab: NavTab) => {
     setCurrentTab(tab);
     window.location.hash = `#/${tab}`;
+    if (tab === 'sessions') {
+      rescanSimulators()
+        .then((res) => {
+          if (res.imported > 0) {
+            fetchSessions().then(setSessions);
+            autodiscoverSims().then(setAutoData);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const loadInitialData = async () => {
@@ -254,7 +288,14 @@ export const App: React.FC = () => {
       const h = await fetchHealth();
       setStatus(h);
 
-      // 2. Fetch local autodiscovered sim files
+      // 2. Rescan simulator folders for any newly recorded sessions
+      try {
+        await rescanSimulators();
+      } catch (err) {
+        console.warn('Simulator rescan warning:', err);
+      }
+
+      // 3. Fetch local autodiscovered sim files
       try {
         const ad = await autodiscoverSims();
         setAutoData(ad);
@@ -262,7 +303,7 @@ export const App: React.FC = () => {
         console.warn('Auto-discover warning:', err);
       }
 
-      // 3. Fetch existing sessions
+      // 4. Fetch existing sessions
       let sList = await fetchSessions();
       if (sList.length === 0) {
         await generateDemoSession();
@@ -424,6 +465,15 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRescanSimulators = async (): Promise<number> => {
+    const res = await rescanSimulators();
+    const sList = await fetchSessions();
+    setSessions(sList);
+    const ad = await autodiscoverSims();
+    setAutoData(ad);
+    return res.imported;
+  };
+
   const handleSettingsSaved = async () => {
     try {
       const h = await fetchHealth();
@@ -566,6 +616,7 @@ export const App: React.FC = () => {
                 autoData={autoData}
                 onImportLocal={handleImportLocal}
                 onRefreshAutoData={handleRefreshAutoData}
+                onRescan={handleRescanSimulators}
                 loading={loadingDemo}
               />
             )}

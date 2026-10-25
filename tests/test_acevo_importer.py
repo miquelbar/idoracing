@@ -123,6 +123,40 @@ def test_resolve_acevo_session_info(tmp_path):
     assert sess.car == "Porsche 911 GT2 RS Clubsport Evo (991II)"
     assert sess.simulator == "Assetto Corsa EVO"
     assert len(sess.laps) > 0
+    assert sess.linked_result_file == str(results_file)
+
+
+def test_acevo_deduplication_removes_bare_json_when_csv_saved(tmp_path):
+    from importers.csv_importer import CSVImporter
+    from storage.database import Storage
+
+    db_path = str(tmp_path / "test.db")
+    storage = Storage(db_path)
+
+    # 1. Import bare results session
+    results_path = _write_results(tmp_path)
+    bare_sess = ACEVOImporter(results_path).parse()
+    storage.save_session(bare_sess)
+    assert len(storage.list_sessions()) == 1
+
+    # 2. Simulate 50Hz CSV with linked_result_file
+    csv_file = tmp_path / "recording.csv"
+    csv_file.write_text(
+        "# simulator: Assetto Corsa EVO\n"
+        "# track: Red Bull Ring\n"
+        "# car: Porsche 911 GT2 RS Clubsport Evo (991II)\n"
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel\n"
+        + "\n".join(f"{i * 0.05:.3f},1,0.01,150.0,1.0,0.0,4,0.0,6000,0.5,0.1" for i in range(100))
+    )
+    csv_sess = CSVImporter(str(csv_file)).parse()
+    csv_sess.linked_result_file = results_path
+    storage.save_session(csv_sess)
+
+    # Bare session should have been deleted, leaving only the 50Hz CSV session
+    all_sess = storage.list_sessions()
+    assert len(all_sess) == 1
+    assert all_sess[0].has_telemetry is True
+    assert all_sess[0].source_file == str(csv_file)
 
 
 def test_acevo_carsetup_binary_decoder(tmp_path):

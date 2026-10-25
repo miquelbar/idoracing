@@ -66,10 +66,14 @@ TRACK_ALIASES: dict[str, str] = {
     "ricardo tormo de valencia": "Ricardo Tormo de Valencia",
     "cheste": "Ricardo Tormo de Valencia",
     "red bull ring": "Red Bull Ring",
+    "redbull ring": "Red Bull Ring",
     "redbullring": "Red Bull Ring",
     "red_bull_ring": "Red Bull Ring",
+    "redbull": "Red Bull Ring",
+    "red_bull": "Red Bull Ring",
     "spielberg": "Red Bull Ring",
     "austria": "Red Bull Ring",
+    "rbr": "Red Bull Ring",
 }
 
 
@@ -86,7 +90,14 @@ def normalize_track_name(track: str | None) -> str:
     if not track:
         return ""
     cleaned = track.strip()
-    return TRACK_ALIASES.get(cleaned.lower(), _generic_format_name(cleaned))
+    low = cleaned.lower()
+    if low in TRACK_ALIASES:
+        return TRACK_ALIASES[low]
+    if "red bull" in low or "redbull" in low or "spielberg" in low:
+        return "Red Bull Ring"
+    if "valencia" in low or "ricardo tormo" in low or "cheste" in low:
+        return "Ricardo Tormo de Valencia"
+    return _generic_format_name(cleaned)
 
 
 def is_outlap_detected(
@@ -166,6 +177,9 @@ class Session(BaseModel):
     laps: list[Lap] = Field(default_factory=list, description="List of segmented laps")
     source_file: str | None = Field(default=None, description="Original source filename or path")
     simulator: str | None = Field(default=None, description="Simulator that recorded the session, when it can be told")
+    linked_result_file: str | None = Field(
+        default=None, description="Path to corresponding result file (e.g. ACE .sessionresults.json)"
+    )
 
     @model_validator(mode="after")
     def validate_telemetry_channels(self) -> "Session":
@@ -209,6 +223,7 @@ class SessionSummary(BaseModel):
     simulator: str | None = None
     has_telemetry: bool = True
     is_demo: bool = False
+    source_file: str | None = None
 
 
 class CornerAnalysis(BaseModel):

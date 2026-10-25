@@ -80,6 +80,10 @@ def test_generic_track_and_car_name_normalization():
     # Known aliases map to canonical names
     assert normalize_track_name("valencia") == "Ricardo Tormo de Valencia"
     assert normalize_track_name("red_bull_ring") == "Red Bull Ring"
+    assert normalize_track_name("redbull ring") == "Red Bull Ring"
+    assert normalize_track_name("Redbull Ring") == "Red Bull Ring"
+    assert normalize_track_name("redbull") == "Red Bull Ring"
+    assert normalize_track_name("spielberg") == "Red Bull Ring"
     assert normalize_car_name("porsche_992_gt3_r") == "Porsche 911 GT3 R (992)"
 
     # Unknown circuits and cars are normalized generically without any code changes
