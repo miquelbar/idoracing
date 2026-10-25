@@ -44,3 +44,25 @@ def test_csv_laps_start_at_zero_time_and_distance(tmp_path):
     assert sess.laps[1].telemetry["time"][0] == 0.0
     assert sess.laps[1].telemetry["distance"][0] == 0.0
     assert sess.laps[1].lap_time == pytest.approx(2.9)
+
+
+def test_csv_importer_setup_and_pressure_columns(tmp_path):
+    rows = [
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid,pressure_fl,pressure_fr,pressure_rl,pressure_rr,tc,abs,brake_bias"
+    ]
+    for i in range(25):
+        rows.append(
+            f"{i * 0.1:.3f},1,{i * 10:.2f},180.0,1.0,0.0,4,0.0,7500,0.5,0.2,0.0,10.0,20.0,0,1,26.8,26.9,26.7,26.8,3.0,4.0,54.5"
+        )
+    csv_path = tmp_path / "acevo_setup_tel.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+    assert "pressure_fl" in sess.telemetry
+    assert "tc" in sess.telemetry
+    assert "abs" in sess.telemetry
+    assert "brake_bias" in sess.telemetry
+    assert sess.telemetry["pressure_fl"][0] == 26.8
+    assert sess.telemetry["tc"][0] == 3.0
+    assert sess.telemetry["abs"][0] == 4.0
+    assert sess.telemetry["brake_bias"][0] == 54.5

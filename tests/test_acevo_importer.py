@@ -89,3 +89,37 @@ def test_parse_time_str():
     assert _parse_time_str("1:02:03.500") == pytest.approx(3723.5)
     assert _parse_time_str("") == 0.0
     assert _parse_time_str("--.----") == 0.0
+
+
+def test_resolve_acevo_session_info(tmp_path):
+    from importers.acevo_importer import resolve_acevo_session_info
+    from importers.csv_importer import CSVImporter
+
+    # Mock AC EVO prefix structure:
+    # <pfx>/drive_c/users/steamuser/Saved Games/ACE/Results/261025-1408_SP_Practice.sessionresults.json
+    # <pfx>/drive_c/users/steamuser/Documents/IdoRacing/recordings/acevo___20261025-140102.csv
+    ace_dir = tmp_path / "drive_c" / "users" / "steamuser" / "Saved Games" / "ACE" / "Results"
+    ace_dir.mkdir(parents=True)
+    results_file = ace_dir / "261025-1408_SP_Practice.sessionresults.json"
+    results_file.write_text(json.dumps(RESULTS), encoding="utf-8")
+
+    rec_dir = tmp_path / "drive_c" / "users" / "steamuser" / "Documents" / "IdoRacing" / "recordings"
+    rec_dir.mkdir(parents=True)
+    csv_file = rec_dir / "acevo___20261025-140102.csv"
+    csv_file.write_text(
+        "# simulator: Assetto Corsa EVO\n"
+        "# track: \n"
+        "# car: \n"
+        "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel\n"
+        + "\n".join(f"{i * 0.033:.3f},1064062622,0.01,150.0,1.0,0.0,4,0.0,6000,0.5,0.1" for i in range(4000))
+    )
+
+    info = resolve_acevo_session_info(str(csv_file), datetime(2026, 10, 25, 14, 1))
+    assert info["track"] == "Red Bull Ring"
+    assert info["car"] == "Porsche 911 GT2 RS Clubsport Evo (991II)"
+
+    sess = CSVImporter(str(csv_file)).parse()
+    assert sess.track == "Red Bull Ring"
+    assert sess.car == "Porsche 911 GT2 RS Clubsport Evo (991II)"
+    assert sess.simulator == "Assetto Corsa EVO"
+    assert len(sess.laps) > 0

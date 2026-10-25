@@ -1,8 +1,52 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
+
+ACRONYMS = {
+    "gp",
+    "f1",
+    "gt",
+    "gt1",
+    "gt2",
+    "gt3",
+    "gt4",
+    "lmgt3",
+    "lmdh",
+    "wec",
+    "imsa",
+    "drs",
+    "rbr",
+    "rs",
+    "evo",
+    "ecu",
+    "abs",
+    "tc",
+    "amr",
+    "amg",
+    "bmw",
+    "cup",
+}
+ROMAN_NUMERALS = {"i", "ii", "iii", "iv", "v", "vi", "vii", "viii"}
+
+
+def _generic_format_name(raw: str) -> str:
+    """Format any raw game identifier (e.g. 'mount_panorama_gp', 'ferrari_296_gt3') into clean title format."""
+    s = re.sub(r"[_\-]+", " ", raw).strip()
+    words = s.split()
+    formatted = []
+    for w in words:
+        w_low = w.lower()
+        if w_low in ACRONYMS or w_low in ROMAN_NUMERALS:
+            formatted.append(w.upper())
+        elif len(w) > 1 and w[0].islower():
+            formatted.append(w[0].upper() + w[1:])
+        else:
+            formatted.append(w)
+    return " ".join(formatted)
+
 
 CAR_ALIASES: dict[str, str] = {
     "porsche_992_gt3_r": "Porsche 911 GT3 R (992)",
@@ -11,6 +55,8 @@ CAR_ALIASES: dict[str, str] = {
     "porsche 992 gt3 r": "Porsche 911 GT3 R (992)",
     "porsche 911 gt3 r (992)": "Porsche 911 GT3 R (992)",
     "porsche 911 gt3 r": "Porsche 911 GT3 R (992)",
+    "ks_porsche_991ii_gt2_rs_clubsport_evo": "Porsche 911 GT2 RS Clubsport Evo (991II)",
+    "porsche 911 gt2 rs clubsport evo (991ii)": "Porsche 911 GT2 RS Clubsport Evo (991II)",
 }
 
 TRACK_ALIASES: dict[str, str] = {
@@ -19,23 +65,28 @@ TRACK_ALIASES: dict[str, str] = {
     "ricardo tormo": "Ricardo Tormo de Valencia",
     "ricardo tormo de valencia": "Ricardo Tormo de Valencia",
     "cheste": "Ricardo Tormo de Valencia",
+    "red bull ring": "Red Bull Ring",
+    "redbullring": "Red Bull Ring",
+    "red_bull_ring": "Red Bull Ring",
+    "spielberg": "Red Bull Ring",
+    "austria": "Red Bull Ring",
 }
 
 
 def normalize_car_name(car: str | None) -> str:
-    """Unify simulator vehicle identifiers under a single canonical model name."""
+    """Unify simulator vehicle identifiers under a single canonical model name, formatting unmapped cars cleanly."""
     if not car:
-        return "Porsche 911 GT3 R (992)"
+        return ""
     cleaned = car.strip()
-    return CAR_ALIASES.get(cleaned.lower(), cleaned)
+    return CAR_ALIASES.get(cleaned.lower(), _generic_format_name(cleaned))
 
 
 def normalize_track_name(track: str | None) -> str:
-    """Unify simulator circuit identifiers under a single canonical circuit name."""
+    """Unify simulator circuit identifiers under a single canonical circuit name, formatting unmapped tracks cleanly."""
     if not track:
-        return "Ricardo Tormo de Valencia"
+        return ""
     cleaned = track.strip()
-    return TRACK_ALIASES.get(cleaned.lower(), cleaned)
+    return TRACK_ALIASES.get(cleaned.lower(), _generic_format_name(cleaned))
 
 
 def is_outlap_detected(
@@ -119,7 +170,8 @@ class Session(BaseModel):
     @model_validator(mode="after")
     def validate_telemetry_channels(self) -> "Session":
         if self.laps:
-            best_t = min((l.lap_time for l in self.laps if l.lap_time > 20.0), default=0.0)
+            valid_times = [l.lap_time for l in self.laps if l.is_valid and l.lap_time > 20.0]
+            best_t = min(valid_times, default=0.0)
             for l in self.laps:
                 if is_outlap_detected(l.lap_number, l.lap_time, best_t, l.telemetry, l.is_valid):
                     l.is_outlap = True

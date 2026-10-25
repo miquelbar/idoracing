@@ -66,3 +66,25 @@ def test_coach_report_structure():
     )
     assert len(report.facts) == 1
     assert report.confidence == "Alta"
+
+
+def test_generic_track_and_car_name_normalization():
+    from domain.session import normalize_car_name, normalize_track_name
+
+    # Empty inputs return empty string (zero arbitrary fallback)
+    assert normalize_track_name(None) == ""
+    assert normalize_track_name("") == ""
+    assert normalize_car_name(None) == ""
+    assert normalize_car_name("") == ""
+
+    # Known aliases map to canonical names
+    assert normalize_track_name("valencia") == "Ricardo Tormo de Valencia"
+    assert normalize_track_name("red_bull_ring") == "Red Bull Ring"
+    assert normalize_car_name("porsche_992_gt3_r") == "Porsche 911 GT3 R (992)"
+
+    # Unknown circuits and cars are normalized generically without any code changes
+    assert normalize_track_name("mount_panorama") == "Mount Panorama"
+    assert normalize_track_name("spa_francorchamps_gp") == "Spa Francorchamps GP"
+    assert normalize_track_name("nurburgring-nordschleife") == "Nurburgring Nordschleife"
+    assert normalize_car_name("ferrari_296_gt3") == "Ferrari 296 GT3"
+    assert normalize_car_name("aston_martin_vantage_amr_gt3_evo") == "Aston Martin Vantage AMR GT3 EVO"

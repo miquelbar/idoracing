@@ -236,6 +236,26 @@ def test_car_setup_endpoint_returns_valid_data(client):
     assert len(data["setup_advice"]) > 0
 
 
+def test_car_setup_for_acevo_does_not_invent_fake_electronics(client):
+    """When a session has no setup file or electronics channels (e.g. AC EVO), do not return fake 3-4-5."""
+    up = client.post(
+        "/api/import/upload",
+        files={"file": ("261023-2150_SP_Practice.sessionresults.json", ACEVO_RESULTS.encode(), "application/json")},
+    )
+    assert up.status_code == 200, up.text
+    sid = up.json()["session_id"]
+
+    res = client.get("/api/car-setup", params={"session_id": sid})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["game_name"] == "Assetto Corsa EVO"
+    assert data["has_garage_setup"] is False
+    assert data["setup_source"] == "not_available"
+    # Never return fabricated 3-4-5
+    assert data["electronics"]["tc1"] is None
+    assert data["electronics"]["abs"] is None
+
+
 def test_stint_analysis_endpoint(client):
     res = client.get("/api/stint-analysis")
     assert res.status_code == 200
@@ -488,3 +508,24 @@ def test_ideal_ghost_fields_in_comparison_and_rescan(client):
     rescan = client.post("/api/autodiscover/rescan")
     assert rescan.status_code == 200
     assert rescan.json()["status"] == "ok"
+
+
+def test_session_groups_never_mixes_simulators(client):
+    """Ensure session groups are strictly keyed by (simulator, track)."""
+    res = client.get("/api/session-groups")
+    assert res.status_code == 200
+    groups = res.json()
+    assert isinstance(groups, list)
+    assert len(groups) > 0
+
+    seen_sim_track = set()
+    for g in groups:
+        sim = g["simulator"]
+        track = g["track"]
+        key = (sim, track)
+        assert key not in seen_sim_track, f"Duplicate group found for {key}"
+        seen_sim_track.add(key)
+
+        for s in g["sessions"]:
+            assert s["simulator"] == sim, f"Session simulator {s['simulator']} does not match group simulator {sim}"
+            assert s["track"] == track, f"Session track {s['track']} does not match group track {track}"

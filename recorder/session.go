@@ -13,7 +13,7 @@ import (
 const (
 	// A session file is closed once ACC has not been live for this long (menus, replays, quitting).
 	idleCloseAfter = 60 * time.Second
-	csvColumns     = "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid\n"
+	csvColumns     = "time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_accel,yaw_rate,x,y,in_pit,lap_valid,pressure_fl,pressure_fr,pressure_rl,pressure_rr,tc,abs,brake_bias\n"
 	bufferSize     = 256 * 1024
 )
 
@@ -145,6 +145,13 @@ func (r *recorder) formatSampleRow(s TelemetrySample, now time.Time) []byte {
 	b = strconv.AppendInt(b, int64(s.InPit), 10)
 	b = append(b, ',')
 	b = strconv.AppendInt(b, int64(s.LapValid), 10)
+	b = appendFloat(b, float64(s.WheelsPressure[0]), 2)
+	b = appendFloat(b, float64(s.WheelsPressure[1]), 2)
+	b = appendFloat(b, float64(s.WheelsPressure[2]), 2)
+	b = appendFloat(b, float64(s.WheelsPressure[3]), 2)
+	b = appendFloat(b, float64(s.TC), 1)
+	b = appendFloat(b, float64(s.ABS), 1)
+	b = appendFloat(b, float64(s.BrakeBias), 2)
 	b = append(b, '\n')
 	r.row = b
 	return b

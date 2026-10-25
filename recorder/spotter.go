@@ -327,6 +327,13 @@ func (s *Spotter) resetLapHotspots() {
 
 func (s *Spotter) loadTrackManifest(trackName string) {
 	slug := normalizeTrackSlug(trackName)
+	if slug == "" {
+		s.TrackSlug = ""
+		s.Manifest = nil
+		s.Calibrated = false
+		s.ManifestLoaded = true
+		return
+	}
 	s.TrackSlug = slug
 	s.Manifest = nil
 	s.Calibrated = false
@@ -420,13 +427,16 @@ func normalizeTrackSlug(track string) string {
 	if strings.Contains(lower, "zandvoort") {
 		return "zandvoort"
 	}
+	if strings.Contains(lower, "red bull") || strings.Contains(lower, "spielberg") {
+		return "red_bull_ring"
+	}
 	if strings.Contains(lower, "nurburgring") || strings.Contains(lower, "nuerburgring") {
 		return "nurburgring"
 	}
 	reg := regexp.MustCompile(`[^a-z0-9]+`)
 	slug := strings.Trim(reg.ReplaceAllString(lower, "_"), "_")
 	if slug == "" {
-		return "valencia"
+		return ""
 	}
 	return slug
 }

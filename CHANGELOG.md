@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Upgraded Go runtime module directive to Go 1.26 in `recorder/go.mod` and verified with `govulncheck` reporting 0 vulnerabilities.
 
 ### Added
+- **Live Setup & Tyre Telemetry in Recorder**: Expanded `idoracing-recorder` with 4-wheel dynamic tyre pressures (`pressure_fl`, `pressure_fr`, `pressure_rl`, `pressure_rr`), traction control (`tc`), anti-lock braking (`abs`), and brake bias (`brake_bias`) extracted in real time at 50Hz directly from Kunos shared memory (`physicsPage` and `graphicsPage`) into 23-column CSV session files.
+- **AC EVO & AC Rally Telemetry & Setup Ingestion**:
+  - Automatically captures live tyre pressures, TC, ABS, and Brake Bias for Assetto Corsa EVO and Assetto Corsa Rally without requiring exported setup files.
+  - Sane lap number handling and bar-to-PSI conversion preventing offset displacements or corrupted negative lap counts from early access builds.
+  - Fallback UTF-16LE string scanner in `decodeStatic()` preventing empty track/car metadata when Kunos adjusts page offsets.
+- **ACC Steam Proton Setup Loader**: Automatically discovers and parses the player's active garage setup JSON file from Steam Proton prefixes (`992 ps_racing.json`) with true electronics, aero, ARBs, and differential preload.
+- **Generic Normalization Engine**: Replaced hardcoded track/car name mappings with rule-based capitalization preserving technical acronyms (`GP`, `F1`, `GT1-4`, `LMGT3`, `RS`, `EVO`, `AMR`, `AMG`, `BMW`) and dynamic lap length estimation.
+- **Last Session Ordering & Date Badges**: Session groups in `http://localhost:8501/#/sessions` now sort chronologically descending by `last_session_date`, placing the most recently played game/circuit at the top with a calendar date/time badge.
+- **Red Bull Ring Spotter Voices**: Added bilingual (Spanish/English) audio cues and spotter manifest for Red Bull Ring.
 - **Pep Live Spotter (Zero-Daemon Track Radio)**: in-game voice spotter that cues critical braking points 250m before corners, personal bests, tyre pressure warnings, and apex gain evaluation with 0% CPU/0% GPU overhead during race sessions.
 - In-game pit-wall radio toggle via **F9** hotkey with authentic bilingual voice confirmations ("Idò, Pep al habla" / "Pep se va").
 - Pre-recorded OGG track voice generator (`tools/generate_pep_voices.py`) and automatic spotter manifest export (`analysis/spotter.py`) based on delta deficit against Bubota.

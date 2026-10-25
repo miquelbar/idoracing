@@ -78,8 +78,10 @@ def analyze_all_tyres(tyres_payload: dict[str, Any]) -> dict[str, Any]:
 
     diagnostics = {}
     for corner in ("FL", "FR", "RL", "RR"):
-        hot = float(pressures_hot.get(corner, 26.8))
-        cold = float(pressures_cold.get(corner, 24.5))
+        val_hot = pressures_hot.get(corner)
+        hot = float(val_hot) if val_hot is not None else 26.8
+        val_cold = pressures_cold.get(corner)
+        cold = float(val_cold) if val_cold is not None else 24.5
         imo = temps_c.get(corner, [80.0, 80.0, 80.0])
         diagnostics[corner] = analyze_corner_tire(corner, hot, cold, imo)
 

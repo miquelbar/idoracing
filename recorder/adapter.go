@@ -30,6 +30,9 @@ type TelemetrySample struct {
 	InPit       int32 // 0 or 1
 	LapValid    int32 // 0 or 1
 	WheelsPressure [4]float32 // Tyre pressures in PSI (FL, FR, RL, RR)
+	TC             float32    // Traction control setting or activation
+	ABS            float32    // Anti-lock braking setting or activation
+	BrakeBias      float32    // Brake bias in percent (e.g. 54.0)
 	LastLapTimeMs  int32      // Last completed lap time in ms
 }
 

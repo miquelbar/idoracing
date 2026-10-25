@@ -256,6 +256,7 @@ export interface SessionGroup {
   sessions: SessionGroupSession[];
   total_laps: number;
   best_lap_time: number;
+  last_session_date?: string | null;
 }
 
 export interface AutoDiscoverFile {
@@ -347,36 +348,39 @@ export interface StintAnalysisData {
 }
 
 export interface SingleLapSetup {
+  has_garage_setup?: boolean;
+  setup_source?: string;
+  setup_file_name?: string | null;
   tyres: {
     compound: string;
     pressures_hot: { FL: number; FR: number; RL: number; RR: number };
-    pressures_cold: { FL: number; FR: number; RL: number; RR: number };
+    pressures_cold: { FL: number | null; FR: number | null; RL: number | null; RR: number | null };
     optimal_window: string;
     temps_c: { FL: number[]; FR: number[]; RL: number[]; RR: number[] };
     thermal_diagnostics?: Record<string, TyreThermalCorner>;
   };
   electronics: {
-    tc1: number;
-    tc2?: number;
-    abs: number;
-    brake_bias: number;
-    ecu_map: number;
+    tc1?: number | null;
+    tc2?: number | null;
+    abs?: number | null;
+    brake_bias?: number | null;
+    ecu_map?: number | null;
   };
   aero: {
-    front_splitter: number;
-    rear_wing: number;
-    ride_height_front_mm: number;
-    ride_height_rear_mm: number;
-    rake_mm: number;
+    front_splitter?: number | null;
+    rear_wing?: number | null;
+    ride_height_front_mm?: number | null;
+    ride_height_rear_mm?: number | null;
+    rake_mm?: number | null;
   };
   chassis: {
-    arb_front: number;
-    arb_rear: number;
-    camber_front_deg: number;
-    camber_rear_deg: number;
-    toe_front_deg: number;
-    toe_rear_deg: number;
-    preload_diff_nm: number;
+    arb_front?: number | null;
+    arb_rear?: number | null;
+    camber_front_deg?: number | null;
+    camber_rear_deg?: number | null;
+    toe_front_deg?: number | null;
+    toe_rear_deg?: number | null;
+    preload_diff_nm?: number | null;
   };
 }
 

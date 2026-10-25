@@ -24,10 +24,15 @@ type physicsPage struct {
 	AccG            [3]float32 // x lateral, y vertical, z longitudinal
 	_               [8]float32 // wheelSlip[4] + wheelLoad[4]
 	WheelsPressure  [4]float32 // PSI (FL, FR, RL, RR)
-	_               [26]float32
-	Heading         float32
-	_               [21]float32
-	LocalAngularVel [3]float32 // y is the yaw rate, rad/s
+	_               [25]float32
+	TC              float32 // offset 204
+	Heading         float32 // offset 208
+	_               [10]float32
+	ABS             float32 // offset 252
+	_               [10]float32
+	LocalAngularVel [3]float32 // y is the yaw rate, rad/s (offset 296..308)
+	_               [64]float32
+	BrakeBias       float32 // offset 564
 }
 
 const statusLive = 2
@@ -55,12 +60,13 @@ type graphicsPage struct {
 	PlayerCarID           int32
 	_                     [4]int32
 	IsInPitLane           int32
-	_                     [22]int32
-	_                     [16]uint16 // delta lap time
-	_                     int32
-	_                     [16]uint16 // estimated lap time
-	_                     [3]int32
-	IsValidLap            int32
+	_                     [7]int32
+	TC                    int32 // offset 1268
+	TCCut                 int32 // offset 1272
+	EngineMap             int32 // offset 1276
+	ABS                   int32 // offset 1280
+	_                     [31]int32
+	IsValidLap            int32 // offset 1408
 }
 
 type staticInfo struct {
@@ -147,11 +153,72 @@ func decodeStatic(b []byte) staticInfo {
 	if len(b) < staticMinimumPageLength {
 		return staticInfo{}
 	}
-	return staticInfo{
-		CarModel:          wideString(b[staticCarModelOffset : staticCarModelOffset+2*staticNameChars]),
-		Track:             wideString(b[staticTrackOffset : staticTrackOffset+2*staticNameChars]),
-		TrackSplineLength: math.Float32frombits(binary.LittleEndian.Uint32(b[staticSplineLenOffset:])),
+	car := wideString(b[staticCarModelOffset : staticCarModelOffset+2*staticNameChars])
+	track := wideString(b[staticTrackOffset : staticTrackOffset+2*staticNameChars])
+	spline := math.Float32frombits(binary.LittleEndian.Uint32(b[staticSplineLenOffset:]))
+
+	// If offsets were displaced (e.g. AC EVO), scan for printable UTF-16LE strings
+	if car == "" || track == "" {
+		stringsFound := scanWideStrings(b, 3)
+		for _, s := range stringsFound {
+			sLower := toLowerASCII(s)
+			if car == "" && len(s) >= 4 && (containsAny(sLower, "porsche", "ferrari", "bmw", "audi", "mercedes", "mclaren", "aston", "lamborghini", "gt2", "gt3", "gt4", "ks_") || len(sLower) > 8) {
+				car = s
+			} else if track == "" && len(s) >= 3 && containsAny(sLower, "ring", "valencia", "monza", "spa", "silverstone", "nurburgring", "barcelona", "zandvoort", "redbull") {
+				track = s
+			}
+		}
 	}
+
+	return staticInfo{
+		CarModel:          car,
+		Track:             track,
+		TrackSplineLength: spline,
+	}
+}
+
+func scanWideStrings(b []byte, minChars int) []string {
+	var result []string
+	var current []uint16
+	for i := 0; i+1 < len(b); i += 2 {
+		u := binary.LittleEndian.Uint16(b[i:])
+		if u >= 32 && u < 127 {
+			current = append(current, u)
+		} else {
+			if len(current) >= minChars {
+				result = append(result, string(utf16.Decode(current)))
+			}
+			current = current[:0]
+		}
+	}
+	if len(current) >= minChars {
+		result = append(result, string(utf16.Decode(current)))
+	}
+	return result
+}
+
+func toLowerASCII(s string) string {
+	b := []byte(s)
+	for i := 0; i < len(b); i++ {
+		if b[i] >= 'A' && b[i] <= 'Z' {
+			b[i] += 32
+		}
+	}
+	return string(b)
+}
+
+func containsAny(s string, substrs ...string) bool {
+	for _, sub := range substrs {
+		if len(sub) == 0 {
+			continue
+		}
+		for i := 0; i+len(sub) <= len(s); i++ {
+			if s[i:i+len(sub)] == sub {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // playerPosition returns the player's car position on the ground plane (ACC's x and z; y is height).
@@ -183,9 +250,37 @@ func (p physicsPage) toSample(g graphicsPage, lapDistance float32) TelemetrySamp
 	if g.IsInPit != 0 || g.IsInPitLane != 0 {
 		inPit = 1
 	}
+
+	lap := g.CompletedLaps + 1
+	if lap <= 0 || lap > 500 {
+		lap = 1
+	}
+
+	pressures := p.WheelsPressure
+	for i := 0; i < 4; i++ {
+		if pressures[i] > 0.5 && pressures[i] < 5.0 {
+			pressures[i] *= 14.5038 // bar -> psi conversion
+		}
+	}
+
+	tcVal := float32(g.TC)
+	if tcVal <= 0 && p.TC > 0 {
+		tcVal = p.TC
+	}
+
+	absVal := float32(g.ABS)
+	if absVal <= 0 && p.ABS > 0 {
+		absVal = p.ABS
+	}
+
+	bbVal := p.BrakeBias
+	if bbVal > 0 && bbVal <= 1.0 {
+		bbVal *= 100.0
+	}
+
 	return TelemetrySample{
 		PacketID:       p.PacketID,
-		Lap:            g.CompletedLaps + 1,
+		Lap:            lap,
 		LapDistance:    lapDistance,
 		SpeedKmh:       p.SpeedKmh,
 		Gas:            p.Gas,
@@ -200,7 +295,10 @@ func (p physicsPage) toSample(g graphicsPage, lapDistance float32) TelemetrySamp
 		Y:              y,
 		InPit:          inPit,
 		LapValid:       g.IsValidLap,
-		WheelsPressure: p.WheelsPressure,
+		WheelsPressure: pressures,
+		TC:             tcVal,
+		ABS:            absVal,
+		BrakeBias:      bbVal,
 		LastLapTimeMs:  g.LastTimeMs,
 	}
 }

@@ -57,7 +57,7 @@ func TestRecordsOneRowPerNewPhysicsPacket(t *testing.T) {
 	if len(lines) != 9 {
 		t.Fatalf("want 5 header lines, the column line and 3 rows, got %d:\n%s", len(lines), content)
 	}
-	if rows[0] != "0.000,1,3500.00,200.00,1.000,0.000,5,0.0000,8000,1.200,-0.400,0.0000,10.00,-20.00,0,1" {
+	if rows[0] != "0.000,1,3500.00,200.00,1.000,0.000,5,0.0000,8000,1.200,-0.400,0.0000,10.00,-20.00,0,1,0.00,0.00,0.00,0.00,0.0,0.0,0.00" {
 		t.Fatalf("unexpected row: %s", rows[0])
 	}
 }

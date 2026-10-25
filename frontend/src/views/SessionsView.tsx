@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  Calendar,
   CheckCircle,
   ChevronDown,
   ChevronRight,
@@ -124,15 +125,16 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [workspaceSessionFilter, setWorkspaceSessionFilter] = useState<string>('all');
 
-  // Load session groups for cross-session comparison (deduplicating by canonical track)
+  // Load session groups for cross-session comparison (deduplicating strictly by simulator + canonical track)
   useEffect(() => {
     fetchSessionGroups()
       .then((rawGroups) => {
-        const byTrack = new Map<string, SessionGroup>();
+        const bySimTrack = new Map<string, SessionGroup>();
         for (const g of rawGroups) {
-          const existing = byTrack.get(g.track);
+          const key = `${g.simulator}|${g.track}`;
+          const existing = bySimTrack.get(key);
           if (!existing) {
-            byTrack.set(g.track, { ...g, sessions: [...g.sessions] });
+            bySimTrack.set(key, { ...g, sessions: [...g.sessions] });
           } else {
             const seen = new Set(existing.sessions.map((s) => s.session_id));
             for (const s of g.sessions) {
@@ -141,24 +143,30 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                 seen.add(s.session_id);
               }
             }
-            if (existing.simulator === 'Unknown' && g.simulator && g.simulator !== 'Unknown') {
-              existing.simulator = g.simulator;
-            }
           }
         }
-        const merged = Array.from(byTrack.values()).map((g) => {
+        const merged = Array.from(bySimTrack.values()).map((g) => {
           const realSess = g.sessions.filter((s) => !s.is_demo && !s.session_id.startsWith('synth_'));
           const sessList = realSess.length > 0 ? realSess : g.sessions;
           sessList.sort((a, b) => b.date.localeCompare(a.date));
           const pbs = sessList.filter((s) => s.best_lap_time > 0).map((s) => s.best_lap_time);
+          const lastDate = sessList[0]?.date || g.last_session_date || null;
           return {
             ...g,
             sessions: sessList,
             total_laps: sessList.reduce((acc, s) => acc + s.lap_count, 0),
             best_lap_time: pbs.length > 0 ? Math.min(...pbs) : g.best_lap_time,
+            last_session_date: lastDate,
           };
         });
-        merged.sort((a, b) => b.sessions.length - a.sessions.length || b.total_laps - a.total_laps);
+        merged.sort((a, b) => {
+          const dateA = a.last_session_date || '';
+          const dateB = b.last_session_date || '';
+          if (dateA && dateB && dateA !== dateB) {
+            return dateB.localeCompare(dateA);
+          }
+          return (dateB ? 1 : 0) - (dateA ? 1 : 0) || b.sessions.length - a.sessions.length || b.total_laps - a.total_laps;
+        });
 
         setSessionGroups(merged);
         if (merged.length > 0) {
@@ -168,12 +176,18 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
             for (const g of merged.slice(0, 2)) {
               next.add(`${g.simulator}|${g.track}`);
             }
+            if (selectedSessionId) {
+              const activeGroup = merged.find((g) => g.sessions.some((s) => s.session_id === selectedSessionId));
+              if (activeGroup) {
+                next.add(`${activeGroup.simulator}|${activeGroup.track}`);
+              }
+            }
             return next;
           });
         }
       })
       .catch(() => setSessionGroups([]));
-  }, [sessions]);
+  }, [sessions, selectedSessionId]);
 
   const activeSessionSummary =
     sessions.find((s) => s.session_id === selectedSessionId) || sessions[0];
@@ -202,14 +216,16 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
     return true;
   });
 
-  // Find all sessions belonging to the active [Track + Car] across all groups
+  // Find all sessions belonging to the active [Simulator + Track + Car] across all groups
   const activeTrackName = comparison?.track_name || activeSessionSummary?.track || '';
   const activeCarName = comparison?.car_name || activeSessionSummary?.car || '';
+  const activeSimulatorName = comparison?.game_name || activeSessionSummary?.simulator || '';
 
   const matchingTrackGroup = sessionGroups.find(
     (g) =>
-      g.track.toLowerCase() === activeTrackName.toLowerCase() ||
-      g.sessions.some((s) => s.session_id === selectedSessionId)
+      g.sessions.some((s) => s.session_id === selectedSessionId) ||
+      (g.track.toLowerCase() === activeTrackName.toLowerCase() &&
+        (!activeSimulatorName || g.simulator.toLowerCase() === activeSimulatorName.toLowerCase()))
   );
 
   const rawMatchingCarSessions = (matchingTrackGroup?.sessions || []).filter(
@@ -561,6 +577,12 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-3 text-xs font-telemetry text-gray-400 shrink-0">
+                        {group.last_session_date && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 font-medium text-[11px]">
+                            <Calendar className="w-3 h-3 text-brand" />
+                            <span>{formatSessionChipDate(group.last_session_date)}</span>
+                          </span>
+                        )}
                         <span>{group.sessions.length} {t('sessions_count')}</span>
                         <span>{group.total_laps} {t('laps_count')}</span>
                         <span className="text-brand font-bold">{formatLapTime(group.best_lap_time)}</span>
@@ -609,7 +631,8 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
 
                           const isCarActive =
                             carSessions.some((s) => s.session_id === selectedSessionId) ||
-                            (activeTrackName.toLowerCase() === group.track.toLowerCase() &&
+                            ((!activeSimulatorName || group.simulator.toLowerCase() === activeSimulatorName.toLowerCase()) &&
+                              activeTrackName.toLowerCase() === group.track.toLowerCase() &&
                               activeCarName.toLowerCase() === carName.toLowerCase());
 
                           // Best default session to load when clicking this [Track + Car]: prefer sessions with >=2 flying laps

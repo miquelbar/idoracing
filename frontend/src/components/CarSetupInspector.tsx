@@ -40,22 +40,27 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
   const isOptimalPsi = (psi: number) => psi >= 26.5 && psi <= 27.0;
 
   const renderSmartStaticParam = (
-    p1Val: number,
-    p2Val: number,
+    p1Val: number | null | undefined,
+    p2Val: number | null | undefined,
     formatFn: (v: number) => string,
     deltaFormatFn: (d: number) => string,
     epsilon = 0.05
   ) => {
-    if (sameGarageSetup || !showDiff || Math.abs(p2Val - p1Val) < epsilon) {
-      const val = !sameGarageSetup && viewMode === 'p1' ? p1Val : p2Val;
+    if (p1Val == null && p2Val == null) {
+      return <span className="text-sm font-semibold text-gray-500">N/D</span>;
+    }
+    const safeP1 = p1Val ?? p2Val ?? 0;
+    const safeP2 = p2Val ?? p1Val ?? 0;
+    if (sameGarageSetup || !showDiff || Math.abs(safeP2 - safeP1) < epsilon) {
+      const val = !sameGarageSetup && viewMode === 'p1' ? safeP1 : safeP2;
       return <span className="text-lg font-black text-white">{formatFn(val)}</span>;
     }
-    const delta = p2Val - p1Val;
+    const delta = safeP2 - safeP1;
     return (
       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-        <span className="text-xs font-bold text-[#00D2BE]">{formatFn(p1Val)} (P1)</span>
+        <span className="text-xs font-bold text-[#00D2BE]">{formatFn(safeP1)} (P1)</span>
         <span className="text-gray-500 text-xs">➔</span>
-        <span className="text-base font-black text-[#D8B4FE]">{formatFn(p2Val)} (P2)</span>
+        <span className="text-base font-black text-[#D8B4FE]">{formatFn(safeP2)} (P2)</span>
         <span className="px-1.5 py-0.5 rounded bg-[#A855F7]/20 border border-[#A855F7]/40 text-[#D8B4FE] text-[10px] font-bold">
           Δ {deltaFormatFn(delta)}
         </span>
@@ -80,8 +85,8 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
 
     const deltaHot = Number((hotP2 - hotP1).toFixed(1));
     const showHotDelta = showDiff && Math.abs(deltaHot) > 0.1;
-    const deltaCold = Number((coldP2 - coldP1).toFixed(1));
-    const showColdDelta = !sameGarageSetup && showDiff && Math.abs(deltaCold) >= 0.1;
+    const deltaCold = coldP1 != null && coldP2 != null ? Number((coldP2 - coldP1).toFixed(1)) : 0;
+    const showColdDelta = !sameGarageSetup && showDiff && coldP1 != null && coldP2 != null && Math.abs(deltaCold) >= 0.1;
 
     const avgTempP1 = (tempsP1[0] + tempsP1[1] + tempsP1[2]) / 3;
     const avgTempP2 = (tempsP2[0] + tempsP2[1] + tempsP2[2]) / 3;
@@ -136,10 +141,12 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
         {/* Cold Pressure Display (Static Garage Setup) */}
         <div className="flex items-baseline justify-between text-xs text-gray-400 font-telemetry pb-2 border-b border-white/5">
           <span>{t('cold_pressures')}:</span>
-          {showColdDelta ? (
+          {cold == null ? (
+            <span className="text-gray-500 font-semibold">N/D</span>
+          ) : showColdDelta ? (
             <span className="font-semibold">
-              <span className="text-[#00D2BE]">{coldP1.toFixed(1)}</span> ➔{' '}
-              <span className="text-[#D8B4FE] font-bold">{coldP2.toFixed(1)} psi</span>{' '}
+              <span className="text-[#00D2BE]">{coldP1 != null ? coldP1.toFixed(1) : 'N/D'}</span> ➔{' '}
+              <span className="text-[#D8B4FE] font-bold">{coldP2 != null ? coldP2.toFixed(1) : 'N/D'} psi</span>{' '}
               <span className="text-[10px] text-[#D8B4FE]">
                 (Δ {deltaCold > 0 ? `+${deltaCold.toFixed(1)}` : deltaCold.toFixed(1)})
               </span>
@@ -193,8 +200,9 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
     );
   };
 
-  const bbChanged = !sameGarageSetup && showDiff && Math.abs(p2.electronics.brake_bias - p1.electronics.brake_bias) >= 0.05;
-  const bbDelta = p2.electronics.brake_bias - p1.electronics.brake_bias;
+  const hasBB = p1.electronics.brake_bias != null && p2.electronics.brake_bias != null;
+  const bbChanged = hasBB && !sameGarageSetup && showDiff && Math.abs(p2.electronics.brake_bias! - p1.electronics.brake_bias!) >= 0.05;
+  const bbDelta = hasBB ? p2.electronics.brake_bias! - p1.electronics.brake_bias! : 0;
 
   return (
     <div className="space-y-6">
@@ -229,7 +237,28 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
 
         {/* Right: Identical Garage Setup Badge OR Modified Setup Segmented Control */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start lg:self-auto">
-          {sameGarageSetup ? (
+          {setup.has_garage_setup === false || setup.setup_source === 'not_available' ? (
+            <div className="flex items-center gap-2 bg-blue-950/40 px-3.5 py-2 rounded-xl border border-blue-500/30 text-xs font-telemetry text-blue-300">
+              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>
+                ℹ️ Telemetría de Pista Activa · Reglaje estático no exportado por {setup.game_name || 'el simulador'}
+              </span>
+            </div>
+          ) : setup.setup_source === 'recorded_telemetry' ? (
+            <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                ✓ Telemetría en Vivo 50 Hz · Presiones y Electrónica capturadas por el Recorder
+              </span>
+            </div>
+          ) : setup.setup_source === 'actual_file' ? (
+            <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>
+                ✓ Setup Real Cargado ({setup.setup_file_name || 'Archivo .json'})
+              </span>
+            </div>
+          ) : sameGarageSetup ? (
             <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>
@@ -281,6 +310,18 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
           )}
         </div>
       </div>
+
+      {setup.has_garage_setup === false && (
+        <div className="p-4 rounded-xl bg-blue-950/30 border border-blue-500/30 text-blue-200 text-xs font-telemetry space-y-1">
+          <div className="flex items-center gap-2 font-bold text-blue-300 text-xs">
+            <Info className="w-4 h-4 text-blue-400 shrink-0" />
+            <span>Reglajes de Garaje no registrados en esta sesión</span>
+          </div>
+          <p className="text-[11px] text-gray-300 leading-relaxed">
+            {setup.game_name || 'Este simulador'} no exporta archivos de setup ni canales de electrónica en la telemetría grabada. Para mantener total fidelidad sin inventar datos, los ajustes de garaje (TC, ABS, alerón, presiones en frío) se indican como <strong>N/D</strong>. Las presiones en caliente mostradas a continuación sí se calculan a partir de la telemetría física real a 50Hz.
+          </p>
+        </div>
+      )}
 
       {setup.has_telemetry === false && (
         <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs font-telemetry space-y-2">
@@ -354,14 +395,16 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
               >
                 <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                   <span className="text-gray-400 font-semibold uppercase">Reparto Frenada (BB):</span>
-                  {bbChanged ? (
+                  {activeSetup.electronics.brake_bias == null ? (
+                    <span className="text-sm font-semibold text-gray-500">N/D (No registrado)</span>
+                  ) : bbChanged ? (
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-[#00D2BE]">
-                        {p1.electronics.brake_bias.toFixed(1)}% (P1)
+                        {p1.electronics.brake_bias?.toFixed(1)}% (P1)
                       </span>
                       <span className="text-gray-500">➔</span>
                       <span className="text-sm font-black text-[#D8B4FE]">
-                        {p2.electronics.brake_bias.toFixed(1)}% (P2)
+                        {p2.electronics.brake_bias?.toFixed(1)}% (P2)
                       </span>
                       <span className="px-1.5 py-0.5 rounded bg-[#A855F7]/20 border border-[#A855F7]/40 text-[#D8B4FE] text-[10px] font-bold">
                         Δ {bbDelta > 0 ? `+${bbDelta.toFixed(1)}` : bbDelta.toFixed(1)}%
@@ -373,30 +416,34 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
                     </span>
                   )}
                 </div>
-                {/* Visual Front/Rear Bar */}
-                <div className="relative w-full bg-white/10 h-2.5 rounded-full overflow-hidden flex">
-                  <div
-                    className="bg-brand h-full"
-                    style={{ width: `${activeSetup.electronics.brake_bias}%` }}
-                    title={`Delantero: ${activeSetup.electronics.brake_bias}%`}
-                  />
-                  <div
-                    className="bg-accent h-full"
-                    style={{ width: `${100 - activeSetup.electronics.brake_bias}%` }}
-                    title={`Trasero: ${(100 - activeSetup.electronics.brake_bias).toFixed(1)}%`}
-                  />
-                  {bbChanged && (
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-[#00D2BE] shadow-[0_0_6px_#00D2BE]"
-                      style={{ left: `${p1.electronics.brake_bias}%` }}
-                      title={`Referencia P1: ${p1.electronics.brake_bias.toFixed(1)}%`}
-                    />
-                  )}
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>DEL {activeSetup.electronics.brake_bias.toFixed(1)}%</span>
-                  <span>{(100 - activeSetup.electronics.brake_bias).toFixed(1)}% TRAS</span>
-                </div>
+                {activeSetup.electronics.brake_bias != null && (
+                  <>
+                    {/* Visual Front/Rear Bar */}
+                    <div className="relative w-full bg-white/10 h-2.5 rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-brand h-full"
+                        style={{ width: `${activeSetup.electronics.brake_bias}%` }}
+                        title={`Delantero: ${activeSetup.electronics.brake_bias}%`}
+                      />
+                      <div
+                        className="bg-accent h-full"
+                        style={{ width: `${100 - activeSetup.electronics.brake_bias}%` }}
+                        title={`Trasero: ${(100 - activeSetup.electronics.brake_bias).toFixed(1)}%`}
+                      />
+                      {bbChanged && p1.electronics.brake_bias != null && (
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-[#00D2BE] shadow-[0_0_6px_#00D2BE]"
+                          style={{ left: `${p1.electronics.brake_bias}%` }}
+                          title={`Referencia P1: ${p1.electronics.brake_bias.toFixed(1)}%`}
+                        />
+                      )}
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                      <span>DEL {activeSetup.electronics.brake_bias.toFixed(1)}%</span>
+                      <span>{(100 - activeSetup.electronics.brake_bias).toFixed(1)}% TRAS</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Grid of TC, ABS, Engine Map */}
@@ -416,18 +463,18 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
                     (d) => (d > 0 ? `+${d}` : `${d}`)
                   )}
                 </div>
-                {activeSetup.electronics.tc2 !== undefined && (
+                {(p1.electronics.tc2 != null || p2.electronics.tc2 != null) && (
                   <div
                     className={`p-3 rounded-xl bg-[#0C101A] border text-center ${
-                      !sameGarageSetup && showDiff && (p1.electronics.tc2 ?? 4) !== (p2.electronics.tc2 ?? 4)
+                      !sameGarageSetup && showDiff && p1.electronics.tc2 !== p2.electronics.tc2
                         ? 'border-[#A855F7]/60'
                         : 'border-white/5'
                     }`}
                   >
                     <span className="text-[10px] text-gray-400 uppercase block mb-1">TC2 Cut</span>
                     {renderSmartStaticParam(
-                      p1.electronics.tc2 ?? 4,
-                      p2.electronics.tc2 ?? 4,
+                      p1.electronics.tc2,
+                      p2.electronics.tc2,
                       (v) => `${v}`,
                       (d) => (d > 0 ? `+${d}` : `${d}`)
                     )}
@@ -451,7 +498,11 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
                 <div className="p-3 rounded-xl bg-[#0C101A] border border-white/5 text-center col-span-2 sm:col-span-3">
                   <div className="flex items-center justify-between text-xs px-2">
                     <span className="text-gray-400 uppercase font-semibold">Mapa Motor (ECU):</span>
-                    <span className="text-sm font-black text-white">Mapa #{activeSetup.electronics.ecu_map} (Race 1)</span>
+                    {activeSetup.electronics.ecu_map != null ? (
+                      <span className="text-sm font-black text-white">Mapa #{activeSetup.electronics.ecu_map}</span>
+                    ) : (
+                      <span className="text-sm font-semibold text-gray-500">N/D</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -508,7 +559,11 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
             </div>
             <div
               className={`p-3.5 rounded-xl bg-[#0C101A] border ${
-                !sameGarageSetup && showDiff && Math.abs(p1.aero.ride_height_front_mm - p2.aero.ride_height_front_mm) >= 0.1
+                !sameGarageSetup &&
+                showDiff &&
+                p1.aero.ride_height_front_mm != null &&
+                p2.aero.ride_height_front_mm != null &&
+                Math.abs(p1.aero.ride_height_front_mm - p2.aero.ride_height_front_mm) >= 0.1
                   ? 'border-[#A855F7]/60'
                   : 'border-white/5'
               }`}
@@ -523,24 +578,36 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
             </div>
             <div
               className={`p-3.5 rounded-xl bg-[#0C101A] border ${
-                !sameGarageSetup && showDiff && Math.abs(p1.aero.ride_height_rear_mm - p2.aero.ride_height_rear_mm) >= 0.1
+                !sameGarageSetup &&
+                showDiff &&
+                p1.aero.ride_height_rear_mm != null &&
+                p2.aero.ride_height_rear_mm != null &&
+                Math.abs(p1.aero.ride_height_rear_mm - p2.aero.ride_height_rear_mm) >= 0.1
                   ? 'border-[#A855F7]/60'
                   : 'border-white/5'
               }`}
             >
               <span className="text-[10px] text-gray-400 uppercase block mb-1">Altura Trasera (Rake)</span>
-              {!sameGarageSetup && showDiff && Math.abs(p1.aero.ride_height_rear_mm - p2.aero.ride_height_rear_mm) >= 0.1 ? (
+              {!sameGarageSetup &&
+              showDiff &&
+              p1.aero.ride_height_rear_mm != null &&
+              p2.aero.ride_height_rear_mm != null &&
+              Math.abs(p1.aero.ride_height_rear_mm - p2.aero.ride_height_rear_mm) >= 0.1 ? (
                 renderSmartStaticParam(
                   p1.aero.ride_height_rear_mm,
                   p2.aero.ride_height_rear_mm,
                   (v) => `${v} mm`,
                   (d) => `${d > 0 ? `+${d}` : d} mm`
                 )
-              ) : (
+              ) : activeSetup.aero.ride_height_rear_mm != null ? (
                 <span className="text-lg font-black text-white">
                   {activeSetup.aero.ride_height_rear_mm} mm{' '}
-                  <span className="text-xs text-brand font-semibold">(+{activeSetup.aero.rake_mm}mm)</span>
+                  {activeSetup.aero.rake_mm != null && (
+                    <span className="text-xs text-brand font-semibold">(+{activeSetup.aero.rake_mm}mm)</span>
+                  )}
                 </span>
+              ) : (
+                <span className="text-sm font-semibold text-gray-500">N/D</span>
               )}
             </div>
           </div>
@@ -603,16 +670,24 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
             </div>
             <div className="p-3 rounded-xl bg-[#0C101A] border border-white/5">
               <span className="text-[10px] text-gray-400 uppercase block mb-1">Caída (Camber) F/R</span>
-              <span className="text-xs font-mono font-bold text-white">
-                {activeSetup.chassis.camber_front_deg}° / {activeSetup.chassis.camber_rear_deg}°
-              </span>
+              {activeSetup.chassis.camber_front_deg != null && activeSetup.chassis.camber_rear_deg != null ? (
+                <span className="text-xs font-mono font-bold text-white">
+                  {activeSetup.chassis.camber_front_deg}° / {activeSetup.chassis.camber_rear_deg}°
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-gray-500">N/D</span>
+              )}
             </div>
             <div className="p-3 rounded-xl bg-[#0C101A] border border-white/5 col-span-1 sm:col-span-2">
               <span className="text-[10px] text-gray-400 uppercase block mb-1">Convergencia (Toe) F/R</span>
-              <span className="text-xs font-mono font-bold text-white">
-                {activeSetup.chassis.toe_front_deg > 0 ? `+${activeSetup.chassis.toe_front_deg}` : activeSetup.chassis.toe_front_deg}° /{' '}
-                {activeSetup.chassis.toe_rear_deg > 0 ? `+${activeSetup.chassis.toe_rear_deg}` : activeSetup.chassis.toe_rear_deg}°
-              </span>
+              {activeSetup.chassis.toe_front_deg != null && activeSetup.chassis.toe_rear_deg != null ? (
+                <span className="text-xs font-mono font-bold text-white">
+                  {activeSetup.chassis.toe_front_deg > 0 ? `+${activeSetup.chassis.toe_front_deg}` : activeSetup.chassis.toe_front_deg}° /{' '}
+                  {activeSetup.chassis.toe_rear_deg > 0 ? `+${activeSetup.chassis.toe_rear_deg}` : activeSetup.chassis.toe_rear_deg}°
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-gray-500">N/D</span>
+              )}
             </div>
           </div>
         </div>

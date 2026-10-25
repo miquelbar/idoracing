@@ -57,6 +57,7 @@ from domain.session import (
     normalize_car_name,
     normalize_track_name,
 )
+from importers.acc_setup_loader import load_acc_setup
 from importers.acevo_importer import ACEVOImporter
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter
@@ -385,6 +386,9 @@ class CarSetupDTO(BaseModel):
     track_name: str
     game_name: str | None = None
     has_telemetry: bool = True
+    has_garage_setup: bool = True
+    setup_source: str = "actual_file"
+    setup_file_name: str | None = None
     tyres: dict[str, Any]
     electronics: dict[str, Any]
     aero: dict[str, Any]
@@ -574,13 +578,14 @@ class SessionGroupDTO(BaseModel):
     sessions: list[dict[str, Any]]
     total_laps: int
     best_lap_time: float
+    last_session_date: str | None = None
 
 
 @app.get("/api/session-groups", response_model=list[SessionGroupDTO])
 def list_session_groups():
-    """Group sessions by canonical track (and canonical car inside) so each circuit appears once."""
+    """Group sessions by canonical (simulator, track), sorted with the most recently played circuit first."""
     sessions = storage.list_sessions()
-    groups: dict[str, list[dict[str, Any]]] = {}
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for s in sessions:
         sim = s.simulator
         if not sim or sim == "Unknown":
@@ -595,7 +600,7 @@ def list_session_groups():
                 sim = "Assetto Corsa Competizione"
         norm_track = normalize_track_name(s.track)
         norm_car = normalize_car_name(s.car)
-        groups.setdefault(norm_track, []).append(
+        groups.setdefault((sim, norm_track), []).append(
             {
                 "session_id": s.session_id,
                 "car": norm_car,
@@ -612,7 +617,7 @@ def list_session_groups():
         )
 
     result: list[SessionGroupDTO] = []
-    for track, sess_list in groups.items():
+    for (sim, track), sess_list in groups.items():
         real_sessions = [s for s in sess_list if not s.get("is_demo")]
         if real_sessions:
             sess_list = real_sessions
@@ -620,18 +625,19 @@ def list_session_groups():
         total_laps = sum(s["lap_count"] for s in sess_list)
         best = min((s["best_lap_time"] for s in sess_list if s["best_lap_time"] > 0), default=0.0)
         cars = sorted({s["car"] for s in sess_list if s.get("car")})
-        primary_sim = next((s["simulator"] for s in sess_list if s.get("simulator")), "Assetto Corsa Competizione")
+        last_date = sess_list[0]["date"] if sess_list else None
         result.append(
             SessionGroupDTO(
-                simulator=primary_sim,
+                simulator=sim,
                 track=track,
                 cars=cars,
                 sessions=sess_list,
                 total_laps=total_laps,
                 best_lap_time=best,
+                last_session_date=last_date,
             )
         )
-    result.sort(key=lambda g: (-len(g.sessions), -g.total_laps, g.track))
+    result.sort(key=lambda g: g.last_session_date or "", reverse=True)
     return result
 
 
@@ -781,7 +787,8 @@ def _detect_simulator(session: Session | None) -> str:
 
 def _rank_flying_laps(sess: Session) -> list[Lap]:
     """Return session laps sorted by lap_time ascending, excluding pit out-laps and laps > 107% of PB."""
-    best_t = min((l.lap_time for l in sess.laps if l.lap_time > 20.0), default=0.0)
+    valid_times = [l.lap_time for l in sess.laps if l.lap_time > 20.0 and l.is_valid and not l.is_incomplete]
+    best_t = min(valid_times) if valid_times else min((l.lap_time for l in sess.laps if l.lap_time > 20.0), default=0.0)
 
     def _has_enough_data(lap: Lap) -> bool:
         t = lap.telemetry or {}
@@ -1165,26 +1172,161 @@ def _format_lap_badge_label(lap: Lap, session: Session) -> str:
 def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = False) -> dict[str, Any]:
     """
     Build static garage setup + dynamic on-track tyre telemetry for a given (session, lap).
-    Static garage values default to the car's baseline unless recorded setup overrides exist
-    in session.telemetry or lap.telemetry. Dynamic hot pressures and I/M/O tyre temperatures
-    reflect the lap's measured braking, lateral G, and steering scrub energy.
+    1. For ACC sessions: loads the user's actual saved setup JSON file if present on disk.
+    2. For sessions with explicit setup channels in telemetry: reads them directly.
+    3. For demo/synthetic sessions: provides demo baseline values.
+    4. For sessions without setup data (e.g. AC EVO Early Access): marks has_garage_setup=False
+       and sets garage parameters to None (honest representation, zero invented data).
+       Dynamic hot tyre pressures and I/M/O temperatures remain calculated from real 50Hz telemetry.
     """
     tel = (lap.telemetry if lap and lap.telemetry else None) or session.telemetry or {}
+    sim_name = session.simulator or _detect_simulator(session)
+    is_demo = session.session_id.startswith("synth_") or getattr(session, "is_demo", False)
 
-    def _override(key: str, default: float | int) -> float | int:
-        val = tel.get(key)
-        if isinstance(val, (int, float)):
-            return val
-        if isinstance(val, list) and len(val) > 0 and isinstance(val[0], (int, float)):
-            return val[0]
-        return default
+    # 1. Try loading real setup from ACC setup directory
+    real_setup = None
+    if "competizione" in sim_name.lower():
+        real_setup = load_acc_setup(session.car, session.track)
 
-    pressures_cold = {
-        "FL": float(_override("cold_psi_fl", 24.5)),
-        "FR": float(_override("cold_psi_fr", 24.6)),
-        "RL": float(_override("cold_psi_rl", 24.2)),
-        "RR": float(_override("cold_psi_rr", 24.3)),
-    }
+    has_garage_setup = False
+    setup_source = "not_available"
+    setup_file_name: str | None = None
+
+    if real_setup:
+        has_garage_setup = True
+        setup_source = "actual_file"
+        setup_file_name = real_setup.get("setup_file_name")
+        electronics = real_setup["electronics"]
+        aero = real_setup["aero"]
+        chassis = real_setup["chassis"]
+        pressures_cold = {
+            "FL": 24.5,
+            "FR": 24.6,
+            "RL": 24.2,
+            "RR": 24.3,
+        }
+    elif is_demo:
+        has_garage_setup = True
+        setup_source = "demo"
+        setup_file_name = "Valencia GT3 Baseline"
+        electronics = {
+            "tc1": 3,
+            "tc2": 4,
+            "abs": 3,
+            "brake_bias": 54.0,
+            "ecu_map": 1,
+        }
+        aero = {
+            "front_splitter": 6,
+            "rear_wing": 8,
+            "ride_height_front_mm": 54.0,
+            "ride_height_rear_mm": 72.0,
+            "rake_mm": 18.0,
+        }
+        chassis = {
+            "arb_front": 4,
+            "arb_rear": 2,
+            "camber_front_deg": -3.8,
+            "camber_rear_deg": -3.0,
+            "toe_front_deg": -0.10,
+            "toe_rear_deg": 0.15,
+            "preload_diff_nm": 90,
+        }
+        pressures_cold = {"FL": 24.5, "FR": 24.6, "RL": 24.2, "RR": 24.3}
+    elif any(
+        k in tel for k in ("setup_tc1", "setup_abs", "setup_brake_bias", "tc", "abs", "brake_bias", "pressure_fl")
+    ):
+        has_garage_setup = True
+        setup_source = "recorded_telemetry"
+        setup_file_name = "Live 50Hz Telemetry"
+
+        def _get_val(*keys: str) -> Any:
+            for k in keys:
+                v = tel.get(k)
+                if v is not None:
+                    if isinstance(v, list) and len(v) > 0:
+                        arr = [x for x in v if x is not None and not (isinstance(x, float) and np.isnan(x))]
+                        if arr:
+                            non_zero = [x for x in arr if x > 0]
+                            val = non_zero[0] if non_zero else arr[0]
+                            return round(float(val), 2) if isinstance(val, (int, float)) else val
+                    elif isinstance(v, (int, float)):
+                        return round(float(v), 2)
+            return None
+
+        tc_raw = _get_val("tc", "setup_tc1")
+        abs_raw = _get_val("abs", "setup_abs")
+        bb_raw = _get_val("brake_bias", "setup_brake_bias")
+        if bb_raw is not None and 0.0 < bb_raw <= 1.0:
+            bb_raw = round(bb_raw * 100.0, 1)
+
+        electronics = {
+            "tc1": int(round(tc_raw)) if tc_raw is not None else None,
+            "tc2": _get_val("setup_tc2"),
+            "abs": int(round(abs_raw)) if abs_raw is not None else None,
+            "brake_bias": bb_raw,
+            "ecu_map": _get_val("setup_ecu_map"),
+        }
+        aero = {
+            "front_splitter": _get_val("setup_front_splitter"),
+            "rear_wing": _get_val("setup_rear_wing"),
+            "ride_height_front_mm": _get_val("ride_height_front_mm"),
+            "ride_height_rear_mm": _get_val("ride_height_rear_mm"),
+            "rake_mm": None,
+        }
+        chassis = {
+            "arb_front": _get_val("setup_arb_front"),
+            "arb_rear": _get_val("setup_arb_rear"),
+            "camber_front_deg": _get_val("setup_camber_front_deg"),
+            "camber_rear_deg": _get_val("setup_camber_rear_deg"),
+            "toe_front_deg": _get_val("setup_toe_front_deg"),
+            "toe_rear_deg": _get_val("setup_toe_rear_deg"),
+            "preload_diff_nm": _get_val("setup_preload_diff_nm"),
+        }
+
+        def _get_cold(k: str) -> float | None:
+            arr = tel.get(k)
+            if isinstance(arr, list) and len(arr) > 5:
+                valid_p = [float(p) for p in arr if p is not None and float(p) > 10.0]
+                if valid_p:
+                    return round(float(np.min(valid_p[: min(len(valid_p), 500)])), 1)
+            return None
+
+        pressures_cold = {
+            "FL": _get_cold("pressure_fl") or _get_val("cold_psi_fl"),
+            "FR": _get_cold("pressure_fr") or _get_val("cold_psi_fr"),
+            "RL": _get_cold("pressure_rl") or _get_val("cold_psi_rl"),
+            "RR": _get_cold("pressure_rr") or _get_val("cold_psi_rr"),
+        }
+    else:
+        # Honest representation: no setup file or telemetry channel found (e.g. AC EVO EA 0.9)
+        has_garage_setup = False
+        setup_source = "not_available"
+        setup_file_name = None
+        electronics = {
+            "tc1": None,
+            "tc2": None,
+            "abs": None,
+            "brake_bias": None,
+            "ecu_map": None,
+        }
+        aero = {
+            "front_splitter": None,
+            "rear_wing": None,
+            "ride_height_front_mm": None,
+            "ride_height_rear_mm": None,
+            "rake_mm": None,
+        }
+        chassis = {
+            "arb_front": None,
+            "arb_rear": None,
+            "camber_front_deg": None,
+            "camber_rear_deg": None,
+            "toe_front_deg": None,
+            "toe_rear_deg": None,
+            "preload_diff_nm": None,
+        }
+        pressures_cold = {"FL": None, "FR": None, "RL": None, "RR": None}
 
     # Dynamic on-track thermal calculation from recorded 50Hz lap channels
     lat_arr = np.asarray(tel.get("lat_accel", []), dtype=np.float64)
@@ -1217,11 +1359,27 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
             temp_rl = [79 + int(d_c * 0.5), 82 + int(d_c * 0.5), 84 + int(d_c * 0.5)]
             temp_rr = [83 + int(d_c * 0.4), 81 + int(d_c * 0.4), 78 + int(d_c * 0.4)]
 
+    def _val_or(key: str, default: float) -> float:
+        v = tel.get(key)
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, list) and v and isinstance(v[0], (int, float)):
+            return float(v[0])
+        return default
+
+    def _get_hot(k: str, default: float) -> float:
+        arr = tel.get(k)
+        if isinstance(arr, list) and len(arr) > 5:
+            valid_p = [float(p) for p in arr if p is not None and float(p) > 10.0]
+            if valid_p:
+                return round(float(np.mean(valid_p)), 1)
+        return default
+
     pressures_hot = {
-        "FL": float(_override("hot_psi_fl", hot_fl)),
-        "FR": float(_override("hot_psi_fr", hot_fr)),
-        "RL": float(_override("hot_psi_rl", hot_rl)),
-        "RR": float(_override("hot_psi_rr", hot_rr)),
+        "FL": float(_val_or("hot_psi_fl", _get_hot("pressure_fl", hot_fl))),
+        "FR": float(_val_or("hot_psi_fr", _get_hot("pressure_fr", hot_fr))),
+        "RL": float(_val_or("hot_psi_rl", _get_hot("pressure_rl", hot_rl))),
+        "RR": float(_val_or("hot_psi_rr", _get_hot("pressure_rr", hot_rr))),
     }
 
     tyres_dict: dict[str, Any] = {
@@ -1238,34 +1396,14 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
     }
     tyres_dict["thermal_diagnostics"] = analyze_all_tyres(tyres_dict)
 
-    rh_f = float(_override("ride_height_front_mm", 54.0))
-    rh_r = float(_override("ride_height_rear_mm", 72.0))
-
     return {
+        "has_garage_setup": has_garage_setup,
+        "setup_source": setup_source,
+        "setup_file_name": setup_file_name,
         "tyres": tyres_dict,
-        "electronics": {
-            "tc1": int(_override("setup_tc1", 3)),
-            "tc2": int(_override("setup_tc2", 4)),
-            "abs": int(_override("setup_abs", 3)),
-            "brake_bias": float(_override("setup_brake_bias", 54.0)),
-            "ecu_map": int(_override("setup_ecu_map", 1)),
-        },
-        "aero": {
-            "front_splitter": int(_override("setup_front_splitter", 6)),
-            "rear_wing": int(_override("setup_rear_wing", 8)),
-            "ride_height_front_mm": rh_f,
-            "ride_height_rear_mm": rh_r,
-            "rake_mm": round(rh_r - rh_f, 1),
-        },
-        "chassis": {
-            "arb_front": int(_override("setup_arb_front", 4)),
-            "arb_rear": int(_override("setup_arb_rear", 2)),
-            "camber_front_deg": float(_override("setup_camber_front_deg", -3.8)),
-            "camber_rear_deg": float(_override("setup_camber_rear_deg", -3.0)),
-            "toe_front_deg": float(_override("setup_toe_front_deg", -0.10)),
-            "toe_rear_deg": float(_override("setup_toe_rear_deg", 0.15)),
-            "preload_diff_nm": int(_override("setup_preload_diff_nm", 90)),
-        },
+        "electronics": electronics,
+        "aero": aero,
+        "chassis": chassis,
     }
 
 
@@ -1309,38 +1447,55 @@ def _build_setup_comparison(
 
     # Compare Static Garage Setup (cold pressures, electronics, aero, chassis)
     garage_diffs: list[str] = []
-    p1_el, p2_el = p1["electronics"], p2["electronics"]
-    if abs(float(p2_el["brake_bias"]) - float(p1_el["brake_bias"])) >= 0.05:
-        d = float(p2_el["brake_bias"]) - float(p1_el["brake_bias"])
-        garage_diffs.append(f"BB {d:+.1f}%")
-    for k, lbl in (("tc1", "TC1"), ("tc2", "TC2"), ("abs", "ABS"), ("ecu_map", "Mapa")):
-        if int(p2_el[k]) != int(p1_el[k]):
-            garage_diffs.append(f"{lbl} {int(p2_el[k]) - int(p1_el[k]):+d}")
+    p1_has_setup = p1.get("has_garage_setup", False)
+    p2_has_setup = p2.get("has_garage_setup", False)
 
-    p1_aero, p2_aero = p1["aero"], p2["aero"]
-    for k, lbl, unit in (
-        ("front_splitter", "Splitter", ""),
-        ("rear_wing", "Alerón", ""),
-        ("ride_height_front_mm", "Alt. Del", "mm"),
-        ("ride_height_rear_mm", "Alt. Tras", "mm"),
-    ):
-        if abs(float(p2_aero[k]) - float(p1_aero[k])) >= 0.1:
-            d = float(p2_aero[k]) - float(p1_aero[k])
-            garage_diffs.append(f"{lbl} {d:+.0f}{unit}")
+    if p1_has_setup and p2_has_setup:
+        p1_el, p2_el = p1["electronics"], p2["electronics"]
+        if (
+            p1_el.get("brake_bias") is not None
+            and p2_el.get("brake_bias") is not None
+            and abs(float(p2_el["brake_bias"]) - float(p1_el["brake_bias"])) >= 0.05
+        ):
+            d = float(p2_el["brake_bias"]) - float(p1_el["brake_bias"])
+            garage_diffs.append(f"BB {d:+.1f}%")
+        for k, lbl in (("tc1", "TC1"), ("tc2", "TC2"), ("abs", "ABS"), ("ecu_map", "Mapa")):
+            v1, v2 = p1_el.get(k), p2_el.get(k)
+            if v1 is not None and v2 is not None and int(v2) != int(v1):
+                garage_diffs.append(f"{lbl} {int(v2) - int(v1):+d}")
 
-    p1_ch, p2_ch = p1["chassis"], p2["chassis"]
-    for k, lbl in (("arb_front", "ARB Del"), ("arb_rear", "ARB Tras"), ("preload_diff_nm", "Precarga")):
-        if abs(float(p2_ch[k]) - float(p1_ch[k])) >= 0.1:
-            garage_diffs.append(f"{lbl} {int(p2_ch[k]) - int(p1_ch[k]):+d}")
-    for k, lbl in (("camber_front_deg", "Caída Del"), ("camber_rear_deg", "Caída Tras")):
-        if abs(float(p2_ch[k]) - float(p1_ch[k])) >= 0.05:
-            garage_diffs.append(f"{lbl} {float(p2_ch[k]) - float(p1_ch[k]):+.1f}°")
+        p1_aero, p2_aero = p1["aero"], p2["aero"]
+        for k, lbl, unit in (
+            ("front_splitter", "Splitter", ""),
+            ("rear_wing", "Alerón", ""),
+            ("ride_height_front_mm", "Alt. Del", "mm"),
+            ("ride_height_rear_mm", "Alt. Tras", "mm"),
+        ):
+            v1, v2 = p1_aero.get(k), p2_aero.get(k)
+            if v1 is not None and v2 is not None and abs(float(v2) - float(v1)) >= 0.1:
+                d = float(v2) - float(v1)
+                garage_diffs.append(f"{lbl} {d:+.0f}{unit}")
 
-    p1_cold, p2_cold = p1["tyres"]["pressures_cold"], p2["tyres"]["pressures_cold"]
-    for wheel in ("FL", "FR", "RL", "RR"):
-        d_cold = float(p2_cold[wheel]) - float(p1_cold[wheel])
-        if abs(d_cold) >= 0.1:
-            garage_diffs.append(f"{wheel} Frío {d_cold:+.1f} psi")
+        p1_ch, p2_ch = p1["chassis"], p2["chassis"]
+        for k, lbl in (("arb_front", "ARB Del"), ("arb_rear", "ARB Tras"), ("preload_diff_nm", "Precarga")):
+            v1, v2 = p1_ch.get(k), p2_ch.get(k)
+            if v1 is not None and v2 is not None and abs(float(v2) - float(v1)) >= 0.1:
+                garage_diffs.append(f"{lbl} {int(v2) - int(v1):+d}")
+        for k, lbl in (("camber_front_deg", "Caída Del"), ("camber_rear_deg", "Caída Tras")):
+            v1, v2 = p1_ch.get(k), p2_ch.get(k)
+            if v1 is not None and v2 is not None and abs(float(v2) - float(v1)) >= 0.05:
+                garage_diffs.append(f"{lbl} {float(v2) - float(v1):+.1f}°")
+
+        p1_cold, p2_cold = p1["tyres"]["pressures_cold"], p2["tyres"]["pressures_cold"]
+        for wheel in ("FL", "FR", "RL", "RR"):
+            c1, c2 = p1_cold.get(wheel), p2_cold.get(wheel)
+            if c1 is not None and c2 is not None:
+                d_cold = float(c2) - float(c1)
+                if abs(d_cold) >= 0.1:
+                    garage_diffs.append(f"{wheel} Frío {d_cold:+.1f} psi")
+
+    same_garage_setup = p1_has_setup and p2_has_setup and len(garage_diffs) == 0
+    same_session = ref_session.session_id == comp_session.session_id
 
     # Compare Dynamic On-Track Tyre Telemetry (hot pressures)
     thermal_diffs: list[str] = []
@@ -1350,11 +1505,26 @@ def _build_setup_comparison(
         if abs(d_hot) > 0.1:
             thermal_diffs.append(f"{wheel} {d_hot:+.1f} psi")
 
-    same_garage_setup = len(garage_diffs) == 0
-    same_session = ref_session.session_id == comp_session.session_id
-
     ref_label = _format_lap_badge_label(ref_lap, ref_session) if ref_lap else "V1"
     comp_label = _format_lap_badge_label(comp_lap, comp_session) if comp_lap else "V2"
+
+    advice_items = [
+        {
+            "title": f"Equilibrio en curvas lentas ({track})",
+            "suggestion": "Si notas que el tren delantero no muerde al soltar freno, retrasa el reparto de frenada (-0.5%) o ablanda la barra estabilizadora delantera 1 punto.",
+            "impact": "Mejora inserción y velocidad en vértice.",
+        },
+        {
+            "title": "Ventana de presiones",
+            "suggestion": "Las presiones en caliente objetivo están en 26.5 - 27.0 psi, ventana de máximo agarre para GT en circuito.",
+            "impact": "Grip lateral óptimo.",
+        },
+        {
+            "title": f"Tracción y estabilidad ({track})",
+            "suggestion": "Si la zaga se descoloca en aceleración con volante girado, aumenta el control de tracción (TC) 1 punto o sube el alerón trasero para mayor apoyo a alta velocidad.",
+            "impact": "Estabilidad en aceleración.",
+        },
+    ]
 
     return CarSetupDTO(
         session_id=matched_session.session_id,
@@ -1362,27 +1532,14 @@ def _build_setup_comparison(
         track_name=track,
         game_name=detected_game,
         has_telemetry=has_telem,
+        has_garage_setup=p2.get("has_garage_setup", False),
+        setup_source=p2.get("setup_source", "not_available"),
+        setup_file_name=p2.get("setup_file_name"),
         tyres=p2["tyres"],
         electronics=p2["electronics"],
         aero=p2["aero"],
         chassis=p2["chassis"],
-        setup_advice=[
-            {
-                "title": "Subviraje en curvas lentas (T2 Doohan / T10)",
-                "suggestion": "Si notas que el tren delantero no muerde al soltar freno, retrasa el reparto de frenada a 53.5% (-0.5%) o ablanda la barra estabilizadora delantera 1 punto (ARB 3).",
-                "impact": "Mejora inserción y velocidad en vértice.",
-            },
-            {
-                "title": "Ventana de presiones",
-                "suggestion": "Las presiones en caliente objetivo están en 26.5 - 27.0 psi, ventana de máximo agarre para GT3 en ACC.",
-                "impact": "Grip lateral óptimo.",
-            },
-            {
-                "title": "Tracción en salida a meta (T14 Adrián Campos)",
-                "suggestion": "Si la zaga se descoloca en aceleración con volante girado, aumenta TC1 de 3 a 4 o sube el alerón trasero a 9 para dar mayor apoyo a alta velocidad en la recta.",
-                "impact": "Estabilidad en aceleración.",
-            },
-        ],
+        setup_advice=advice_items,
         ref_lap_id=f"Lap {ref_lap.lap_number}" if ref_lap else None,
         comp_lap_id=f"Lap {comp_lap.lap_number}" if comp_lap else None,
         ref_lap_label=ref_label,

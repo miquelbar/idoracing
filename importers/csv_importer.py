@@ -5,12 +5,14 @@ Reads telemetry exported from MoTeC i2, third-party apps or the IdoRacing record
 """
 
 import os
+import re
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
 from domain.session import Lap, Session
+from importers.acevo_importer import resolve_acevo_session_info
 from importers.laps import distance_covered, truncate_teleport_jumps, without_boundary_wrap
 
 
@@ -33,6 +35,13 @@ class CSVImporter:
         "steer_angle": ["steer_angle", "steered angle", "steerangle", "steering"],
         "rpm": ["rpm", "rpms", "engine rpm", "engine_rpm"],
         "lap": ["lap", "lap number", "lap_number"],
+        "pressure_fl": ["pressure_fl", "press_fl", "wheel_pressure_fl", "tyre_pressure_fl", "pressures_fl"],
+        "pressure_fr": ["pressure_fr", "press_fr", "wheel_pressure_fr", "tyre_pressure_fr", "pressures_fr"],
+        "pressure_rl": ["pressure_rl", "press_rl", "wheel_pressure_rl", "tyre_pressure_rl", "pressures_rl"],
+        "pressure_rr": ["pressure_rr", "press_rr", "wheel_pressure_rr", "tyre_pressure_rr", "pressures_rr"],
+        "tc": ["tc", "setup_tc1", "tc1", "traction_control"],
+        "abs": ["abs", "setup_abs", "anti_lock_braking"],
+        "brake_bias": ["brake_bias", "setup_brake_bias", "bias", "brake_balance"],
     }
 
     def __init__(self, filepath: str, car: str = "Unknown car", track: str = "Unknown track"):
@@ -45,6 +54,34 @@ class CSVImporter:
     def parse(self) -> Session:
         """Parse CSV file and construct a Session object."""
         metadata = self._read_metadata()
+        filename = os.path.basename(self.filepath)
+        session_id = os.path.splitext(filename)[0]
+
+        session_date = datetime.now()
+        date_match = re.search(r"(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})", session_id)
+        if date_match:
+            y, mo, d, h, mi = (int(x) for x in date_match.groups())
+            session_date = datetime(y, mo, d, h, mi)
+
+        is_acevo = (
+            metadata.get("simulator") == "Assetto Corsa EVO"
+            or session_id.startswith("acevo")
+            or "assettocorsaevo" in self.filepath.lower()
+        )
+        acevo_info = {}
+        if is_acevo:
+            acevo_info = resolve_acevo_session_info(self.filepath, session_date)
+            if acevo_info:
+                if not metadata.get("track") or metadata.get("track") in (
+                    "",
+                    "Unknown track",
+                    "Ricardo Tormo de Valencia",
+                ):
+                    metadata["track"] = acevo_info["track"]
+                if not metadata.get("car") or metadata.get("car") in ("", "Unknown car", "Porsche 911 GT3 R (992)"):
+                    metadata["car"] = acevo_info["car"]
+                metadata["simulator"] = "Assetto Corsa EVO"
+
         df = pd.read_csv(self.filepath, comment="#")
 
         # Check if row 0 has units (e.g. non-numeric while row 1 is numeric)
@@ -71,11 +108,15 @@ class CSVImporter:
                 telemetry[canonical] = numeric_series.tolist()
 
         # Lap distance is a position along the track, so laps keep it as recorded instead of starting at 0.
-        track_position = "lap_distance" in telemetry and max(telemetry.get("lap_distance", [0.0])) > 0.0
+        # Bogus distances (< 100m while driving) or AC EVO coordinates are ignored and integrated from speed instead.
+        track_position = (
+            "lap_distance" in telemetry and max(telemetry.get("lap_distance", [0.0])) > 100.0 and not is_acevo
+        )
         if track_position:
             telemetry["distance"] = telemetry.pop("lap_distance")
         else:
             telemetry.pop("lap_distance", None)
+            telemetry.pop("distance", None)
         lap_valid = telemetry.pop("lap_valid", None)
 
         # If required channels are missing, provide sane defaults
@@ -100,55 +141,120 @@ class CSVImporter:
 
         # Segment into laps if lap column is present
         laps: list[Lap] = []
+        corrupted_laps = False
         if "lap" in telemetry:
             lap_arr = np.array(telemetry["lap"])
             unique_laps = np.unique(lap_arr)
-            for l_num in unique_laps:
-                indices = np.where(lap_arr == l_num)[0]
-                if len(indices) < 20:
-                    continue
-                lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
-                t0 = lap_telemetry["time"][0]
-                lap_telemetry["time"] = [v - t0 for v in lap_telemetry["time"]]
-                if track_position:
-                    lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
-                else:
-                    d0 = lap_telemetry["distance"][0]
-                    lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
-                lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
-                assert lap_telemetry is not None
-                t_arr = lap_telemetry["time"]
-                lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
-                # Hybrid lap_valid rule: the recorder's flag is unreliable when it
-                # marks most samples invalid (practice/qualifying), so only trust it
-                # when at least half the samples are valid — then a single invalid
-                # sample invalidates the whole lap. The distance filter below still
-                # runs as a final arbiter for partial laps.
-                is_valid = not is_incomplete
-                if is_valid and lap_valid is not None:
-                    lap_valid_samples = [lap_valid[idx] for idx in indices[: len(t_arr)]]
-                    valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / max(len(lap_valid_samples), 1)
-                    if valid_fraction >= 0.5:
-                        is_valid = all(v >= 1 for v in lap_valid_samples)
-                laps.append(
-                    Lap(
-                        lap_number=int(l_num),
-                        lap_time=lap_time,
-                        is_valid=is_valid,
-                        is_incomplete=is_incomplete,
-                        telemetry=lap_telemetry,
+            # In AC EVO Early Access, the shared memory offset for CompletedLaps contains NormalizedCarPosition (float32)
+            # resulting in hundreds/thousands of pseudo-unique lap numbers or negative numbers.
+            if is_acevo and (len(unique_laps) > 20 or np.any(lap_arr < -100) or np.any(lap_arr > 10000)):
+                corrupted_laps = True
+            else:
+                for l_num in unique_laps:
+                    indices = np.where(lap_arr == l_num)[0]
+                    if len(indices) < 20:
+                        continue
+                    lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
+                    t0 = lap_telemetry["time"][0]
+                    lap_telemetry["time"] = [v - t0 for v in lap_telemetry["time"]]
+                    if track_position:
+                        lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
+                    else:
+                        d0 = lap_telemetry["distance"][0]
+                        lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+                    lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
+                    assert lap_telemetry is not None
+                    t_arr = lap_telemetry["time"]
+                    lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
+                    # Hybrid lap_valid rule: the recorder's flag is unreliable when it
+                    # marks most samples invalid (practice/qualifying), so only trust it
+                    # when at least half the samples are valid — then a single invalid
+                    # sample invalidates the whole lap. The distance filter below still
+                    # runs as a final arbiter for partial laps.
+                    is_valid = not is_incomplete
+                    if is_valid and lap_valid is not None:
+                        lap_valid_samples = [lap_valid[idx] for idx in indices[: len(t_arr)]]
+                        valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / max(len(lap_valid_samples), 1)
+                        if valid_fraction >= 0.5:
+                            is_valid = all(v >= 1 for v in lap_valid_samples)
+                    laps.append(
+                        Lap(
+                            lap_number=int(l_num),
+                            lap_time=lap_time,
+                            is_valid=is_valid,
+                            is_incomplete=is_incomplete,
+                            telemetry=lap_telemetry,
+                        )
                     )
-                )
-            # Always filter partial laps by distance covered, regardless of whether
-            # we have a real track-position channel or a dead-reckoned distance.
-            # A lap is invalid when it covers less than 70% or more than 130% of
-            # the median span (out-laps, in-laps, and pit-inclusive laps).
-            if len(laps) > 1:
-                spans = [distance_covered(lap.telemetry or {}) for lap in laps]
-                ref_span = float(np.median(spans))
-                for lap, span in zip(laps, spans, strict=True):
-                    if span < 0.7 * ref_span or span > 1.3 * ref_span:
-                        lap.is_valid = False
+                # Always filter partial laps by distance covered, regardless of whether
+                # we have a real track-position channel or a dead-reckoned distance.
+                # A lap is invalid when it covers less than 70% or more than 130% of
+                # the median span (out-laps, in-laps, and pit-inclusive laps).
+                if len(laps) > 1:
+                    spans = [distance_covered(lap.telemetry or {}) for lap in laps]
+                    ref_span = float(np.median(spans))
+                    for lap, span in zip(laps, spans, strict=True):
+                        if span < 0.7 * ref_span or span > 1.3 * ref_span:
+                            lap.is_valid = False
+
+        if corrupted_laps:
+            dist_series = telemetry.get("distance", [])
+            total_dist = dist_series[-1] if len(dist_series) > 0 else 0.0
+
+            # Determine circuit length generically without hardcoding track names:
+            # 1. From CSV metadata header (if recorder recorded track_length_m)
+            track_len = float(metadata.get("track_length_m", 0.0) or 0.0)
+
+            # 2. From official session result lap time (best_lap_s) and telemetry flying speed
+            if track_len < 100.0:
+                best_lap_s = acevo_info.get("best_lap_s", 0.0) if (is_acevo and acevo_info) else 0.0
+                if best_lap_s > 20.0 and "speed" in telemetry and "time" in telemetry:
+                    flying_speeds = [
+                        s for s, t in zip(telemetry["speed"], telemetry["time"], strict=False) if s > 60.0 and t > 60.0
+                    ]
+                    if flying_speeds:
+                        avg_speed_ms = (sum(flying_speeds) / len(flying_speeds)) / 3.6
+                        track_len = round(avg_speed_ms * best_lap_s, 1)
+
+            # 3. Fallback generic default estimate if no session result lap time exists
+            if track_len < 100.0:
+                track_len = 4000.0
+
+            if total_dist >= track_len * 0.7:
+                lap_start_idx = 0
+                current_target = track_len
+                lap_idx = 1
+                for i, d in enumerate(dist_series):
+                    if d >= current_target or i == len(dist_series) - 1:
+                        if i - lap_start_idx >= 30:
+                            lap_tel = {k: telemetry[k][lap_start_idx:i] for k in telemetry}
+                            t0 = lap_tel["time"][0]
+                            lap_tel["time"] = [v - t0 for v in lap_tel["time"]]
+                            d0 = lap_tel["distance"][0]
+                            lap_tel["distance"] = [v - d0 for v in lap_tel["distance"]]
+                            lap_time = float(lap_tel["time"][-1] - lap_tel["time"][0])
+
+                            span = d - dist_series[lap_start_idx]
+                            is_inc = span < 0.7 * track_len
+                            is_out = (lap_idx == 1 and lap_time > 120.0) or is_inc
+                            is_val = not is_out and not is_inc and (0.7 * track_len <= span <= 1.3 * track_len)
+
+                            splits = acevo_info.get("splits", []) if (is_val and is_acevo and acevo_info) else []
+                            laps.append(
+                                Lap(
+                                    lap_number=lap_idx,
+                                    lap_time=round(lap_time, 3),
+                                    sector_times=splits,
+                                    is_valid=is_val,
+                                    is_incomplete=is_inc,
+                                    is_outlap=is_out,
+                                    telemetry=lap_tel,
+                                    has_telemetry=True,
+                                )
+                            )
+                            lap_idx += 1
+                        lap_start_idx = i
+                        current_target += track_len
 
         # If no explicit laps found, treat whole file as lap 1
         if not laps and n_samples > 0:
@@ -172,7 +278,7 @@ class CSVImporter:
             session_id=session_id,
             car=metadata.get("car", self.car),
             track=metadata.get("track", self.track),
-            date=datetime.now(),
+            date=session_date,
             telemetry=telemetry,
             laps=laps,
             source_file=self.filepath,
