@@ -449,6 +449,12 @@ export const App: React.FC = () => {
         currentTab={currentTab}
         onSelectTab={handleNavigateTab}
         status={status}
+        hasPlan={Boolean(
+          (comparison && comparison.corners && comparison.corners.length > 0) ||
+            (currentSession &&
+              currentSession.laps &&
+              currentSession.laps.some((l) => l.is_valid && l.lap_time > 20))
+        )}
       />
 
       {/* 2. Sub-topbar unificado en todas las vistas (Telemetría, Sesiones, Setup, Ingeniero, Ajustes) */}

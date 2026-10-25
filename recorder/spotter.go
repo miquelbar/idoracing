@@ -195,10 +195,11 @@ func (s *Spotter) Step(sample TelemetrySample, meta SessionMetadata, live bool, 
 		if !s.pitExitAnnounced {
 			s.pitExitAnnounced = true
 			s.inPit = false
-			if s.Calibrated {
-				s.emitWithCooldown("radio_on", now)
+			hasManifest := s.Calibrated && s.Manifest != nil && len(s.Manifest.Hotspots) > 0
+			if hasManifest {
+				s.emitWithCooldown("radio_start_guided", now)
 			} else {
-				s.emitWithCooldown("radio_calibrating", now)
+				s.emitWithCooldown("radio_start_nodata", now)
 			}
 		}
 	}
@@ -252,13 +253,18 @@ func (s *Spotter) Step(sample TelemetrySample, meta SessionMetadata, live bool, 
 					diff := vmin - h.TargetVMinKmh
 					if diff >= -2.0 {
 						s.emitWithCooldown("corner_gain", now)
-					} else if diff <= -6.0 {
+					} else if diff > -6.0 {
+						s.emitWithCooldown("corner_early_brake", now)
+					} else {
 						s.roastCounter++
-						if s.roastCounter%2 == 1 {
-							s.emitWithCooldown("corner_overshoot", now)
-						} else {
-							s.emitWithCooldown("bubota_roast_01", now)
+						roasts := []string{
+							"corner_overshoot",
+							"bubota_roast_01",
+							"bubota_roast_02",
+							"bubota_roast_03",
 						}
+						clip := roasts[(s.roastCounter-1)%len(roasts)]
+						s.emitWithCooldown(clip, now)
 					}
 				}
 			}
@@ -286,7 +292,12 @@ func (s *Spotter) ToggleMute(now time.Time) {
 	if s.Muted {
 		s.emit("radio_off", now)
 	} else {
-		s.emit("radio_on", now)
+		hasManifest := s.Calibrated && s.Manifest != nil && len(s.Manifest.Hotspots) > 0
+		if hasManifest {
+			s.emit("radio_unmute_guided", now)
+		} else {
+			s.emit("radio_unmute_nodata", now)
+		}
 	}
 }
 

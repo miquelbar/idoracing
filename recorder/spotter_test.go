@@ -35,8 +35,8 @@ func TestSpotterUncalibratedPitExit(t *testing.T) {
 	s.Step(sample, meta, true, now)
 
 	out := buf.String()
-	if !strings.Contains(out, "PEP_PLAY|radio_calibrating") {
-		t.Fatalf("expected PEP_PLAY|radio_calibrating on pit exit, got: %s", out)
+	if !strings.Contains(out, "PEP_PLAY|radio_start_nodata") {
+		t.Fatalf("expected PEP_PLAY|radio_start_nodata on pit exit, got: %s", out)
 	}
 }
 
@@ -124,8 +124,8 @@ func TestSpotterCalibratedValenciaFlow(t *testing.T) {
 	// Step 1: Pit exit in calibrated mode
 	s.Step(TelemetrySample{InPit: 0, Lap: 1, LapDistance: 50.0, SpeedKmh: 120.0}, meta, true, now)
 	out := buf.String()
-	if !strings.Contains(out, "PEP_PLAY|radio_on") {
-		t.Fatalf("expected radio_on in calibrated mode, got: %s", out)
+	if !strings.Contains(out, "PEP_PLAY|radio_start_guided") {
+		t.Fatalf("expected radio_start_guided in calibrated mode, got: %s", out)
 	}
 
 	// Step 2: Cross trigger_dist_m (110m) -> Pre-aviso
@@ -209,14 +209,26 @@ func TestSpotterF9HotkeyMuteToggle(t *testing.T) {
 		t.Fatalf("expected cue to be suppressed while muted, got: %s", buf.String())
 	}
 
-	// Press F9 again -> unmute
+	// Press F9 again -> unmute (uncalibrated -> radio_unmute_nodata)
 	buf.Reset()
 	s.ToggleMute(now.Add(16 * time.Second))
 	if s.Muted {
 		t.Fatal("expected spotter to be unmuted after second ToggleMute")
 	}
-	if !strings.Contains(buf.String(), "PEP_PLAY|radio_on") {
-		t.Fatalf("expected radio_on on unmute, got: %s", buf.String())
+	if !strings.Contains(buf.String(), "PEP_PLAY|radio_unmute_nodata") {
+		t.Fatalf("expected radio_unmute_nodata on unmute without manifest, got: %s", buf.String())
+	}
+
+	// Calibrate and toggle again -> radio_unmute_guided
+	s.Calibrated = true
+	s.Manifest = &SpotterManifest{
+		Hotspots: []SpotterHotspot{{Slot: 1}},
+	}
+	s.ToggleMute(now.Add(20 * time.Second)) // mute
+	buf.Reset()
+	s.ToggleMute(now.Add(25 * time.Second)) // unmute
+	if !strings.Contains(buf.String(), "PEP_PLAY|radio_unmute_guided") {
+		t.Fatalf("expected radio_unmute_guided on unmute with manifest, got: %s", buf.String())
 	}
 }
 

@@ -101,8 +101,8 @@ async def synthesize_track_hotspots_async(track_slug: str, hotspots: list[dict[s
         clip_id = h["clip_id"]
 
         scripts = {
-            "es": f"Atento en la curva {corner_id}, frena en el {target_brake} y alarga el trail braking.",
-            "en": f"Watch turn {corner_id}, brake at the {target_brake} meter board and trail brake to the apex.",
+            "es": f"Atento en la {corner_id}: frena en el {target_brake} y aguanta el trail braking al vértice.",
+            "en": f"Focus on turn {corner_id}: brake at the {target_brake} board and trail brake to the apex.",
         }
 
         for lang, text in scripts.items():

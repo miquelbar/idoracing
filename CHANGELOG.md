@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Security
+### Added
+- **Authentic Pep Pit-Wall Radio & Manifest-Aware Cues**:
+  - Overhauled all spotter dialogues in Spanish (`es-ES-AlvaroNeural`) and English (`en-GB-RyanNeural`) with authentic GT3 pit-wall engineer terminology and walkie-talkie bandpass filtering.
+  - Manifest-aware pit exit and unmute cues: distinguishes whether track baseline references (`manifest.json`) are loaded (`radio_start_guided` / `radio_unmute_guided`) or telemetry is still logging (`radio_start_nodata` / `radio_unmute_nodata`).
+  - Instant `radio_off` radio mute feedback on F9 hotkey and Web topbar toggle `[ 🎧 Radio: ON / OFF ]`, bypassing normal cooldowns.
+  - Corner pace feedback with sequential Bubota roasts (`bubota_roast_01`..`03`), apex gain (`corner_gain`), overshoot corrections (`corner_overshoot`), and early braking warnings (`corner_early_brake`).
+  - Dynamic hotspot audio generation template in `analysis/spotter.py` tuned to trail braking pit-wall calls.
 - Mitigated compromised intermediate CAs vulnerability (eMudhra CAs CVE):
   - Updated Dockerfile multi-stage builds (`frontend-builder` Alpine and release Debian) to install and update system `ca-certificates`.
   - Pinned `certifi>=2026.10.19` in `requirements.txt` and `pyproject.toml` to revoke compromised root/intermediate CAs at Python SSL/TLS runtime.

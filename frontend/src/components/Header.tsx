@@ -17,12 +17,14 @@ interface HeaderProps {
   currentTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
   status: SystemStatus | null;
+  hasPlan?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
   status,
+  hasPlan = false,
 }) => {
   const { lang, setLanguage, t } = useLanguage();
   const [spotterConfig, setSpotterConfig] = React.useState<SpotterConfigDTO>({
@@ -45,7 +47,9 @@ export const Header: React.FC<HeaderProps> = ({
     updateSpotterConfig({ enabled: nextEnabled }).catch(() => {});
 
     // Immediate audio feedback on toggle
-    const clip = nextEnabled ? 'radio_on' : 'radio_off';
+    const clip = nextEnabled
+      ? (hasPlan ? 'radio_unmute_guided' : 'radio_unmute_nodata')
+      : 'radio_off';
     try {
       const audio = new Audio(`/api/spotter/audio/${clip}?lang=${lang}`);
       audio.volume = Math.max(0.1, Math.min(1.0, (spotterConfig.volume || 85) / 100));

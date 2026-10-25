@@ -32,61 +32,80 @@ RADIO_AUDIO_FILTER = (
 )
 
 PEP_SCRIPTS: dict[str, dict[str, str]] = {
-    "radio_on": {
-        "es": "Idò, Pep al habla. Te leo en el muro.",
-        "en": "Idò, Pep on the radio. Reading you on the pit wall.",
+    # A) Estados de Radio y Conexión con el Muro
+    "radio_start_guided": {
+        "es": "Idò, aquí Pep en el muro. Tengo las referencias de la Bubota en pantalla. Pista libre, yo te canto las frenadas.",
+        "en": "Idò, Pep on the pit wall. Bubota targets are on screen. Track is clear, I'll call your braking points.",
+    },
+    "radio_start_nodata": {
+        "es": "Aquí Pep en el muro. Aún no tenemos referencias en este circuito. Estoy grabando telemetría: hazte un par de vueltas limpias y lo vemos luego en el box.",
+        "en": "Pep on the pit wall. No baseline for this track yet. Telemetry is logging—put in a couple of clean laps and we'll review the data in the box.",
+    },
+    "radio_unmute_guided": {
+        "es": "Te copio, radio activa. Tengo tus referencias cargadas, te voy guiando.",
+        "en": "Copy that, radio active. Targets are loaded, guiding you through the lap.",
+    },
+    "radio_unmute_nodata": {
+        "es": "Te copio, radio activa. Estamos grabando telemetría; hazte unas vueltas para coger datos y lo analizamos después.",
+        "en": "Copy, radio active. Logging telemetry now—put in some laps to gather data and we'll analyze it after.",
     },
     "radio_off": {
-        "es": "Copiado. Pep se va, no te molesto.",
-        "en": "Copy that. Pep signing off, won't bother you.",
+        "es": "Copiado, Pep se va, no te molesto. Sigo grabando datos en silencio.",
+        "en": "Copy that, Pep signing off, won't bother you. Still logging data in silence.",
+    },
+    "radio_on": {
+        "es": "Te copio, radio activa. Tengo tus referencias cargadas, te voy guiando.",
+        "en": "Copy that, radio active. Targets are loaded, guiding you through the lap.",
     },
     "radio_calibrating": {
-        "es": "Copiado. Aún no tengo referencias de la Bubota en esta pista. Da un par de vueltas limpias para calibrar.",
-        "en": "Copy. No Bubota baseline for this track yet. Run a couple of clean laps to calibrate.",
+        "es": "Aquí Pep en el muro. Aún no tenemos referencias en este circuito. Estoy grabando telemetría: hazte un par de vueltas limpias y lo vemos luego en el box.",
+        "en": "Pep on the pit wall. No baseline for this track yet. Telemetry is logging—put in a couple of clean laps and we'll review the data in the box.",
     },
+    # B) Evaluación de Curvas y Piques con la Bubota
     "corner_gain": {
-        "es": "Buena salida, ahí le has recortado tiempo a la Bubota.",
-        "en": "Good exit, you just gained time on Bubota.",
+        "es": "Buena rotación en el vértice, ahí le has recortado tiempo a la Bubota.",
+        "en": "Good rotation at the apex, you just gained time on Bubota.",
     },
     "corner_overshoot": {
-        "es": "Te has colado en la entrada, suelta el freno más suave.",
-        "en": "Overshot the entry, release the brake smoother.",
+        "es": "Has entrado colado al vértice. Frena cinco metros antes y suelta el pedal más suave.",
+        "en": "Overshot the apex. Brake five meters earlier and trail off the pedal smoother.",
     },
     "corner_early_brake": {
-        "es": "Has frenado pronto, confía más en el tren delantero.",
-        "en": "Braked too early, trust the front end more.",
-    },
-    "lap_pb": {
-        "es": "Vuelta rápida personal, buen ritmo. La Bubota ya suda.",
-        "en": "Personal best lap, good pace. Bubota is sweating now.",
-    },
-    "tyre_hot_fl": {
-        "es": "Presión alta en delantera izquierda.",
-        "en": "High pressure on front left tyre.",
-    },
-    "tyre_hot_fr": {
-        "es": "Presión alta en delantera derecha.",
-        "en": "High pressure on front right tyre.",
-    },
-    "tyre_hot_rl": {
-        "es": "Presión alta en trasera izquierda.",
-        "en": "High pressure on rear left tyre.",
-    },
-    "tyre_hot_rr": {
-        "es": "Presión alta en trasera derecha.",
-        "en": "High pressure on rear right tyre.",
+        "es": "Estás frenando demasiado pronto. Confía en el tren delantero y lánzate más al ápice.",
+        "en": "Braking too early. Trust the front end and carry more speed to the apex.",
     },
     "bubota_roast_01": {
-        "es": "La Bubota te ha sacado dos décimas en el vértice. ¡Métele más velocidad!",
-        "en": "Bubota pulled two tenths on you through the apex. Carry more speed!",
+        "es": "Idò, la Bubota pasa por aquí a fondo mientras tú vas de paseo. Ponte las pilas.",
+        "en": "Idò, Bubota flies through here while you're cruising. Step it up.",
     },
     "bubota_roast_02": {
-        "es": "¿Estás esperando a que se ponga verde? La Bubota ya va por la siguiente curva.",
-        "en": "Waiting for an invitation? Bubota is already at the next corner.",
+        "es": "Te estás dejando media vida en esta salida, la Bubota ya nos saca un mundo.",
+        "en": "You're leaving tenths on the table on exit, Bubota is pulling away.",
     },
     "bubota_roast_03": {
-        "es": "Ese vértice lo ha tomado mejor el fantasma. Abre la dirección antes.",
-        "en": "The ghost took that apex way cleaner. Open up the steering earlier.",
+        "es": "Suelta el ancla en el vértice, que la Bubota nos está quitando las pegatinas.",
+        "en": "Drop the anchor off the apex, Bubota is schooling us right now.",
+    },
+    # C) Paso por Meta y Neumáticos
+    "lap_pb": {
+        "es": "Morado en meta, vuelta rápida personal. Buen ritmo, mantén esa línea.",
+        "en": "Purple at the line, personal best lap. Great pace, keep that line.",
+    },
+    "tyre_hot_fl": {
+        "es": "Ojo con la presión delantera izquierda, vas pasado de temperatura. No arrastres el neumático en entrada.",
+        "en": "Watch your front left pressure, running hot. Don't scrub the tire on entry.",
+    },
+    "tyre_hot_fr": {
+        "es": "Ojo con la presión delantera derecha, vas pasado de temperatura. No arrastres el neumático en entrada.",
+        "en": "Watch your front right pressure, running hot. Don't scrub the tire on entry.",
+    },
+    "tyre_hot_rl": {
+        "es": "Ojo con la presión trasera izquierda, vas pasado de temperatura. No arrastres el neumático en entrada.",
+        "en": "Watch your rear left pressure, running hot. Don't scrub the tire on entry.",
+    },
+    "tyre_hot_rr": {
+        "es": "Ojo con la presión trasera derecha, vas pasado de temperatura. No arrastres el neumático en entrada.",
+        "en": "Watch your rear right pressure, running hot. Don't scrub the tire on entry.",
     },
 }
 
