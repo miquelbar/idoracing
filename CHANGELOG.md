@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **LMU Shared Memory Buffer Overflow & Multi-Car Player Lock**:
+  - Fixed Windows/Wine memory access violation (`signal 0xc0000005`) in `recorder/shm_windows.go`: clamped `actualSize` to committed `mbi.RegionSize` from `VirtualQuery`, preventing reads past the end of the shared memory section when mapping `$rFactor2SMMP_Telemetry$`.
+  - Dynamically sized `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$` mappings (`size = 0`), mapping the complete native buffer created by `rFactor2SharedMemoryMapPlugin64.dll` without hardcoding buffer bounds.
+  - Aligned all scoring offsets (`scoringVehOffset = 572`, `vehStride = 592`, `isPlayer = 196`, `mVehicleName = 36..100`) and telemetry offsets (`telemStride = 1888`, `rearBrakeBias = 664`, `TC = 750`, `ABS = 756`, tyre pressures = `968/1228/1488/1748`) to match Studio 397's `InternalsPlugin.hpp` under `#pragma pack(push, 4)` byte-for-byte.
+  - Enforced strict player resolution (`isPlayer == 1`) in `recorder/lmu_pages.go` and implemented session vehicle lock (`lockedID`) in `recorder/lmu_adapter_windows.go`, preventing AI traffic from hijacking player car metadata or splitting stints into fragmented CSV files.
 - **Deduplication of AC EVO Results & Official Transponder PB Calibration**:
   - Resolved duplicate "Solo Tiempos" sessions generated when driving with the recorder in Assetto Corsa EVO: `CSVImporter` now links the matching `.sessionresults.json` (`resolve_acevo_session_info`), calibrating the flying lap's duration and sector splits to official in-game transponder times (e.g. 1:43.701) with full 50Hz telemetry traces.
   - Added database migration and storage deduplication: automatically eliminates bare `.sessionresults.json` entries (`duration == 0.0`) when a corresponding 50Hz `.csv` recording covers the same run.

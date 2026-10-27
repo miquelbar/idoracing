@@ -31,6 +31,12 @@ Este documento define las reglas de desarrollo, arquitectura y buenas prácticas
 - **Flags de Intervención vs. Niveles de Dial (TC y ABS)**:
   - En la memoria compartida de Kunos (`SPageFilePhysics`), los canales `tc` y `abs` son **flags de intervención física** (valen `0.0` o `1.0` en los instantes en que el ABS pulsa o el TC corta potencia).
   - **NUNCA interpretes un valor `1.0` de intervención como el nivel de reglaje del coche (`TC: 1` o `ABS: 1`)**. Si el rango del canal es `<= 1.0`, debe tratarse como intervención en pista y no asignarse al dial de garaje.
+- **Le Mans Ultimate (LMU) & rFactor 2 Shared Memory Architecture**:
+  - **Plugin Oficial Requerido**: LMU utiliza `Plugins/rFactor2SharedMemoryMapPlugin64.dll` (activado en `UserData/player/CustomPluginVariables.JSON` con `" Enabled": 1`), el cual publica la física viva en `$rFactor2SMMP_Telemetry$` y el scoring en `$rFactor2SMMP_Scoring$`.
+  - **Prioridad Absoluta de Shared Memory**: El grabador (`idoracing-recorder.exe`) **debe conectarse siempre prioritariamente a `$rFactor2SMMP_Telemetry$` y `$rFactor2SMMP_Scoring$`**. Nunca debe interceptarse la conexión con la memoria interna `LMU_Data` (que requiere semáforos de sincronización mutex de Studio 397 no emitidos por defecto).
+  - **Resolución Obligatoria del Vehículo del Jugador (`mIsPlayer == 1`)**: En parrillas multivehículo (WEC / multicategoría), el índice 0 del buffer suele ser un coche de la IA. El grabador debe escanear el buffer de scoring para encontrar `mIsPlayer == 1` o coincidencia con `mPlayerName`, extraer su `mID`, y emparejarlo en `$rFactor2SMMP_Telemetry$` para grabar únicamente la telemetría del coche del jugador.
+  - **Mapeo de Memoria Completo**: `MapViewOfFile` debe llamarse con tamaño `0` para mapear el buffer completo del proceso y no truncar arrays multivehículo (no usar límites fijos de 16KB).
+  - **Deduplicación de Sesiones XML vs. CSV**: Los archivos de resultados `.xml` en `UserData/Log/Results/` solo deben deduplicarse contra un `.csv` de 50Hz si coinciden por `linked_result_file` explícito o están en una ventana de proximidad realista (< 15 minutos / 900s), nunca ventanas de horas que descarten tandas posteriores.
 
 ---
 

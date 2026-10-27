@@ -93,3 +93,69 @@ def test_lmu_importer_parses_practice_sessions_with_only_voided_laps():
         assert len(session.laps) >= 1
         assert session.laps[-1].lap_time == 237.184
         assert session.laps[-1].is_valid is False
+
+
+def test_lmu_importer_filters_short_pit_deltas():
+    content = """<?xml version="1.0" encoding="utf-8"?>
+<rFactorXML version="1.0">
+<RaceResults>
+<TrackVenue>Algarve International Circuit</TrackVenue>
+<Driver>
+<Name>Miquel</Name>
+<VehName>Porsche 911 GT3 R LMGT3</VehName>
+<isPlayer>1</isPlayer>
+<Lap num="1" et="120.0" s1="30.0" s2="50.0" s3="67.0">147.000</Lap>
+<Lap num="2" et="140.176"></Lap>
+</Driver>
+</RaceResults>
+</rFactorXML>
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        xml_p = os.path.join(tmpdir, "lmu_test.xml")
+        with open(xml_p, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        session = LMUImporter(xml_p).parse()
+
+        # Lap 1 (147.0s) is valid flying lap; Lap 2 (20.176s pit delta) must NOT be valid
+        assert len(session.laps) == 2
+        assert session.laps[0].lap_number == 1
+        assert session.laps[0].is_valid is True
+        assert session.laps[1].lap_number == 2
+        assert session.laps[1].lap_time == 20.176
+        assert session.laps[1].is_valid is False
+        assert session.laps[1].is_outlap is True
+
+
+def test_resolve_lmu_session_info(monkeypatch):
+    content = """<?xml version="1.0" encoding="utf-8"?>
+<rFactorXML version="1.0">
+<RaceResults>
+<TimeString>2026/10/26 20:34:23</TimeString>
+<TrackVenue>Algarve International Circuit</TrackVenue>
+<Driver>
+<Name>Miquel</Name>
+<VehName>Porsche 911 GT3 R LMGT3</VehName>
+<isPlayer>1</isPlayer>
+<Lap num="1" et="100.0">--.----</Lap>
+<Lap num="2" et="241.596" s1="27.8347" s2="47.2895" s3="66.4721">141.5963</Lap>
+</Driver>
+</RaceResults>
+</rFactorXML>
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        xml_p = os.path.join(tmpdir, "2026_10_26_20_34_23-26P1.xml")
+        with open(xml_p, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        monkeypatch.setenv("LMU_RESULTS_DIR", tmpdir)
+        from datetime import datetime
+
+        from importers.lmu_importer import resolve_lmu_session_info
+
+        info = resolve_lmu_session_info(date_hint=datetime(2026, 10, 26, 20, 29, 48))
+        assert info["track"] == "Algarve International Circuit"
+        assert info["car"] == "Porsche 911 GT3 R LMGT3"
+        assert info["best_lap"] == 141.596
+        assert len(info["splits"]) == 3
+        assert info["result_file"] == xml_p

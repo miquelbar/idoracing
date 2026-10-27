@@ -14,6 +14,7 @@ import pandas as pd
 from domain.session import Lap, Session, normalize_track_name
 from importers.acevo_importer import resolve_acevo_session_info
 from importers.laps import distance_covered, truncate_teleport_jumps, without_boundary_wrap
+from importers.lmu_importer import resolve_lmu_session_info
 
 
 class CSVImporter:
@@ -89,6 +90,29 @@ class CSVImporter:
                 if not metadata.get("car") or metadata.get("car") in ("", "Unknown car", "Porsche 911 GT3 R (992)"):
                     metadata["car"] = acevo_info["car"]
                 metadata["simulator"] = "Assetto Corsa EVO"
+
+        is_lmu = (
+            metadata.get("simulator") == "Le Mans Ultimate"
+            or session_id.startswith("lmu")
+            or "lemansultimate" in self.filepath.lower()
+        )
+        lmu_info = {}
+        if is_lmu:
+            lmu_info = resolve_lmu_session_info(self.filepath, session_date)
+            if lmu_info:
+                csv_track = metadata.get("track", "")
+                if (
+                    csv_track
+                    and csv_track not in ("", "Unknown track")
+                    and normalize_track_name(csv_track) != normalize_track_name(lmu_info.get("track", ""))
+                ):
+                    lmu_info = {}
+            if lmu_info:
+                if not metadata.get("track") or metadata.get("track") in ("", "Unknown track"):
+                    metadata["track"] = lmu_info["track"]
+                if lmu_info.get("car"):
+                    metadata["car"] = lmu_info["car"]
+                metadata["simulator"] = "Le Mans Ultimate"
 
         df = pd.read_csv(self.filepath, comment="#")
 
@@ -167,7 +191,7 @@ class CSVImporter:
             else:
                 for l_num in unique_laps:
                     indices = np.where(lap_arr == l_num)[0]
-                    if len(indices) < 20:
+                    if len(indices) < 5:
                         continue
                     lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
                     t0 = lap_telemetry["time"][0]
@@ -222,11 +246,12 @@ class CSVImporter:
 
             # 2. From official session result lap time (best_lap_s) and telemetry flying speed
             if track_len < 100.0:
-                best_lap_s = (
-                    float(acevo_info.get("best_lap") or acevo_info.get("best_lap_s") or 0.0)
-                    if (is_acevo and acevo_info)
-                    else 0.0
-                )
+                best_lap_s = 0.0
+                if is_acevo and acevo_info:
+                    best_lap_s = float(acevo_info.get("best_lap") or acevo_info.get("best_lap_s") or 0.0)
+                elif is_lmu and lmu_info:
+                    best_lap_s = float(lmu_info.get("best_lap") or 0.0)
+
                 if best_lap_s > 20.0 and "speed" in telemetry and "time" in telemetry:
                     flying_speeds = [
                         s for s, t in zip(telemetry["speed"], telemetry["time"], strict=False) if s > 60.0 and t > 60.0
@@ -259,7 +284,13 @@ class CSVImporter:
                             is_out = (lap_idx == 1 and lap_time > 120.0) or is_inc
                             is_val = not is_out and not is_inc and (0.7 * track_len <= span <= 1.3 * track_len)
 
-                            splits = acevo_info.get("splits", []) if (is_val and is_acevo and acevo_info) else []
+                            splits = []
+                            if is_val:
+                                if is_acevo and acevo_info:
+                                    splits = acevo_info.get("splits", [])
+                                elif is_lmu and lmu_info:
+                                    splits = lmu_info.get("splits", [])
+
                             laps.append(
                                 Lap(
                                     lap_number=lap_idx,
@@ -276,10 +307,11 @@ class CSVImporter:
                         lap_start_idx = i
                         current_target += track_len
 
-        # For AC EVO: if official session result best lap is available, calibrate the flying lap
-        if is_acevo and acevo_info:
-            official_best = float(acevo_info.get("best_lap") or 0.0)
-            splits = acevo_info.get("splits") or []
+        # For AC EVO and LMU: calibrate flying lap if official session result best lap is available
+        res_info = acevo_info if (is_acevo and acevo_info) else (lmu_info if (is_lmu and lmu_info) else {})
+        if res_info:
+            official_best = float(res_info.get("best_lap") or 0.0)
+            splits = res_info.get("splits") or []
             if official_best > 20.0 and laps:
                 valid_laps = [l for l in laps if l.is_valid and not l.is_outlap and not l.is_incomplete]
                 if not valid_laps:
@@ -310,6 +342,12 @@ class CSVImporter:
         filename = os.path.basename(self.filepath)
         session_id = os.path.splitext(filename)[0]
 
+        linked_file = None
+        if is_acevo and acevo_info:
+            linked_file = acevo_info.get("result_file")
+        elif is_lmu and lmu_info:
+            linked_file = lmu_info.get("result_file")
+
         return Session(
             session_id=session_id,
             car=metadata.get("car", self.car),
@@ -319,7 +357,7 @@ class CSVImporter:
             laps=laps,
             source_file=self.filepath,
             simulator=metadata.get("simulator"),
-            linked_result_file=acevo_info.get("result_file") if (is_acevo and acevo_info) else None,
+            linked_result_file=linked_file,
         )
 
     def _read_metadata(self) -> dict[str, str]:

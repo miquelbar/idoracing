@@ -8,6 +8,7 @@ import logging
 import os
 import struct
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -62,7 +63,7 @@ from importers.acc_setup_loader import load_acc_setup
 from importers.acevo_importer import ACEVOImporter
 from importers.acevo_setup_loader import load_acevo_setup
 from importers.csv_importer import CSVImporter
-from importers.lmu_importer import LMUImporter
+from importers.lmu_importer import LMUImporter, find_lmu_results_dir
 from importers.moteclib.importer import MoTeCImporter
 from storage.database import Storage
 
@@ -77,7 +78,9 @@ NATIVE_RECORDINGS_DIR = os.path.expanduser("~/Documents/IdoRacing/recordings")
 COMPATDATA_RECORDINGS_GLOB = os.path.expanduser(
     "~/.local/share/Steam/steamapps/compatdata/*/pfx/drive_c/users/steamuser/Documents/IdoRacing/recordings"
 )
-LMU_RESULTS_DIR = os.path.expanduser("~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results")
+LMU_RESULTS_DIR = find_lmu_results_dir() or os.path.expanduser(
+    "~/.local/share/Steam/steamapps/common/Le Mans Ultimate/UserData/Log/Results"
+)
 # Assetto Corsa EVO (app 3058630) — telemetry lives under Saved Games/ACE.
 ACEVO_SAVED_GAMES_DIR = os.path.expanduser(
     "~/.local/share/Steam/steamapps/compatdata/3058630/pfx/drive_c/users/steamuser/Saved Games/ACE"
@@ -594,8 +597,23 @@ def get_spotter_audio(clip_id: str, lang: str | None = None, track: str | None =
     raise HTTPException(status_code=404, detail=f"Audio clip '{clean_clip}' not found for language '{clean_lang}'")
 
 
+_last_auto_import_time: float = 0.0
+
+
+def _trigger_cooldown_auto_import() -> None:
+    global _last_auto_import_time
+    now = time.time()
+    if not os.environ.get("IDORACING_SKIP_AUTO_IMPORT") and (now - _last_auto_import_time > 10.0):
+        _last_auto_import_time = now
+        try:
+            _auto_import_all(_already_imported_source_files())
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Cooldown auto-import failed: %s", e)
+
+
 @app.get("/api/sessions")
 def list_sessions():
+    _trigger_cooldown_auto_import()
     return storage.list_sessions()
 
 
@@ -612,6 +630,7 @@ class SessionGroupDTO(BaseModel):
 @app.get("/api/session-groups", response_model=list[SessionGroupDTO])
 def list_session_groups():
     """Group sessions by canonical (simulator, track), sorted with the most recently played circuit first."""
+    _trigger_cooldown_auto_import()
     sessions = storage.list_sessions()
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for s in sessions:

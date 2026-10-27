@@ -558,7 +558,7 @@ def _lateral_accel_channel(telemetry: dict[str, np.ndarray], length: int) -> tup
         if speed is None or lat is None:
             continue
         lat = np.asarray(lat, dtype=np.float64)
-        if len(lat) == length and len(np.asarray(speed)) == length and float(np.max(np.abs(lat))) > 0.05:
+        if length > 0 and len(lat) == length and len(np.asarray(speed)) == length and float(np.max(np.abs(lat))) > 0.05:
             return np.asarray(speed, dtype=np.float64), lat
     return None
 

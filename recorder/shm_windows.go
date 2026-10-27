@@ -12,7 +12,18 @@ var (
 	kernel32             = syscall.NewLazyDLL("kernel32.dll")
 	procOpenFileMappingW = kernel32.NewProc("OpenFileMappingW")
 	procSetPriorityClass = kernel32.NewProc("SetPriorityClass")
+	procVirtualQuery     = kernel32.NewProc("VirtualQuery")
 )
+
+type memoryBasicInformation struct {
+	BaseAddress       uintptr
+	AllocationBase    uintptr
+	AllocationProtect uint32
+	RegionSize        uintptr
+	State             uint32
+	Protect           uint32
+	Type              uint32
+}
 
 const (
 	fileMapRead              = 0x0004
@@ -39,16 +50,34 @@ func openSharedPage(name string, size int) (*sharedPage, error) {
 	if h == 0 {
 		return nil, fmt.Errorf("open %s: %w", name, callErr)
 	}
-	addr, err := syscall.MapViewOfFile(syscall.Handle(h), fileMapRead, 0, 0, uintptr(size))
+
+	// Passing 0 to MapViewOfFile maps the entire file mapping, ensuring we never truncate
+	// multi-car telemetry or scoring buffers.
+	addr, err := syscall.MapViewOfFile(syscall.Handle(h), fileMapRead, 0, 0, 0)
+	if err != nil && size > 0 {
+		addr, err = syscall.MapViewOfFile(syscall.Handle(h), fileMapRead, 0, 0, uintptr(size))
+	}
 	if err != nil {
 		syscall.CloseHandle(syscall.Handle(h))
 		return nil, fmt.Errorf("map %s: %w", name, err)
 	}
+
+	actualSize := size
+	var mbi memoryBasicInformation
+	ret, _, _ := procVirtualQuery.Call(addr, uintptr(unsafe.Pointer(&mbi)), unsafe.Sizeof(mbi))
+	if ret != 0 && int(mbi.RegionSize) > 0 {
+		actualSize = int(mbi.RegionSize)
+		// If caller explicitly requested a smaller view, clamp to it; NEVER exceed the mapped RegionSize!
+		if size > 0 && size < actualSize {
+			actualSize = size
+		}
+	}
+
 	return &sharedPage{
 		handle: syscall.Handle(h),
 		addr:   addr,
 		// The view lives outside Go's heap until UnmapViewOfFile, so turning its address into a pointer is safe.
-		view: unsafe.Slice((*byte)(unsafe.Pointer(addr)), size),
+		view: unsafe.Slice((*byte)(unsafe.Pointer(addr)), actualSize),
 	}, nil
 }
 

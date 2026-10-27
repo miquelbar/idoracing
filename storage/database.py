@@ -151,10 +151,10 @@ class Storage:
         valid_laps = [l.lap_time for l in session.laps if l.is_valid and l.lap_time > 0]
         best_lap = min(valid_laps) if valid_laps else 0.0
 
-        # For AC EVO: if saving a bare results session (duration == 0), don't insert if a 50Hz CSV session exists
+        # For AC EVO and LMU: if saving a bare results session (duration == 0), don't insert if a 50Hz CSV session exists
         if (
-            session.simulator == "Assetto Corsa EVO"
-            and (session.source_file or "").endswith(".json")
+            session.simulator in ("Assetto Corsa EVO", "Le Mans Ultimate")
+            and (session.source_file or "").endswith((".json", ".xml"))
             and duration <= 0.0
         ):
             with self._get_connection() as conn:
@@ -163,12 +163,14 @@ class Storage:
                     """
                 SELECT 1 FROM sessions
                 WHERE track = ? AND car = ? AND source_file LIKE '%.csv' AND duration > 0.0
-                  AND abs(strftime('%s', date) - strftime('%s', ?)) < 1200
+                  AND (linked_result_file = ? OR abs(strftime('%s', date) - strftime('%s', ?)) < 900)
                 """,
-                    (session.track, session.car, session.date.isoformat()),
+                    (session.track, session.car, session.source_file, session.date.isoformat()),
                 )
                 if cursor.fetchone():
-                    logger.info("Skipping bare AC EVO session %s: covered by 50Hz CSV", session.session_id)
+                    logger.info(
+                        "Skipping bare %s session %s: covered by 50Hz CSV", session.simulator, session.session_id
+                    )
                     return session.id
 
         with self._get_connection() as conn:

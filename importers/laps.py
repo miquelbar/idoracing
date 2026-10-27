@@ -31,7 +31,14 @@ def truncate_teleport_jumps(
         y = np.asarray(telemetry["y"], dtype=np.float64)
         if np.any(x != 0.0) or np.any(y != 0.0):
             step_dist = np.hypot(np.diff(x), np.diff(y))
-            jumps = np.where(step_dist > max_step_m)[0]
+            t = np.asarray(telemetry.get("time", []), dtype=np.float64)
+            if len(t) == len(x):
+                dt = np.maximum(np.diff(t), 0.001)
+                # Max plausible car speed ~110 m/s (400 km/h)
+                allowed_step = np.maximum(max_step_m, 110.0 * dt)
+                jumps = np.where(step_dist > allowed_step)[0]
+            else:
+                jumps = np.where(step_dist > max_step_m)[0]
             if len(jumps) > 0:
                 cut_idx = int(jumps[0]) + 1
 

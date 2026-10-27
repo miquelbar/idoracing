@@ -1,7 +1,7 @@
 //go:build windows
 
-// fakelmu publishes LMU's $rFactor2SMMP_Telemetry$ and $rFactor2SMMP_Scoring$ shared memory pages
-// with a car driving in a circle, so the recorder can be tested under Wine/Proton without the game.
+// fakelmu publishes LMU's native "LMU_Data" and legacy $rFactor2SMMP_Telemetry$ / $rFactor2SMMP_Scoring$
+// shared memory pages with a car driving in a circle, so the recorder can be tested under Wine/Proton without the game.
 package main
 
 import (
@@ -24,6 +24,8 @@ const (
 	pageReadWrite        = 0x04
 	fileMapWrite         = 0x0002
 	lmuPageSize          = 2 * 1024 * 1024
+	lmuNativeSize        = 328192
+	lmuNativePageName    = "LMU_Data"
 	lmuTelemetryPageName = "$rFactor2SMMP_Telemetry$"
 	lmuScoringPageName   = "$rFactor2SMMP_Scoring$"
 	radius               = 200.0
@@ -84,6 +86,8 @@ func main() {
 	seconds := flag.Int("seconds", 20, "how long to publish data")
 	flag.Parse()
 
+	log.Printf("fakelmu: publishing LMU_Data (%d bytes) and legacy SMMP pages for %d seconds...", lmuNativeSize, *seconds)
+	nativeData := createPage(lmuNativePageName, lmuNativeSize)
 	telemetry := createPage(lmuTelemetryPageName, lmuPageSize)
 	scoring := createPage(lmuScoringPageName, lmuPageSize)
 
@@ -91,7 +95,7 @@ func main() {
 	speedMs := speedKmh / 3.6
 
 	var carName [64]byte
-	copy(carName[:], "Ferrari 499P")
+	copy(carName[:], "Porsche 911 GT3 R LMGT3")
 	var trackName [64]byte
 	copy(trackName[:], "Circuit de la Sarthe")
 
@@ -101,16 +105,17 @@ func main() {
 		driven := elapsed * speedMs
 		angle := driven / radius
 		lapNum := int32(driven/lapLength) + 1
+		lapDist := driven - float64(lapNum-1)*lapLength
 
 		v := uint32(packet * 2)
 
-		// Setup scoring page
+		// 1. Setup legacy scoring page
 		binary.LittleEndian.PutUint32(scoring[0:4], v)
 		binary.LittleEndian.PutUint32(scoring[4:8], v)
 		copy(scoring[12:76], trackName[:])
 		binary.LittleEndian.PutUint64(scoring[100:108], math.Float64bits(lapLength))
 
-		// Setup vehicle telemetry
+		// 2. Setup vehicle telemetry header
 		veh := rF2VehicleTelemetryHeader{
 			ID:                 1,
 			DeltaTime:          0.02,
@@ -131,13 +136,38 @@ func main() {
 		binary.Write(&buf, binary.LittleEndian, &veh)
 		vehBytes := buf.Bytes()
 
-		// Write telemetry page with version lock
+		// 3. Write legacy telemetry page with version lock
 		binary.LittleEndian.PutUint32(telemetry[0:4], v-1) // writing
 		binary.LittleEndian.PutUint32(telemetry[12:16], 1)  // numVehicles = 1
 		copy(telemetry[16:], vehBytes)
 		binary.LittleEndian.PutUint32(telemetry[4:8], v)   // versionEnd
 		binary.LittleEndian.PutUint32(telemetry[0:4], v)   // versionBegin
 
+		// 4. Write native Studio 397 LMU_Data page
+		// Scoring: track name and lap distance
+		copy(nativeData[1656:1656+64], trackName[:])
+		binary.LittleEndian.PutUint64(nativeData[1656+96:1656+104], math.Float64bits(lapLength))
+		binary.LittleEndian.PutUint64(nativeData[2232+108:2232+116], math.Float64bits(lapDist))
+		nativeData[2232+202] = 0 // not in pits
+
+		// Telemetry header
+		nativeData[130168] = 1   // activeVehicles
+		nativeData[130168+1] = 0 // playerVehicleIdx
+		nativeData[130168+2] = 1 // playerHasVehicle
+
+		// Player vehicle telemetry
+		telemOff := 130172
+		copy(nativeData[telemOff:], vehBytes)
+		binary.LittleEndian.PutUint64(nativeData[telemOff+680:telemOff+688], math.Float64bits(0.46)) // 54% front brake bias
+		nativeData[telemOff+766] = 3                                                                  // TC dial 3
+		nativeData[telemOff+772] = 4                                                                  // ABS dial 4
+		// Tyre pressures ~ 190 kPa = 27.56 PSI
+		binary.LittleEndian.PutUint64(nativeData[telemOff+984:telemOff+992], math.Float64bits(190.0))
+		binary.LittleEndian.PutUint64(nativeData[telemOff+1244:telemOff+1252], math.Float64bits(191.0))
+		binary.LittleEndian.PutUint64(nativeData[telemOff+1504:telemOff+1512], math.Float64bits(185.0))
+		binary.LittleEndian.PutUint64(nativeData[telemOff+1764:telemOff+1772], math.Float64bits(186.0))
+
 		time.Sleep(20 * time.Millisecond) // 50 Hz
 	}
+	log.Printf("fakelmu: finished publishing.")
 }

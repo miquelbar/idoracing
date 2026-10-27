@@ -241,28 +241,50 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Auto-rescan when window gains focus (e.g. driver alt-tabs back from simulator)
+  // Auto-rescan simulator folders periodically and on window focus/visibility
+  // so second monitors, tablets, and alt-tabbing drivers get new sessions automatically.
   useEffect(() => {
-    let focusTimer: number;
+    let timer: number;
+    const checkForNewSessions = () => {
+      rescanSimulators()
+        .then((res) => {
+          if (res.imported > 0) {
+            fetchSessions().then((sList) => {
+              setSessions(sList);
+              autodiscoverSims().then(setAutoData).catch(() => {});
+              if (sList.length > 0) {
+                const newest = sList[0];
+                if (newest && newest.session_id !== selectedSessionId) {
+                  handleSelectSession(newest.session_id);
+                }
+              }
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    };
+
+    const interval = window.setInterval(checkForNewSessions, 10000);
     const handleFocus = () => {
-      clearTimeout(focusTimer);
-      focusTimer = window.setTimeout(() => {
-        rescanSimulators()
-          .then((res) => {
-            if (res.imported > 0) {
-              fetchSessions().then(setSessions);
-              autodiscoverSims().then(setAutoData);
-            }
-          })
-          .catch(() => {});
-      }, 500);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(checkForNewSessions, 500);
     };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkForNewSessions();
+      }
+    };
+
     window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timer);
       window.removeEventListener('focus', handleFocus);
-      clearTimeout(focusTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [selectedSessionId]);
 
   const handleNavigateTab = (tab: NavTab) => {
     setCurrentTab(tab);

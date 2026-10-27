@@ -120,56 +120,60 @@ else
 	touch "$log"
 
 	# Spotter audio loop: listens to the recorder log
-	(
-		current_track=""
-		tail -n0 -F "$log" 2>/dev/null | while IFS= read -r line; do
-			case "$line" in
-			*PEP_TRACK\|*)
-				current_track="${line#*PEP_TRACK|}"
-				current_track="$(echo "$current_track" | tr -d '\r\n[:space:]')"
-				;;
-			*PEP_PLAY\|*)
-				clip_id="${line#*PEP_PLAY|}"
-				clip_id="$(echo "$clip_id" | tr -d '\r\n[:space:]')"
-				if [ "$spotter_enabled" = "true" ] && [ -n "$clip_id" ]; then
-					target_ogg=""
-					if [ -n "$current_track" ] && [ -f "$voices_dir/tracks/$current_track/$spotter_lang/$clip_id.ogg" ]; then
-						target_ogg="$voices_dir/tracks/$current_track/$spotter_lang/$clip_id.ogg"
-					else
-						for f in "$voices_dir"/tracks/*/"$spotter_lang"/"$clip_id.ogg"; do
-							if [ -f "$f" ]; then
-								target_ogg="$f"
-								break
-							fi
-						done
+	spotter_pid=""
+	if [ "$spotter_enabled" = "true" ]; then
+		(
+			current_track=""
+			tail -n0 -F "$log" 2>/dev/null | while IFS= read -r line; do
+				case "$line" in
+				*PEP_TRACK\|*)
+					current_track="${line#*PEP_TRACK|}"
+					current_track="$(echo "$current_track" | tr -d '\r\n[:space:]')"
+					;;
+				*PEP_PLAY\|*)
+					clip_id="${line#*PEP_PLAY|}"
+					clip_id="$(echo "$clip_id" | tr -d '\r\n[:space:]')"
+					if [ "$spotter_enabled" = "true" ] && [ -n "$clip_id" ]; then
+						target_ogg=""
+						if [ -n "$current_track" ] && [ -f "$voices_dir/tracks/$current_track/$spotter_lang/$clip_id.ogg" ]; then
+							target_ogg="$voices_dir/tracks/$current_track/$spotter_lang/$clip_id.ogg"
+						else
+							for f in "$voices_dir"/tracks/*/"$spotter_lang"/"$clip_id.ogg"; do
+								if [ -f "$f" ]; then
+									target_ogg="$f"
+									break
+								fi
+							done
+						fi
+						if [ -z "$target_ogg" ] && [ -f "$voices_dir/$spotter_lang/$clip_id.ogg" ]; then
+							target_ogg="$voices_dir/$spotter_lang/$clip_id.ogg"
+						fi
+						if [ -z "$target_ogg" ]; then
+							case "$clip_id" in
+							hotspot_*)
+								slot="${clip_id#hotspot_}"
+								corner_id="$slot"
+								manifest="$voices_dir/tracks/$current_track/manifest.json"
+								if [ -f "$manifest" ]; then
+									cid="$(grep -B2 -A10 "\"slot\":[[:space:]]*$slot" "$manifest" 2>/dev/null | grep "\"corner_id\"" | head -n1 | sed -E 's/[^0-9]//g')"
+									[ -n "$cid" ] && corner_id="$cid"
+								fi
+								if [ -f "$voices_dir/$spotter_lang/turn_${corner_id}.ogg" ]; then
+									target_ogg="$voices_dir/$spotter_lang/turn_${corner_id}.ogg"
+								fi
+								;;
+							esac
+						fi
+						if [ -n "$target_ogg" ] && [ -f "$target_ogg" ]; then
+							play_clip "$target_ogg"
+						fi
 					fi
-					if [ -z "$target_ogg" ] && [ -f "$voices_dir/$spotter_lang/$clip_id.ogg" ]; then
-						target_ogg="$voices_dir/$spotter_lang/$clip_id.ogg"
-					fi
-					if [ -z "$target_ogg" ]; then
-						case "$clip_id" in
-						hotspot_*)
-							slot="${clip_id#hotspot_}"
-							corner_id="$slot"
-							manifest="$voices_dir/tracks/$current_track/manifest.json"
-							if [ -f "$manifest" ]; then
-								cid="$(grep -B2 -A10 "\"slot\":[[:space:]]*$slot" "$manifest" 2>/dev/null | grep "\"corner_id\"" | head -n1 | sed -E 's/[^0-9]//g')"
-								[ -n "$cid" ] && corner_id="$cid"
-							fi
-							if [ -f "$voices_dir/$spotter_lang/turn_${corner_id}.ogg" ]; then
-								target_ogg="$voices_dir/$spotter_lang/turn_${corner_id}.ogg"
-							fi
-							;;
-						esac
-					fi
-					if [ -n "$target_ogg" ] && [ -f "$target_ogg" ]; then
-						play_clip "$target_ogg"
-					fi
-				fi
-				;;
-			esac
-		done
-	) &
+					;;
+				esac
+			done
+		) </dev/null >/dev/null 2>&1 &
+		spotter_pid=$!
+	fi
 
 	run_recorder() {
 		if [ "$delay" -gt 0 ] 2>/dev/null; then
@@ -182,4 +186,8 @@ else
 fi
 
 wait "$game"
+if [ -n "$spotter_pid" ]; then
+	kill "$spotter_pid" 2>/dev/null || true
+fi
+pkill -P $$ 2>/dev/null || true
 sleep 0.05 2>/dev/null || true
