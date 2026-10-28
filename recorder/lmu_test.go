@@ -339,14 +339,14 @@ func TestLMUMultiVehiclePlayerSelection(t *testing.T) {
 	copy(tbuf[v1Offset:], v1Buf.Bytes())
 
 	// Scoring buffer with 2 vehicles
-	sbuf := make([]byte, 572+2*592)
+	sbuf := make([]byte, lmuPluginScoringVehOffset+2*lmuPluginVehScoringStride)
 	binary.LittleEndian.PutUint32(sbuf[0:4], 1)
 	binary.LittleEndian.PutUint32(sbuf[4:8], 1)
 	copy(sbuf[12:12+64], "Algarve International Circuit")
-	copy(sbuf[136:136+32], "Miquel Barba")
+	copy(sbuf[128:128+32], "Miquel Barba")
 
 	// Scoring Vehicle 0 (AI)
-	s0 := 572
+	s0 := lmuPluginScoringVehOffset
 	binary.LittleEndian.PutUint32(sbuf[s0:s0+4], 100)
 	copy(sbuf[s0+4:s0+36], "Antares Au")
 	copy(sbuf[s0+36:s0+100], "Garage 59 2026 #10:WEC")
@@ -354,7 +354,7 @@ func TestLMUMultiVehiclePlayerSelection(t *testing.T) {
 	sbuf[s0+197] = 1 // mControl = AI
 
 	// Scoring Vehicle 1 (Player)
-	s1 := 572 + 592
+	s1 := lmuPluginScoringVehOffset + lmuPluginVehScoringStride
 	binary.LittleEndian.PutUint32(sbuf[s1:s1+4], 200)
 	copy(sbuf[s1+4:s1+36], "Miquel Barba")
 	copy(sbuf[s1+36:s1+100], "Porsche 911 GT3 R LMGT3")
@@ -399,12 +399,12 @@ func TestLMUSinglePlayerSlotZero(t *testing.T) {
 	binary.Write(&vBuf, binary.LittleEndian, &veh)
 	copy(tbuf[16:], vBuf.Bytes())
 
-	sbuf := make([]byte, 572+592)
+	sbuf := make([]byte, lmuPluginScoringVehOffset+lmuPluginVehScoringStride)
 	binary.LittleEndian.PutUint32(sbuf[0:4], 10)
 	binary.LittleEndian.PutUint32(sbuf[4:8], 10)
 	copy(sbuf[12:12+64], "Algarve International Circuit")
 
-	s0 := 572
+	s0 := lmuPluginScoringVehOffset
 	binary.LittleEndian.PutUint32(sbuf[s0:s0+4], 0) // ID = 0
 	copy(sbuf[s0+4:s0+36], "Miquel Barba")
 	copy(sbuf[s0+36:s0+100], "Porsche 911 GT3 R LMGT3")
@@ -473,5 +473,94 @@ func TestLMULockedVehicleSession(t *testing.T) {
 	}
 	if sample.RPM != 8200 {
 		t.Fatalf("RPM = %d; want 8200 (must NOT read AI Lexus at 5000 RPM)", sample.RPM)
+	}
+}
+
+func TestLMUMantheyPorschePlayerResolution(t *testing.T) {
+	// Full simulation of LMU session at Portimao:
+	// Telemetry buffer: Slot 0 = Player Porsche (ID 0), Slot 1 = AI Aston (ID 10)
+	tbuf := make([]byte, 16+2*lmuTelemInfoSize)
+	binary.LittleEndian.PutUint32(tbuf[0:4], 50)
+	binary.LittleEndian.PutUint32(tbuf[4:8], 50)
+	binary.LittleEndian.PutUint32(tbuf[12:16], 2)
+
+	// Player Porsche at Slot 0
+	porscheTelem := rF2VehicleTelemetryHeader{
+		ID:          0,
+		DeltaTime:   0.02,
+		ElapsedTime: 100.0,
+		LapNumber:   1,
+		Gear:        4,
+		EngineRPM:   8100,
+		LocalVel:    rF2Vec3{Z: 50.0},
+	}
+	copy(porscheTelem.VehicleName[:], "Manthey DK Engineering 2026 #91:LM")
+	copy(porscheTelem.TrackName[:], "Algarve International Circuit")
+	var pBuf bytes.Buffer
+	binary.Write(&pBuf, binary.LittleEndian, &porscheTelem)
+	copy(tbuf[16:], pBuf.Bytes())
+
+	// AI Aston at Slot 1
+	astonTelem := rF2VehicleTelemetryHeader{
+		ID:          10,
+		DeltaTime:   0.02,
+		ElapsedTime: 100.0,
+		LapNumber:   1,
+		Gear:        3,
+		EngineRPM:   6200,
+		LocalVel:    rF2Vec3{Z: 30.0},
+	}
+	copy(astonTelem.VehicleName[:], "Heart of Racing Team 2026 #23:WEC")
+	copy(astonTelem.TrackName[:], "Algarve International Circuit")
+	var aBuf bytes.Buffer
+	binary.Write(&aBuf, binary.LittleEndian, &astonTelem)
+	copy(tbuf[16+lmuTelemInfoSize:], aBuf.Bytes())
+
+	// Scoring buffer with exact DLL layout:
+	// Header: 12 bytes
+	// ScoringInfo: 548 bytes (track name at 12, spline length 4635.3m at 100, numVehicles 2 at 116)
+	// Vehicles start at offset 560, stride 584
+	sbuf := make([]byte, lmuPluginScoringVehOffset+2*lmuPluginVehScoringStride)
+	binary.LittleEndian.PutUint32(sbuf[0:4], 50)
+	binary.LittleEndian.PutUint32(sbuf[4:8], 50)
+	copy(sbuf[12:12+64], "Algarve International Circuit")
+	binary.LittleEndian.PutUint64(sbuf[100:108], math.Float64bits(4635.3))
+	binary.LittleEndian.PutUint32(sbuf[116:120], 2) // mNumVehicles = 2
+
+	// Vehicle 0: Player Porsche (ID 0, isPlayer 1, ctrl 0)
+	v0 := lmuPluginScoringVehOffset
+	binary.LittleEndian.PutUint32(sbuf[v0:v0+4], 0) // ID = 0
+	copy(sbuf[v0+36:v0+100], "Manthey DK Engineering 2026 #91:LM")
+	binary.LittleEndian.PutUint64(sbuf[v0+104:v0+112], math.Float64bits(2100.0))
+	sbuf[v0+196] = 1 // mIsPlayer = 1
+	sbuf[v0+197] = 0 // mControl = 0 (Player)
+
+	// Vehicle 1: AI Aston (ID 10, isPlayer 0, ctrl 1)
+	v1 := lmuPluginScoringVehOffset + lmuPluginVehScoringStride
+	binary.LittleEndian.PutUint32(sbuf[v1:v1+4], 10)
+	copy(sbuf[v1+36:v1+100], "Heart of Racing Team 2026 #23:WEC")
+	sbuf[v1+196] = 0 // mIsPlayer = 0
+	sbuf[v1+197] = 1 // mControl = 1 (AI)
+
+	// Call decodeLMULocked with lockedID = -1 (first discovery)
+	sample, meta, live, resolvedID, err := decodeLMULocked(tbuf, sbuf, -1, "")
+	if err != nil || !live {
+		t.Fatalf("decodeLMULocked failed: live=%v err=%v", live, err)
+	}
+
+	if resolvedID != 0 {
+		t.Fatalf("resolvedID = %d; want 0 (Player Porsche)", resolvedID)
+	}
+	if meta.CarModel != "Manthey DK Engineering 2026 #91:LM" {
+		t.Fatalf("CarModel = %q; want Manthey Porsche", meta.CarModel)
+	}
+	if meta.TrackSplineLength != 4635.3 {
+		t.Fatalf("TrackSplineLength = %v; want 4635.3 (spline length from offset 100)", meta.TrackSplineLength)
+	}
+	if sample.RPM != 8100 {
+		t.Fatalf("RPM = %d; want 8100 (must be player Porsche, NOT AI Aston)", sample.RPM)
+	}
+	if sample.LapDistance != 2100.0 {
+		t.Fatalf("LapDistance = %v; want 2100.0", sample.LapDistance)
 	}
 }

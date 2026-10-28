@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Le Mans Ultimate Setup Loader (`.svm`)**:
+  - Implemented `importers/lmu_setup_loader.py` to parse proprietary text `.svm` setup files saved by LMU in `UserData/player/Settings/<Track>/<setup>.svm`.
+  - Added full parameter extraction for garage mechanical setups: aerodynamics (rear wing angle, front splitter, front/rear ride heights, rake), suspension/chassis (front/rear anti-roll bars, static camber, toe, preload differential), controls/electronics (brake bias, traction control dials, ABS dials, engine mixture/map), and cold tyre pressures.
+  - Linked `load_lmu_setup()` in `api/server.py` (`_compute_lap_setup()`), presenting 100% authentic garage setup data on the `/setup` dashboard with `has_garage_setup = True` and eliminating missing `N/D` parameters.
+
 ### Fixed
+- **LMU Scoring Struct Offset Alignment & Local Player Control Enforcement**:
+  - Disassembled `rFactor2SharedMemoryMapPlugin64.dll` to verify Windows LLP64 32-bit `long` alignment: corrected `scoringVehOffset` from 572 to 560, and vehicle stride from 592 to 584 bytes (`0x248`).
+  - Corrected track spline length offset from 108 to 100 (`mLapDist`), vehicle count to offset 116, and player name to offset 128.
+  - Enforced strict player resolution requiring both `isPlayer == 1` and `ctrl == 0` (local human driver control) in `recorder/lmu_pages.go`, preventing AI traffic from hijacking player car metadata or active car fallbacks from locking permanently to AI vehicles.
 - **LMU Shared Memory Buffer Overflow & Multi-Car Player Lock**:
   - Fixed Windows/Wine memory access violation (`signal 0xc0000005`) in `recorder/shm_windows.go`: clamped `actualSize` to committed `mbi.RegionSize` from `VirtualQuery`, preventing reads past the end of the shared memory section when mapping `$rFactor2SMMP_Telemetry$`.
   - Dynamically sized `$rFactor2SMMP_Telemetry$` and `$rFactor2SMMP_Scoring$` mappings (`size = 0`), mapping the complete native buffer created by `rFactor2SharedMemoryMapPlugin64.dll` without hardcoding buffer bounds.

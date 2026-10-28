@@ -56,8 +56,12 @@ const (
 
 	// Sizes of sub-structures in native LMU_Data vs rF2 shared memory plugin
 	lmuNativeTelemInfoSize = 1904
-	lmuTelemInfoSize       = 1888 // sizeof(TelemInfoV01) from InternalsPlugin.hpp with #pragma pack(push, 4)
-	lmuVehScoringInfoSize  = 592  // sizeof(VehicleScoringInfoV01) from InternalsPlugin.hpp
+	lmuTelemInfoSize       = 1888 // sizeof(TelemInfoV01) from InternalsPlugin.hpp with #pragma pack(push, 4) (0x760)
+	lmuVehScoringInfoSize  = 584  // sizeof(rF2VehicleScoring) from rFactor2SharedMemoryMapPlugin64.dll (0x248)
+
+	// Offsets in rFactor 2 shared memory plugin ($rFactor2SMMP_Scoring$)
+	lmuPluginScoringVehOffset = 560 // 12-byte header + 548-byte rF2ScoringInfo
+	lmuPluginVehScoringStride = 584 // 0x248 bytes per vehicle
 
 	// Conversion constant from kPa to PSI
 	kpaToPsi = 0.14503774
@@ -223,6 +227,7 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 
 	playerID := lockedID
 	playerCarName := lockedCar
+	playerMatched := (lockedID != -1)
 
 	// 1. Process scoring page ($rFactor2SMMP_Scoring$) if available to locate player
 	if len(sbuf) >= 12+64+24 {
@@ -233,18 +238,21 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 			if sTrack != "" {
 				trackName = sTrack
 			}
-			if len(sbuf) >= 116 {
-				bits := binary.LittleEndian.Uint64(sbuf[108:116])
-				splineLen = float32(math.Float64frombits(bits))
+			if len(sbuf) >= 108 {
+				bits := binary.LittleEndian.Uint64(sbuf[100:108])
+				dist := math.Float64frombits(bits)
+				if !math.IsNaN(dist) && dist > 0 {
+					splineLen = float32(dist)
+				}
 			}
 
 			var playerName string
-			if len(sbuf) >= 168 {
-				playerName = strings.TrimSpace(cString(sbuf[136:168]))
+			if len(sbuf) >= 160 {
+				playerName = strings.TrimSpace(cString(sbuf[128:160]))
 			}
 
-			// Scan vehicle scoring array starting at offset 572 (rF2Scoring header 12 + rF2ScoringInfo 560)
-			// Each vehicle scoring struct (VehicleScoringInfoV01) has:
+			// Scan vehicle scoring array starting at offset 560 (rF2Scoring header 12 + rF2ScoringInfo 548)
+			// Each vehicle scoring struct (rF2VehicleScoring) has:
 			//   mID: int32 at offset 0
 			//   mDriverName: [32]byte at offset 4..36
 			//   mVehicleName: [64]byte at offset 36..100
@@ -253,13 +261,13 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 			//   mIsPlayer: uint8 at offset 196
 			//   mControl: int8 at offset 197 (0 = player)
 			//   mInPits: uint8 at offset 198
-			// Stride is 592 bytes (sizeof(VehicleScoringInfoV01)).
-			scoringVehOffset := 572
-			vehStride := lmuVehScoringInfoSize
+			// Stride is 584 bytes (0x248) from rFactor2SharedMemoryMapPlugin64.dll.
+			scoringVehOffset := lmuPluginScoringVehOffset
+			vehStride := lmuPluginVehScoringStride
 			if len(sbuf) >= scoringVehOffset+vehStride {
 				sNumVehicles := int(numVehicles)
-				if len(sbuf) >= 128 {
-					sn := int(binary.LittleEndian.Uint32(sbuf[124:128]))
+				if len(sbuf) >= 120 {
+					sn := int(binary.LittleEndian.Uint32(sbuf[116:120]))
 					if sn > 0 && sn <= 128 {
 						sNumVehicles = sn
 					}
@@ -272,19 +280,21 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 					}
 					vID := int32(binary.LittleEndian.Uint32(sbuf[vOffset : vOffset+4]))
 					isPlayer := sbuf[vOffset+196] != 0
+					ctrl := int8(sbuf[vOffset+197])
 					driverName := strings.TrimSpace(cString(sbuf[vOffset+4 : vOffset+36]))
 
 					matched := false
 					if playerID != -1 {
 						matched = (vID == playerID)
 					} else {
-						matched = isPlayer
+						matched = isPlayer && ctrl == 0
 						if !matched && playerName != "" && driverName == playerName {
 							matched = true
 						}
 					}
 
 					if matched {
+						playerMatched = true
 						playerID = vID
 						playerCarName = strings.TrimSpace(cString(sbuf[vOffset+36 : vOffset+100]))
 
@@ -443,7 +453,12 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 		TrackSplineLength: splineLen,
 	}
 
-	return sample, meta, live, playerID, nil
+	resolvedID = int32(-1)
+	if playerMatched && playerID >= 0 {
+		resolvedID = playerID
+	}
+
+	return sample, meta, live, resolvedID, nil
 }
 
 func cString(b []byte) string {

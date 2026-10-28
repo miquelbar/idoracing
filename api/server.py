@@ -64,6 +64,7 @@ from importers.acevo_importer import ACEVOImporter
 from importers.acevo_setup_loader import load_acevo_setup
 from importers.csv_importer import CSVImporter
 from importers.lmu_importer import LMUImporter, find_lmu_results_dir
+from importers.lmu_setup_loader import load_lmu_setup
 from importers.moteclib.importer import MoTeCImporter
 from storage.database import Storage
 
@@ -1232,12 +1233,14 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
     sim_name = session.simulator or _detect_simulator(session)
     is_demo = session.session_id.startswith("synth_") or getattr(session, "is_demo", False)
 
-    # 1. Try loading real setup from ACC / AC EVO setup directory
+    # 1. Try loading real setup from ACC / AC EVO / LMU setup directory
     real_setup = None
     if "competizione" in sim_name.lower():
         real_setup = load_acc_setup(session.car, session.track)
     elif "evo" in sim_name.lower():
         real_setup = load_acevo_setup(session.car, session.track)
+    elif "ultimate" in sim_name.lower() or "lmu" in sim_name.lower() or "rfactor" in sim_name.lower():
+        real_setup = load_lmu_setup(session.car, session.track)
 
     has_garage_setup = False
     setup_source = "not_available"
