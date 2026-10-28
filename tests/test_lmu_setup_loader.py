@@ -147,3 +147,121 @@ def test_load_lmu_setup_missing(monkeypatch):
         monkeypatch.setenv("LMU_SETUPS_DIR", tmp_dir)
         res = load_lmu_setup("Ferrari 499P", "Nonexistent Track")
         assert res is None
+
+
+def test_load_lmu_setup_temporal_filter(monkeypatch):
+    """Verifies that setups created after the session ended are ignored (temporal causality)."""
+    import os
+    from datetime import datetime
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir)
+        portimao_dir = root / "Portimao"
+        portimao_dir.mkdir()
+
+        setup_old = portimao_dir / "Old_Setup.svm"
+        setup_old.write_text(SAMPLE_SVM.replace("12.3 deg", "10.0 deg"), encoding="utf-8")
+        os.utime(setup_old, (1000000, 1000000))
+
+        setup_new = portimao_dir / "Future_Setup.svm"
+        setup_new.write_text(SAMPLE_SVM.replace("12.3 deg", "15.0 deg"), encoding="utf-8")
+        os.utime(setup_new, (2000000, 2000000))
+
+        monkeypatch.setenv("LMU_SETUPS_DIR", str(root))
+
+        # Session at t=1500000 (after setup_old, before setup_new)
+        session_dt = datetime.fromtimestamp(1500000)
+        res = load_lmu_setup("Porsche 911 GT3 R LMGT3", "Portimao", session_date=session_dt)
+        assert res is not None
+        assert res["setup_file_name"] == "Old_Setup.svm"
+        assert res["available_setups"] == ["Future_Setup.svm", "Old_Setup.svm"]
+
+        # Session at t=500000 (before ANY setup existed) -> Rule 2 honest None!
+        session_pre = datetime.fromtimestamp(500000)
+        res_pre = load_lmu_setup("Porsche 911 GT3 R LMGT3", "Portimao", session_date=session_pre)
+        assert res_pre is None
+
+
+def test_load_lmu_setup_telemetry_match(monkeypatch):
+    """Verifies that candidate setup is matched against recorded session telemetry."""
+    from datetime import datetime
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir)
+        portimao_dir = root / "Portimao"
+        portimao_dir.mkdir()
+
+        svm_478 = SAMPLE_SVM
+        svm_520 = SAMPLE_SVM.replace("RearBrakeSetting=37//47.8:52.2", "RearBrakeSetting=50//52.0:48.0")
+
+        f1 = portimao_dir / "Setup_478.svm"
+        f1.write_text(svm_478, encoding="utf-8")
+
+        f2 = portimao_dir / "Setup_520.svm"
+        f2.write_text(svm_520, encoding="utf-8")
+
+        monkeypatch.setenv("LMU_SETUPS_DIR", str(root))
+
+        session_dt = datetime.now()
+        # Telemetry recorded brake_bias = 52.0
+        telem = {"brake_bias": [52.0, 52.0, 52.0]}
+        res = load_lmu_setup("Porsche 911 GT3 R LMGT3", "Portimao", session_date=session_dt, session_telemetry=telem)
+        assert res is not None
+        assert res["setup_file_name"] == "Setup_520.svm"
+        assert res["electronics"]["brake_bias"] == 52.0
+
+
+def test_load_lmu_setup_trace_log_match(monkeypatch):
+    """Verifies that simulator trace_*.txt resolves the exact setup loaded by the game engine."""
+    from datetime import datetime
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir)
+        settings_dir = root / "Settings"
+        log_dir = root / "Log"
+        settings_dir.mkdir()
+        log_dir.mkdir()
+
+        portimao_dir = settings_dir / "Portimao"
+        portimao_dir.mkdir()
+
+        target_svm = portimao_dir / "ExactSessionSetup.svm"
+        target_svm.write_text(SAMPLE_SVM, encoding="utf-8")
+
+        other_svm = portimao_dir / "OtherSetup.svm"
+        other_svm.write_text(SAMPLE_SVM, encoding="utf-8")
+
+        session_dt = datetime.now()
+        trace_file = log_dir / "trace_current.txt"
+        trace_content = (
+            "83.68s garageLoad.c 1608: Requested Setup: default for Vehicle Manthey DK Engineering 2026 #91:LM & Track PORTIMAOWEC. "
+            "Found setup: ExactSessionSetup.svm\n"
+        )
+        trace_file.write_text(trace_content, encoding="utf-8")
+
+        monkeypatch.setenv("LMU_SETUPS_DIR", str(settings_dir))
+        monkeypatch.setenv("LMU_LOG_DIR", str(log_dir))
+
+        res = load_lmu_setup("Manthey DK Engineering 2026 #91:LM", "Portimao", session_date=session_dt)
+        assert res is not None
+        assert res["setup_file_name"] == "ExactSessionSetup.svm"
+        assert res["match_method"] == "trace_log"
+
+
+def test_load_lmu_setup_explicit_selection(monkeypatch):
+    """Verifies that an explicitly requested setup file is loaded and marked user_selected."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        root = Path(tmp_dir)
+        portimao_dir = root / "Portimao"
+        portimao_dir.mkdir()
+
+        (portimao_dir / "Setup_A.svm").write_text(SAMPLE_SVM, encoding="utf-8")
+        (portimao_dir / "Setup_B.svm").write_text(SAMPLE_SVM.replace("12.3 deg", "14.5 deg"), encoding="utf-8")
+
+        monkeypatch.setenv("LMU_SETUPS_DIR", str(root))
+
+        res = load_lmu_setup("Porsche 911 GT3 R LMGT3", "Portimao", explicit_file_name="Setup_B.svm")
+        assert res is not None
+        assert res["setup_file_name"] == "Setup_B.svm"
+        assert res["match_method"] == "user_selected"
+        assert res["aero"]["rear_wing"] == 6

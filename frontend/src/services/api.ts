@@ -196,7 +196,8 @@ export async function fetchCarSetup(
   refLapId?: string | null,
   compLapId?: string | null,
   refSessionId?: string | null,
-  compSessionId?: string | null
+  compSessionId?: string | null,
+  setupFileName?: string | null
 ): Promise<CarSetupData> {
   const params = new URLSearchParams();
   if (sessionId) params.append('session_id', sessionId);
@@ -204,6 +205,7 @@ export async function fetchCarSetup(
   if (compLapId) params.append('comp_lap_id', compLapId);
   if (refSessionId) params.append('ref_session_id', refSessionId);
   if (compSessionId) params.append('comp_session_id', compSessionId);
+  if (setupFileName) params.append('setup_file_name', setupFileName);
   const query = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API_BASE}/car-setup${query}`);
   if (!res.ok) await failure(res, 'Failed to fetch car setup');

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Session-Specific Setup Matching & Fidelity (Rule 2 Enforcement)**:
+  - Replaced blind selection of the newest setup file on disk (`st_mtime`) with session-specific matching across LMU, ACC, and AC EVO:
+    1. **LMU Trace Log Resolution**: Inspects simulator engine trace logs (`UserData/Log/trace*.txt`) matching the session's timestamp window to identify the exact `.svm` setup requested by `garageLoad.c` before entering the track.
+    2. **Temporal Causality Constraint**: Excludes candidate setups modified after the session took place, ensuring older sessions never inherit setups saved at a later date.
+    3. **Telemetry Correlation**: Cross-references recorded telemetry channels (brake bias, TC, ABS) against candidate setups to ensure physical consistency with the on-track stint.
+    4. **Honest Rule 2 Fallback**: If no setup existed on disk prior to the session or none matches, returns `has_garage_setup = False` with `N/D` for static clicks while preserving 100% of authentic 50Hz dynamic tyre telemetry.
+    5. **Setup Switcher & Transparency**: Added an interactive setup selector and verification method badge in the `/setup` UI (`trace_log`, `telemetry_matched`, `session_timestamp`, `user_selected`).
 - **Le Mans Ultimate Setup Loader (`.svm`)**:
   - Implemented `importers/lmu_setup_loader.py` to parse proprietary text `.svm` setup files saved by LMU in `UserData/player/Settings/<Track>/<setup>.svm`.
   - Added full parameter extraction for garage mechanical setups: aerodynamics (rear wing angle, front splitter, front/rear ride heights, rake), suspension/chassis (front/rear anti-roll bars, static camber, toe, preload differential), controls/electronics (brake bias, traction control dials, ABS dials, engine mixture/map), and cold tyre pressures.

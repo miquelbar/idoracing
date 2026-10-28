@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import struct
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -252,9 +253,19 @@ def _match_dir(parent: Path, query: str) -> Path | None:
     return None
 
 
-def load_acevo_setup(car_name: str, track_name: str) -> dict[str, Any] | None:
+def load_acevo_setup(
+    car_name: str,
+    track_name: str,
+    session_date: datetime | None = None,
+    session_telemetry: dict[str, Any] | None = None,
+    explicit_file_name: str | None = None,
+) -> dict[str, Any] | None:
     """
-    Search and parse the most recent .carsetup file for a given car and track in AC EVO.
+    Search and parse the .carsetup file for a given car, track, and session in AC EVO.
+    Enforces Rule 2 (Zero Invented Data / Setup Fidelity):
+    1. Explicit file: if requested, loads that exact file.
+    2. Temporal causality: ignores setups created after the session took place.
+    3. Telemetry scoring: correlates brake bias to recorded telemetry.
     """
     root = find_acevo_setups_dir()
     if not root:
@@ -262,36 +273,104 @@ def load_acevo_setup(car_name: str, track_name: str) -> dict[str, Any] | None:
 
     # Try Car/Track hierarchy
     car_dir = _match_dir(root, car_name)
-    setup_files: list[Path] = []
+    all_setup_files: list[Path] = []
     if car_dir:
         track_dir = _match_dir(car_dir, track_name)
         if track_dir:
-            setup_files = sorted(
+            all_setup_files = sorted(
                 list(track_dir.glob("*.carsetup")) + list(track_dir.glob("*.setup")),
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-        if not setup_files:
-            # Fallback to any setup inside car folder
-            setup_files = sorted(
+        if not all_setup_files:
+            all_setup_files = sorted(
                 list(car_dir.glob("**/*.carsetup")) + list(car_dir.glob("**/*.setup")),
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
 
-    # General fallback: check any .carsetup files in root matching car
-    if not setup_files:
-        setup_files = sorted(
+    if not all_setup_files:
+        all_setup_files = sorted(
             list(root.glob("**/*.carsetup")) + list(root.glob("**/*.setup")),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
 
-    if not setup_files:
+    if not all_setup_files:
         return None
 
-    active_file = setup_files[0]
+    available_setups = [p.name for p in all_setup_files]
+    active_file: Path | None = None
+    match_method = "session_timestamp"
+
+    if explicit_file_name:
+        for p in all_setup_files:
+            if p.name.lower() == explicit_file_name.lower():
+                active_file = p
+                match_method = "user_selected"
+                break
+
+    if not active_file:
+        if session_date:
+            session_ts = session_date.timestamp()
+            valid_candidates = [p for p in all_setup_files if p.stat().st_mtime <= session_ts + 180]
+        else:
+            valid_candidates = all_setup_files
+
+        if not valid_candidates:
+            logger.info("No AC EVO setup existed on disk prior to session date %s", session_date)
+            return None
+
+        # Telemetry correlation (brake bias)
+        tel_bb: float | None = None
+        if session_telemetry:
+            for k in ("brake_bias", "setup_brake_bias"):
+                v = session_telemetry.get(k)
+                if isinstance(v, list) and v:
+                    tel_bb = float(v[0])
+                    break
+                elif isinstance(v, (int, float)):
+                    tel_bb = float(v)
+                    break
+
+        best_file: Path | None = None
+        best_score = -999.0
+
+        for p in valid_candidates:
+            score = 0.0
+            try:
+                parsed = parse_carsetup_file(p)
+                if parsed and tel_bb is not None:
+                    file_bb = parsed.get("electronics", {}).get("brake_bias")
+                    if file_bb is not None:
+                        if abs(float(file_bb) - tel_bb) < 0.25:
+                            score += 15.0
+                        else:
+                            score -= 10.0
+            except (OSError, ValueError, TypeError):
+                continue
+
+            if session_date:
+                diff_hours = abs(p.stat().st_mtime - session_date.timestamp()) / 3600.0
+                score += max(0.0, 5.0 - diff_hours)
+
+            if score > best_score:
+                best_score = score
+                best_file = p
+
+        if best_file:
+            active_file = best_file
+            match_method = "telemetry_matched" if (tel_bb is not None and best_score >= 10.0) else "session_timestamp"
+        else:
+            active_file = valid_candidates[0]
+            match_method = "session_timestamp"
+
+    if not active_file:
+        return None
+
     res = parse_carsetup_file(active_file)
     if res:
         res["track"] = track_name
+        res["available_setups"] = available_setups
+        res["match_method"] = match_method
     return res

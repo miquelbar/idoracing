@@ -353,6 +353,8 @@ export interface SingleLapSetup {
   has_garage_setup?: boolean;
   setup_source?: string;
   setup_file_name?: string | null;
+  match_method?: string | null;
+  available_setups?: string[];
   tyres: {
     compound: string;
     pressures_hot: { FL: number; FR: number; RL: number; RR: number };

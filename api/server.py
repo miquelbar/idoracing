@@ -420,6 +420,8 @@ class CarSetupDTO(BaseModel):
     has_garage_setup: bool = True
     setup_source: str = "actual_file"
     setup_file_name: str | None = None
+    match_method: str | None = None
+    available_setups: list[str] = []
     tyres: dict[str, Any]
     electronics: dict[str, Any]
     aero: dict[str, Any]
@@ -1217,7 +1219,12 @@ def _format_lap_badge_label(lap: Lap, session: Session) -> str:
     return f"V{lap.lap_number} · {date_str} ({time_str})"
 
 
-def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = False) -> dict[str, Any]:
+def _compute_lap_setup(
+    session: Session,
+    lap: Lap | None,
+    is_comp_lap: bool = False,
+    explicit_setup_file: str | None = None,
+) -> dict[str, Any]:
     """
     Build static garage setup + dynamic on-track tyre telemetry for a given (session, lap).
     1. For ACC sessions: loads the user's actual saved setup JSON file if present on disk.
@@ -1233,23 +1240,47 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
     sim_name = session.simulator or _detect_simulator(session)
     is_demo = session.session_id.startswith("synth_") or getattr(session, "is_demo", False)
 
-    # 1. Try loading real setup from ACC / AC EVO / LMU setup directory
+    # 1. Try loading real setup from ACC / AC EVO / LMU setup directory matching session
     real_setup = None
+    sess_date = session.date if hasattr(session, "date") else None
+    setup_file_target = explicit_setup_file or getattr(session, "setup_file_name", None)
+
     if "competizione" in sim_name.lower():
-        real_setup = load_acc_setup(session.car, session.track)
+        real_setup = load_acc_setup(
+            session.car,
+            session.track,
+            session_date=sess_date,
+            session_telemetry=tel,
+            explicit_file_name=setup_file_target,
+        )
     elif "evo" in sim_name.lower():
-        real_setup = load_acevo_setup(session.car, session.track)
+        real_setup = load_acevo_setup(
+            session.car,
+            session.track,
+            session_date=sess_date,
+            session_telemetry=tel,
+            explicit_file_name=setup_file_target,
+        )
     elif "ultimate" in sim_name.lower() or "lmu" in sim_name.lower() or "rfactor" in sim_name.lower():
-        real_setup = load_lmu_setup(session.car, session.track)
+        real_setup = load_lmu_setup(
+            session.car,
+            session.track,
+            session_date=sess_date,
+            session_telemetry=tel,
+            explicit_file_name=setup_file_target,
+        )
 
     has_garage_setup = False
     setup_source = "not_available"
     setup_file_name: str | None = None
+    match_method: str | None = None
+    available_setups: list[str] = real_setup.get("available_setups", []) if real_setup else []
 
     if real_setup:
         has_garage_setup = True
         setup_source = "actual_file"
         setup_file_name = real_setup.get("setup_file_name")
+        match_method = real_setup.get("match_method")
         electronics = real_setup["electronics"]
         aero = real_setup["aero"]
         chassis = real_setup["chassis"]
@@ -1482,6 +1513,8 @@ def _compute_lap_setup(session: Session, lap: Lap | None, is_comp_lap: bool = Fa
         "has_garage_setup": has_garage_setup,
         "setup_source": setup_source,
         "setup_file_name": setup_file_name,
+        "match_method": match_method,
+        "available_setups": available_setups,
         "tyres": tyres_dict,
         "electronics": electronics,
         "aero": aero,
@@ -1495,6 +1528,7 @@ def _build_setup_comparison(
     comp_session_id: str | None = None,
     ref_lap_id: str | None = None,
     comp_lap_id: str | None = None,
+    setup_file_name: str | None = None,
 ) -> CarSetupDTO:
     if ref_session_id or comp_session_id:
         ref_session = _load_session(ref_session_id or session_id)
@@ -1524,8 +1558,18 @@ def _build_setup_comparison(
     car = normalize_car_name(matched_session.car or "Porsche 992 GT3 R")
     track = normalize_track_name(matched_session.track or "Valencia")
 
-    p1 = _compute_lap_setup(ref_session, ref_lap, is_comp_lap=False)
-    p2 = _compute_lap_setup(comp_session, comp_lap, is_comp_lap=True)
+    p1 = _compute_lap_setup(
+        ref_session,
+        ref_lap,
+        is_comp_lap=False,
+        explicit_setup_file=setup_file_name if ref_session.session_id == comp_session.session_id else None,
+    )
+    p2 = _compute_lap_setup(
+        comp_session,
+        comp_lap,
+        is_comp_lap=True,
+        explicit_setup_file=setup_file_name,
+    )
 
     # Compare Static Garage Setup (cold pressures, electronics, aero, chassis)
     garage_diffs: list[str] = []
@@ -1617,6 +1661,8 @@ def _build_setup_comparison(
         has_garage_setup=p2.get("has_garage_setup", False),
         setup_source=p2.get("setup_source", "not_available"),
         setup_file_name=p2.get("setup_file_name"),
+        match_method=p2.get("match_method") or p1.get("match_method"),
+        available_setups=p2.get("available_setups", []) or p1.get("available_setups", []),
         tyres=p2["tyres"],
         electronics=p2["electronics"],
         aero=p2["aero"],
@@ -1655,6 +1701,7 @@ def get_car_setup(
     comp_session_id: str | None = Query(None),
     ref_lap_id: str | None = Query(None),
     comp_lap_id: str | None = Query(None),
+    setup_file_name: str | None = Query(None),
 ):
     return _build_setup_comparison(
         session_id=session_id,
@@ -1662,6 +1709,7 @@ def get_car_setup(
         comp_session_id=comp_session_id,
         ref_lap_id=ref_lap_id,
         comp_lap_id=comp_lap_id,
+        setup_file_name=setup_file_name,
     )
 
 

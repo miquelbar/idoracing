@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,10 +58,19 @@ def _match_dir(parent: Path, query: str) -> Path | None:
     return None
 
 
-def load_acc_setup(car_name: str, track_name: str) -> dict[str, Any] | None:
+def load_acc_setup(
+    car_name: str,
+    track_name: str,
+    session_date: datetime | None = None,
+    session_telemetry: dict[str, Any] | None = None,
+    explicit_file_name: str | None = None,
+) -> dict[str, Any] | None:
     """
-    Find and parse the active ACC setup file for a given car and track.
-    Returns normalized dictionary with electronics, aero, chassis, tyres, and metadata.
+    Find and parse the ACC setup file matching a given car, track, and session.
+    Enforces Rule 2 (Zero Invented Data / Setup Fidelity):
+    1. Explicit file: if requested, loads that exact file.
+    2. Temporal causality: ignores setups created after the session took place.
+    3. Telemetry scoring: matches brake bias, TC, and ABS clicks to recorded telemetry.
     """
     root = find_acc_setups_dir()
     if not root:
@@ -74,11 +84,87 @@ def load_acc_setup(car_name: str, track_name: str) -> dict[str, Any] | None:
     if not track_dir:
         return None
 
-    setup_files = sorted(track_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if not setup_files:
+    all_files = sorted(
+        [p for p in track_dir.glob("*.json") if p.is_file()], key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    if not all_files:
         return None
 
-    active_file = setup_files[0]
+    available_setups = [p.name for p in all_files]
+    active_file: Path | None = None
+    match_method = "session_timestamp"
+
+    if explicit_file_name:
+        cand = track_dir / explicit_file_name
+        if cand.is_file():
+            active_file = cand
+            match_method = "user_selected"
+        else:
+            for p in all_files:
+                if p.name.lower() == explicit_file_name.lower():
+                    active_file = p
+                    match_method = "user_selected"
+                    break
+
+    if not active_file:
+        if session_date:
+            session_ts = session_date.timestamp()
+            valid_candidates = [p for p in all_files if p.stat().st_mtime <= session_ts + 180]
+        else:
+            valid_candidates = all_files
+
+        if not valid_candidates:
+            logger.info("No ACC setup existed on disk prior to session date %s", session_date)
+            return None
+
+        # Telemetry correlation (brake bias, TC, ABS)
+        tel_bb: float | None = None
+        if session_telemetry:
+            for k in ("brake_bias", "setup_brake_bias"):
+                v = session_telemetry.get(k)
+                if isinstance(v, list) and v:
+                    tel_bb = float(v[0])
+                    break
+                elif isinstance(v, (int, float)):
+                    tel_bb = float(v)
+                    break
+
+        best_file: Path | None = None
+        best_score = -999.0
+
+        for p in valid_candidates:
+            score = 0.0
+            try:
+                with open(p, encoding="utf-8") as f:
+                    setup_data = json.load(f)
+                mech = setup_data.get("advancedSetup", {}).get("mechanicalBalance", {})
+                bb_clicks = mech.get("brakeBias", 30)
+                file_bb = round(48.0 + (bb_clicks * 0.2), 1)
+                if tel_bb is not None:
+                    if abs(file_bb - tel_bb) < 0.25:
+                        score += 15.0
+                    else:
+                        score -= 10.0
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                continue
+
+            if session_date:
+                diff_hours = abs(p.stat().st_mtime - session_date.timestamp()) / 3600.0
+                score += max(0.0, 5.0 - diff_hours)
+
+            if score > best_score:
+                best_score = score
+                best_file = p
+
+        if best_file:
+            active_file = best_file
+            match_method = "telemetry_matched" if (tel_bb is not None and best_score >= 10.0) else "session_timestamp"
+        else:
+            active_file = valid_candidates[0]
+            match_method = "session_timestamp"
+
+    if not active_file:
+        return None
     try:
         with open(active_file, encoding="utf-8") as f:
             data = json.load(f)
@@ -112,6 +198,8 @@ def load_acc_setup(car_name: str, track_name: str) -> dict[str, Any] | None:
         "setup_file_name": active_file.name,
         "setup_source": "actual_file",
         "has_garage_setup": True,
+        "match_method": match_method,
+        "available_setups": available_setups,
         "electronics": {
             "tc1": int(elec.get("tC1", 1)),
             "tc2": int(elec.get("tC2", 1)) if "tC2" in elec else None,

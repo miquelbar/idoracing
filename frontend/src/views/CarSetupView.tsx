@@ -30,19 +30,22 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
 }) => {
   const { t } = useLanguage();
   const [setup, setSetup] = useState<CarSetupData | null>(null);
+  const [selectedSetupFile, setSelectedSetupFile] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSetup = async () => {
+  const loadSetup = async (customSetup?: string | null) => {
     try {
       setLoading(true);
       setError(null);
+      const activeSetupTarget = customSetup !== undefined ? customSetup : selectedSetupFile;
       const data = await fetchCarSetup(
         selectedSessionId || undefined,
         refLapId,
         compLapId,
         refSessionId,
-        compSessionId
+        compSessionId,
+        activeSetupTarget
       );
       setSetup(data);
     } catch (err) {
@@ -52,8 +55,14 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
     }
   };
 
+  const handleSelectSetup = (fileName: string) => {
+    setSelectedSetupFile(fileName);
+    loadSetup(fileName);
+  };
+
   useEffect(() => {
-    loadSetup();
+    setSelectedSetupFile(null);
+    loadSetup(null);
   }, [selectedSessionId, refLapId, compLapId, refSessionId, compSessionId]);
 
   if (loading && !setup) {
@@ -71,7 +80,7 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
         <p className="font-bold mb-1">{t('could_not_load_data')}</p>
         <p className="text-xs text-gray-400">{error || 'Configuración no disponible'}</p>
         <button
-          onClick={loadSetup}
+          onClick={() => loadSetup()}
           className="mt-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs text-white cursor-pointer font-telemetry"
         >
           {t('retry')}
@@ -107,7 +116,7 @@ export const CarSetupView: React.FC<CarSetupViewProps> = ({
         </button>
       </div>
 
-      <CarSetupInspector setup={setup} />
+      <CarSetupInspector setup={setup} onSelectSetup={handleSelectSetup} />
 
       {/* Structured setup advice from Pep, based on telemetry */}
       <SetupAdvicePanel

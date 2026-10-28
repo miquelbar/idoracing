@@ -16,11 +16,12 @@ import { simBadge } from '../utils/formatters';
 
 interface CarSetupInspectorProps {
   setup: CarSetupData;
+  onSelectSetup?: (fileName: string) => void;
 }
 
 type SetupViewMode = 'diff' | 'p1' | 'p2';
 
-export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) => {
+export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup, onSelectSetup }) => {
   const { t } = useLanguage();
   const badge = simBadge(setup.game_name ?? null);
   const sameGarageSetup = setup.same_garage_setup !== false;
@@ -250,11 +251,32 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
         {/* Right: Identical Garage Setup Badge OR Modified Setup Segmented Control */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 self-start lg:self-auto">
           {setup.has_garage_setup === false || setup.setup_source === 'not_available' ? (
-            <div className="flex items-center gap-2 bg-amber-950/40 px-3.5 py-2 rounded-xl border border-amber-500/40 text-xs font-telemetry text-amber-200">
-              <Info className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                ℹ️ Telemetría 50Hz Activa · Para vincular setup estático: guarda un setup en el garaje ({setup.game_name?.toLowerCase().includes('evo') ? '.carsetup' : '.ini / .json'})
-              </span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <div className="flex items-center gap-2 bg-amber-950/40 px-3.5 py-2 rounded-xl border border-amber-500/40 text-xs font-telemetry text-amber-200">
+                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  ℹ️ Telemetría 50Hz Activa · Para vincular setup estático: guarda un setup en el garaje ({setup.game_name?.toLowerCase().includes('evo') ? '.carsetup' : '.ini / .svm / .json'})
+                </span>
+              </div>
+              {setup.available_setups && setup.available_setups.length > 0 && onSelectSetup && (
+                <div className="flex items-center gap-1.5 bg-[#0C101A] px-2.5 py-1.5 rounded-xl border border-white/10 text-xs font-telemetry">
+                  <span className="text-gray-400 text-[11px]">Ver setup:</span>
+                  <select
+                    className="bg-transparent text-brand font-bold text-xs focus:outline-none cursor-pointer"
+                    value=""
+                    onChange={(e) => e.target.value && onSelectSetup(e.target.value)}
+                  >
+                    <option value="" disabled className="bg-gray-900 text-gray-400">
+                      Seleccionar setup guardado...
+                    </option>
+                    {setup.available_setups.map((s) => (
+                      <option key={s} value={s} className="bg-gray-900 text-white">
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           ) : setup.setup_source === 'recorded_telemetry' ? (
             <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
@@ -264,11 +286,35 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup }) =
               </span>
             </div>
           ) : setup.setup_source === 'actual_file' ? (
-            <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
-                ✓ Setup Real Cargado ({setup.setup_file_name || 'Archivo .json'})
-              </span>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  {setup.match_method === 'trace_log'
+                    ? `✓ Setup de Sesión (Traza LMU): ${setup.setup_file_name}`
+                    : setup.match_method === 'telemetry_matched'
+                    ? `✓ Setup Coincidente con Telemetría: ${setup.setup_file_name}`
+                    : setup.match_method === 'user_selected'
+                    ? `🔧 Setup Seleccionado: ${setup.setup_file_name}`
+                    : `✓ Setup de Sesión: ${setup.setup_file_name || 'Archivo'}`}
+                </span>
+              </div>
+              {setup.available_setups && setup.available_setups.length > 1 && onSelectSetup && (
+                <div className="flex items-center gap-1.5 bg-[#0C101A] px-2.5 py-1.5 rounded-xl border border-white/10 text-xs font-telemetry">
+                  <span className="text-gray-400 text-[11px]">Cambiar:</span>
+                  <select
+                    className="bg-transparent text-brand font-bold text-xs focus:outline-none cursor-pointer"
+                    value={setup.setup_file_name || ''}
+                    onChange={(e) => onSelectSetup(e.target.value)}
+                  >
+                    {setup.available_setups.map((s) => (
+                      <option key={s} value={s} className="bg-gray-900 text-white">
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           ) : sameGarageSetup ? (
             <div className="flex items-center gap-2 bg-emerald-950/30 px-3.5 py-2 rounded-xl border border-emerald-500/30 text-xs font-telemetry text-emerald-300">
