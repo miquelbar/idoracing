@@ -61,6 +61,10 @@ game_exe="${IDORACING_GAME_EXE:-}"
 
 if [ "$sim" = "auto" ] && [ -z "$game_exe" ]; then
 	case "$cmd_str" in
+	*"acr.exe"*|*"/Assetto Corsa Rally/"*)
+		sim="acrally"
+		game_exe="acr.exe"
+		;;
 	*"AC2-Win64-Shipping.exe"*|*"acc.exe"*|*"/Assetto Corsa Competizione/"*)
 		sim="acc"
 		game_exe="AC2-Win64-Shipping.exe,acc.exe"

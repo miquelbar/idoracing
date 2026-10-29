@@ -84,4 +84,16 @@ IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDO
 sleep 0.5
 grep -qx "run $work/idoracing-recorder.exe -sim acc -exit-with AC2-Win64-Shipping.exe,acc.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-acc failed"
 
+: >"$CALLS"
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/acc-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/Assetto Corsa Rally/acr/Binaries/Win64/acr.exe"
+sleep 0.5
+grep -qx "run $work/idoracing-recorder.exe -sim acrally -exit-with acr.exe -log $work/log" "$CALLS" || fail "acc-with-recorder.sh acr.exe failed"
+
+: >"$CALLS"
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/sim-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/Assetto Corsa Rally/acr/Binaries/Win64/acr.exe"
+sleep 0.5
+grep -qx "run $work/idoracing-recorder.exe -sim acrally -exit-with acr.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-acr failed"
+
 echo "All sim launcher tests passed ok!"

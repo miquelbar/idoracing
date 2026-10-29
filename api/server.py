@@ -111,6 +111,7 @@ AUTO_IMPORT_SIMULATORS = {
     "LMU": "Le Mans Ultimate",
     "AC EVO": "Assetto Corsa EVO",
     "AC1": "Assetto Corsa",
+    "AC Rally": "Assetto Corsa Rally",
     "DR2": "DiRT Rally 2.0",
     "WRC": "EA SPORTS WRC",
 }

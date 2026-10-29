@@ -12,7 +12,15 @@ here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 recorder="${IDORACING_RECORDER:-$here/idoracing-recorder.exe}"
 delay="${IDORACING_RECORDER_DELAY:-10}"
 log="${IDORACING_RECORDER_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/idoracing-recorder.log}"
+cmd_str="$*"
+sim="ac"
 game_exe="acs.exe,AssettoCorsa.exe"
+case "$cmd_str" in
+*"acr.exe"*|*"/Assetto Corsa Rally/"*)
+	sim="acrally"
+	game_exe="acr.exe"
+	;;
+esac
 
 proton=""
 rec_cmd=()
@@ -25,7 +33,7 @@ for arg in "$@"; do
 	case "$arg" in
 	*/proton)
 		proton="$arg"
-		rec_cmd+=("run" "$recorder" "-sim" "ac" "-exit-with" "$game_exe" "-log" "$log")
+		rec_cmd+=("run" "$recorder" "-sim" "$sim" "-exit-with" "$game_exe" "-log" "$log")
 		break
 		;;
 	esac

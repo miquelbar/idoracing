@@ -14,7 +14,50 @@ delay="${IDORACING_RECORDER_DELAY:-10}"
 log="${IDORACING_RECORDER_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/idoracing-recorder.log}"
 voices_dir="${IDORACING_VOICES_DIR:-$repo_root/recorder/voices}"
 config_file="${IDORACING_CONFIG:-$repo_root/data/spotter_config.json}"
-game_exe="AC2-Win64-Shipping.exe,acc.exe"
+# Determine target game executable and simulator
+cmd_str="$*"
+sim="${IDORACING_SIM:-auto}"
+game_exe="${IDORACING_GAME_EXE:-}"
+
+if [ -z "$game_exe" ]; then
+	case "$cmd_str" in
+	*"acr.exe"*|*"/Assetto Corsa Rally/"*)
+		[ "$sim" = "auto" ] && sim="acrally"
+		game_exe="acr.exe"
+		;;
+	*"Le Mans Ultimate"*|*"start_protected_game.exe"*)
+		[ "$sim" = "auto" ] && sim="lmu"
+		game_exe="Le Mans Ultimate.exe,start_protected_game.exe"
+		;;
+	*"AssettoCorsaEVO"*|*"Assetto Corsa Evo"*)
+		[ "$sim" = "auto" ] && sim="acevo"
+		game_exe="AssettoCorsaEVO.exe"
+		;;
+	*"acs.exe"*|*"AssettoCorsa.exe"*|*"/Assetto Corsa/"*)
+		[ "$sim" = "auto" ] && sim="ac"
+		game_exe="acs.exe,AssettoCorsa.exe"
+		;;
+	*"dirtrally2.exe"*|*"WRC.exe"*|*"/DiRT Rally 2.0/"*|*"/EA SPORTS WRC/"*)
+		[ "$sim" = "auto" ] && sim="dr2"
+		game_exe="dirtrally2.exe,WRC.exe"
+		;;
+	*"AC2-Win64-Shipping.exe"*|*"acc.exe"*|*"/Assetto Corsa Competizione/"*)
+		[ "$sim" = "auto" ] && sim="acc"
+		game_exe="AC2-Win64-Shipping.exe,acc.exe"
+		;;
+	*)
+		# Fallback: find any .exe in arguments
+		for arg in "$@"; do
+			case "$arg" in
+			*.exe|*.EXE)
+				game_exe="$(basename "$arg")"
+				;;
+			esac
+		done
+		[ -z "$game_exe" ] && game_exe="AC2-Win64-Shipping.exe,acc.exe"
+		;;
+	esac
+fi
 
 # Clean up all background jobs on script exit
 trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
@@ -60,7 +103,11 @@ for arg in "$@"; do
 	case "$arg" in
 	*/proton)
 		proton="$arg"
-		rec_cmd+=("run" "$recorder" "-exit-with" "$game_exe" "-log" "$log")
+		rec_cmd+=("run" "$recorder")
+		if [ -n "$sim" ] && [ "$sim" != "auto" ] && [ "$sim" != "acc" ]; then
+			rec_cmd+=("-sim" "$sim")
+		fi
+		rec_cmd+=("-exit-with" "$game_exe" "-log" "$log")
 		break
 		;;
 	esac

@@ -17,6 +17,7 @@ func TestMultiSimRecording(t *testing.T) {
 		{"Assetto Corsa Competizione", "acc", "# simulator: Assetto Corsa Competizione\n"},
 		{"Le Mans Ultimate", "lmu", "# simulator: Le Mans Ultimate\n"},
 		{"Assetto Corsa", "ac", "# simulator: Assetto Corsa\n"},
+		{"Assetto Corsa Rally", "acrally", "# simulator: Assetto Corsa Rally\n"},
 		{"Assetto Corsa EVO", "acevo", "# simulator: Assetto Corsa EVO\n"},
 	}
 

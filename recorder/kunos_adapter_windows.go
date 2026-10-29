@@ -45,6 +45,16 @@ func newACAdapter() *kunosAdapter {
 	}
 }
 
+func newACRallyAdapter() *kunosAdapter {
+	return &kunosAdapter{
+		simName:   "Assetto Corsa Rally",
+		simPrefix: "acrally",
+		physNames: []string{`Local\acpmf_physics`},
+		gfxNames:  []string{`Local\acpmf_graphics`},
+		statNames: []string{`Local\acpmf_static`},
+	}
+}
+
 func newACEVOAdapter() *kunosAdapter {
 	return &kunosAdapter{
 		simName:   "Assetto Corsa EVO",
@@ -199,6 +209,15 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 		}
 	}
 
+	if a.simPrefix == "acrally" {
+		if info.Track == "" {
+			info.Track = "Rally Stage"
+		}
+		if info.CarModel == "" {
+			info.CarModel = "Rally Car"
+		}
+	}
+
 	a.lastID = p.PacketID
 	x, y, ok := g.playerPosition()
 
@@ -223,6 +242,18 @@ func (a *kunosAdapter) Read(now time.Time) (TelemetrySample, SessionMetadata, bo
 			// Stay on track unless the car comes to a stop in the pit area
 			if p.SpeedKmh < 2.0 && lapDist < 15.0 {
 				a.pitExited = false
+			}
+		}
+		if a.pitExited {
+			sample.InPit = 0
+		} else {
+			sample.InPit = 1
+		}
+	} else if a.simPrefix == "acrally" {
+		// Rally stages start on the track line, no pit lane. Once rolling, mark on-stage.
+		if !a.pitExited {
+			if p.SpeedKmh > 5.0 || lapDist > 5.0 {
+				a.pitExited = true
 			}
 		}
 		if a.pitExited {

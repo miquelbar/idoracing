@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Assetto Corsa Rally Telemetry Adapter & Auto-detection**:
+  - Implemented `newACRallyAdapter()` in `recorder/kunos_adapter_windows.go` connecting directly to Kunos shared memory (`Local\acpmf_physics`, `graphics`, `static`) used by `acr.exe`.
+  - Added dedicated rally stage pit/track tracking: immediately marks car on-stage (`in_pit = 0`) upon moving (> 5 km/h) without waiting for a non-existent circuit pit lane.
+  - Enhanced launch scripts (`acc-with-recorder.sh`, `sim-with-recorder.sh`, `ac-with-recorder.sh`) to dynamically inspect command line arguments and auto-detect `acr.exe` / `Assetto Corsa Rally`, setting `-sim acrally -exit-with acr.exe`.
+  - Updated API server canonical simulator mappings (`AUTO_IMPORT_SIMULATORS`) to recognize and register `Assetto Corsa Rally`.
 - **Session-Specific Setup Matching & Fidelity (Rule 2 Enforcement)**:
   - Replaced blind selection of the newest setup file on disk (`st_mtime`) with session-specific matching across LMU, ACC, and AC EVO:
     1. **LMU Trace Log Resolution**: Inspects simulator engine trace logs (`UserData/Log/trace*.txt`) matching the session's timestamp window to identify the exact `.svm` setup requested by `garageLoad.c` before entering the track.
