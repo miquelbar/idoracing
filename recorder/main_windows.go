@@ -96,7 +96,7 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 		return newLMUAdapter()
 	} else if strings.Contains(lowerExe, "assettocorsaevo") {
 		return newACEVOAdapter()
-	} else if strings.Contains(lowerExe, "acr.exe") {
+	} else if strings.Contains(lowerExe, "acr.exe") || strings.Contains(lowerExe, "assettocorsarally") || strings.Contains(lowerExe, "acrally") {
 		return newACRallyAdapter()
 	} else if strings.Contains(lowerExe, "acs.exe") || strings.Contains(lowerExe, "assettocorsa.exe") {
 		return newACAdapter()
@@ -114,7 +114,7 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 	if running, _ := processRunning("AssettoCorsaEVO.exe"); running {
 		return newACEVOAdapter()
 	}
-	if running, _ := processRunning("acr.exe"); running {
+	if running, _ := processRunning("acr.exe,AssettoCorsaRally.exe,ACR-Win64-Shipping.exe,AssettoCorsaRally-Win64-Shipping.exe,acrally.exe"); running {
 		return newACRallyAdapter()
 	}
 	if running, _ := processRunning("acs.exe,AssettoCorsa.exe"); running {

@@ -98,17 +98,18 @@ func decodeGraphics(b []byte) (graphicsPage, error) {
 // distanceTracker provides generic physics/coordinate-based distance tracking.
 // Works for closed circuits (with or without official spline lengths) and point A to B rally stages.
 type distanceTracker struct {
-	lastLap    int32
-	prevX      float32
-	prevY      float32
-	prevTime   time.Time
-	lapDist    float32
-	learnedLen float32
+	lastLap     int32
+	prevX       float32
+	prevY       float32
+	prevTime    time.Time
+	lapDist     float32
+	learnedLen  float32
+	loopStartD  float32
+	loopStarted bool
 }
 
 func (dt *distanceTracker) step(x, y float32, hasXY bool, speedKmh float32, normPos float32, splineLen float32, lap int32, now time.Time) float32 {
-	// If the simulator provides active normalized spline position (e.g. ACC 0.001 .. 1.0), use official spline distance.
-	// When normPos is 0.0 (unsupported or zeroed by Kunos in AC EVO), fall through to speed/coordinate tracking.
+	// If the simulator provides active normalized spline position and official spline length, use it directly.
 	if splineLen > 0 && normPos > 0.0001 && normPos <= 1.0 {
 		return normPos * splineLen
 	}
@@ -118,46 +119,63 @@ func (dt *distanceTracker) step(x, y float32, hasXY bool, speedKmh float32, norm
 		lap = 1
 	}
 
-	// New lap detected on a closed circuit
-	if dt.lastLap == 0 {
-		dt.lastLap = lap
-	} else if lap != dt.lastLap {
-		if dt.lapDist > 200.0 {
-			dt.learnedLen = dt.lapDist
-		}
-		dt.lapDist = 0.0
-		dt.lastLap = lap
-	}
-
-	// Closed circuit with learned length from a completed lap
-	if dt.learnedLen > 0 && normPos >= 0.0 && normPos <= 1.0 {
-		return normPos * dt.learnedLen
-	}
-
-	// Generic displacement accumulation (works for point A to B rally stages, hillclimbs, and first circuit out-lap)
+	// Calculate displacement step from physical coordinates or speed
+	step := float32(0.0)
 	if !dt.prevTime.IsZero() {
 		dtSec := float32(now.Sub(dt.prevTime).Seconds())
 		if dtSec > 0 && dtSec < 1.0 {
 			if hasXY && (dt.prevX != 0 || dt.prevY != 0) {
 				dx := float64(x - dt.prevX)
 				dy := float64(y - dt.prevY)
-				step := float32(math.Hypot(dx, dy))
-				if step > 0.01 && step < 30.0 {
-					dt.lapDist += step
+				d := float32(math.Hypot(dx, dy))
+				if d > 0.01 && d < 50.0 {
+					step = d
 				} else if speedKmh > 1.0 {
-					dt.lapDist += (speedKmh / 3.6) * dtSec
+					step = (speedKmh / 3.6) * dtSec
 				}
 			} else if speedKmh > 1.0 {
-				dt.lapDist += (speedKmh / 3.6) * dtSec
+				step = (speedKmh / 3.6) * dtSec
 			}
 		}
 	}
 	dt.prevX, dt.prevY, dt.prevTime = x, y, now
 
-	// Wrap around at official circuit spline length if known
-	if splineLen > 500.0 && dt.lapDist >= splineLen {
-		dt.lapDist -= splineLen
+	// New lap detected: reset per-lap distance and check if a clean loop was completed
+	if dt.lastLap == 0 {
+		dt.lastLap = lap
+	} else if lap != dt.lastLap {
+		if dt.loopStarted {
+			loopSpan := dt.lapDist - dt.loopStartD
+			if loopSpan > 500.0 && loopSpan <= 30000.0 {
+				dt.learnedLen = loopSpan
+			}
+		}
+		dt.lapDist = 0.0
+		dt.lastLap = lap
+		dt.loopStarted = false
+		step = 0.0
 	}
+
+	dt.lapDist += step
+
+	// Dynamically calibrate circuit length on clean closed-circuit loops:
+	// A flying lap starts near the line (normPos < 0.05) and traverses to the end (normPos > 0.95).
+	if normPos > 0.0 && normPos < 0.05 && !dt.loopStarted {
+		dt.loopStarted = true
+		dt.loopStartD = dt.lapDist
+	} else if normPos > 0.95 && dt.loopStarted {
+		loopSpan := dt.lapDist - dt.loopStartD
+		if loopSpan > 500.0 && loopSpan <= 30000.0 {
+			dt.learnedLen = loopSpan
+		}
+	}
+
+	// Closed circuit with learned length from a completed loop
+	if dt.learnedLen > 0 && normPos >= 0.0 && normPos <= 1.0 {
+		return normPos * dt.learnedLen
+	}
+
+	// Generic displacement accumulation (works for point A to B rally stages, hillclimbs, and first circuit out-lap)
 	return dt.lapDist
 }
 

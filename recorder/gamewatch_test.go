@@ -61,3 +61,19 @@ func TestGameWatchIsOffWithoutAnExecutable(t *testing.T) {
 		t.Fatal("exited with no game to watch")
 	}
 }
+
+func TestGameWatchStaysAliveWhilePhysicsPacketsMoveEvenIfProcessNotFound(t *testing.T) {
+	// Even if processRunning returns false (e.g. process name mismatch in Wine), live physics packets
+	// prove the simulator is running and must NEVER cause a 5-minute timeout.
+	w := &gameWatch{exe: "acr.exe", running: func(string) (bool, error) { return false, nil }, started: t0}
+
+	w.notePacket(1, t0.Add(4*time.Minute))
+	if exit, _ := w.shouldExit(t0.Add(4*time.Minute + 5*time.Second)); exit {
+		t.Fatal("exited while physics packets are actively moving")
+	}
+
+	w.notePacket(2, t0.Add(5*time.Minute + 5*time.Second))
+	if exit, reason := w.shouldExit(t0.Add(5*time.Minute + 6*time.Second)); exit {
+		t.Fatalf("exited with reason %q while car is actively driving past 5 minutes", reason)
+	}
+}

@@ -121,14 +121,14 @@ function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   const bestLapTime = positiveTimes.length > 0 ? Math.min(...positiveTimes) : 0;
 
   const flyingValid = session.laps
-    .filter((l) => l.lap_time > 20 && l.lap_time <= 150 && l.is_valid && !isLapOutlap(l, bestLapTime))
+    .filter((l) => l.lap_time > 20 && l.lap_time <= 150 && l.is_valid && !l.is_incomplete && !isLapOutlap(l, bestLapTime))
     .sort((a, b) => a.lap_time - b.lap_time);
   if (flyingValid.length >= 2) {
     return [flyingValid[0].lap_number, flyingValid[1].lap_number];
   }
 
   const flyingAny = session.laps
-    .filter((l) => l.lap_time > 20 && !isLapOutlap(l, bestLapTime))
+    .filter((l) => l.lap_time > 20 && !l.is_incomplete && !isLapOutlap(l, bestLapTime))
     .sort((a, b) => a.lap_time - b.lap_time);
   if (flyingAny.length >= 2) {
     return [flyingAny[0].lap_number, flyingAny[1].lap_number];
@@ -384,17 +384,25 @@ export const App: React.FC = () => {
     loadInitialData();
   }, []);
 
+  const getTrackForSession = (sId: string | null): string => {
+    if (!sId) return '';
+    const found = sessions.find((s) => s.session_id === sId);
+    return (found?.track || '').trim().toLowerCase();
+  };
+
   const handleSelectSession = async (sessionId: string) => {
     try {
       setLoading(true);
       setSelectedSessionId(sessionId);
+      setRefSessionId(sessionId);
+      setCompSessionId(sessionId);
 
       const fullSess = await loadSessionDetail(sessionId);
       const [p1, p2] = pickDefaultLaps(fullSess);
       setRefLapNumber(p1);
       setCompLapNumber(p2);
       storeActiveSelection(sessionId, p1, p2);
-      await loadComparison(p1, p2, sessionId);
+      await loadComparison(p1, p2, sessionId, sessionId, sessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_switch_session')));
     } finally {
@@ -429,7 +437,13 @@ export const App: React.FC = () => {
     try {
       setRefSessionId(sessionId);
       setRefLapNumber(lapNumber);
-      await loadComparison(lapNumber, compLapNumber, selectedSessionId, sessionId, compSessionId);
+      const refTrack = getTrackForSession(sessionId);
+      let targetCompSessionId = compSessionId || selectedSessionId;
+      if (!targetCompSessionId || (refTrack && getTrackForSession(targetCompSessionId) !== refTrack)) {
+        targetCompSessionId = sessionId;
+        setCompSessionId(sessionId);
+      }
+      await loadComparison(lapNumber, compLapNumber, selectedSessionId, sessionId, targetCompSessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_select_ref')));
     }
@@ -440,7 +454,13 @@ export const App: React.FC = () => {
     try {
       setCompSessionId(sessionId);
       setCompLapNumber(lapNumber);
-      await loadComparison(refLapNumber, lapNumber, selectedSessionId, refSessionId, sessionId);
+      const compTrack = getTrackForSession(sessionId);
+      let targetRefSessionId = refSessionId || selectedSessionId;
+      if (!targetRefSessionId || (compTrack && getTrackForSession(targetRefSessionId) !== compTrack)) {
+        targetRefSessionId = sessionId;
+        setRefSessionId(sessionId);
+      }
+      await loadComparison(refLapNumber, lapNumber, selectedSessionId, targetRefSessionId, sessionId);
     } catch (err) {
       setError(errorMessage(err, translate('err_select_comp')));
     }

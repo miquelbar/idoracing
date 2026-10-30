@@ -162,18 +162,7 @@ func getACEVOFallbackTrackAndCar() (string, string, float32) {
 				car = string(m[1])
 			}
 			if track != "" || car != "" {
-				trackLen := float32(0.0)
-				slug := normalizeTrackSlug(track)
-				if slug == "red_bull_ring" {
-					trackLen = 4318.0
-				} else if slug == "valencia" {
-					trackLen = 4005.0
-				} else if slug == "monza" {
-					trackLen = 5793.0
-				} else if slug == "spa" {
-					trackLen = 7004.0
-				}
-				return track, car, trackLen
+				return track, car, 0.0
 			}
 		}
 	}

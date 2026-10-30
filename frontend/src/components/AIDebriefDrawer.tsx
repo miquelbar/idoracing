@@ -353,7 +353,7 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
           {activeTab === 'debrief' && (
             <>
               <div className="mb-4">
-                <SpotterInfoCard />
+                <SpotterInfoCard collapsible defaultCollapsed showGuide={false} showHotkey={false} />
               </div>
               {loadingReport && (
                 <div className="p-5 rounded-xl bg-night-7 border border-brand/30 text-center space-y-3.5 mb-4 shadow-xl shadow-brand/5 animate-in fade-in duration-200">

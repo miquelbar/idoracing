@@ -44,8 +44,24 @@ def align_laps_by_distance(
 
     if len(ref_dist) == 0 or len(comp_dist) == 0:
         raise ValueError("Both laps need a distance channel, or speed and time to derive one")
+
+    # Ensure distances start at non-negative values
+    if len(ref_dist) > 0 and ref_dist[0] < 0:
+        ref_dist = ref_dist - ref_dist[0]
+    if len(comp_dist) > 0 and comp_dist[0] < 0:
+        comp_dist = comp_dist - comp_dist[0]
+
     # Distances are track positions, so only the stretch both laps covered is comparable.
-    common_dist = np.arange(max(ref_dist[0], comp_dist[0], 0.0), min(ref_dist[-1], comp_dist[-1]), step_m)
+    start_dist = max(ref_dist[0], comp_dist[0], 0.0)
+    end_dist = min(ref_dist[-1], comp_dist[-1])
+    if end_dist <= start_dist:
+        # Fall back to zero-based alignment if track positions do not overlap
+        ref_dist = ref_dist - ref_dist[0]
+        comp_dist = comp_dist - comp_dist[0]
+        start_dist = 0.0
+        end_dist = min(ref_dist[-1], comp_dist[-1])
+
+    common_dist = np.arange(start_dist, end_dist, step_m) if end_dist > start_dist else np.array([])
 
     aligned: dict[str, np.ndarray] = {"distance": common_dist}
 

@@ -155,6 +155,11 @@ def _already_imported_source_files() -> set[str]:
         return sources
 
 
+# In-memory cache of files that have been inspected and found unreadable or without completed laps,
+# preventing high-frequency 10-second polling from thrashing the disk while driving.
+_SKIPPED_SOURCE_FILES: set[str] = set()
+
+
 def _auto_import_from_dir(
     directory: str,
     patterns: list[str],
@@ -178,12 +183,23 @@ def _auto_import_from_dir(
     count = 0
     skipped = 0
     for filepath in files:
-        if filepath in imported_sources:
+        if filepath in imported_sources or filepath in _SKIPPED_SOURCE_FILES:
             continue
+
+        # If a CSV recording is currently being written by the recorder (modified < 2s ago and not closed), wait
+        if filepath.endswith(".csv"):
+            try:
+                mtime = os.path.getmtime(filepath)
+                if time.time() - mtime < 2.0:
+                    continue
+            except OSError:
+                continue
+
         try:
             sess = importer_factory(filepath).parse()
         except (ValueError, KeyError, IndexError, struct.error, ET.ParseError) as e:
             logger.warning("Skipping unreadable %s file %s: %s", sim_label, os.path.basename(filepath), e)
+            _SKIPPED_SOURCE_FILES.add(filepath)
             skipped += 1
             continue
         if not sess.simulator:
@@ -205,6 +221,11 @@ def _auto_import_from_dir(
                 sess.track,
                 sess.car,
             )
+            try:
+                if time.time() - os.path.getmtime(filepath) > 30.0:
+                    _SKIPPED_SOURCE_FILES.add(filepath)
+            except OSError:
+                pass
             skipped += 1
     if skipped:
         logger.info("%s: %d imported, %d skipped (no laps or unreadable)", sim_label, count, skipped)

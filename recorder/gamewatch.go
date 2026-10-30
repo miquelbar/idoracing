@@ -27,6 +27,9 @@ type gameWatch struct {
 func (w *gameWatch) notePacket(packet int32, now time.Time) {
 	if packet != w.lastPacket || w.packetMoved.IsZero() {
 		w.lastPacket, w.packetMoved = packet, now
+		if packet > 0 {
+			w.seen = true
+		}
 	}
 }
 
@@ -36,6 +39,14 @@ func (w *gameWatch) shouldExit(now time.Time) (bool, string) {
 		return false, ""
 	}
 	w.lastCheck = now
+
+	// If physics packets are streaming, the game is definitely alive.
+	// Never exit or lag out while live physics packets are actively moving!
+	if !w.packetMoved.IsZero() && now.Sub(w.packetMoved) < 10*time.Second {
+		w.seen = true
+		return false, ""
+	}
+
 	up, err := w.running(w.exe)
 	switch {
 	case err != nil:
@@ -47,7 +58,12 @@ func (w *gameWatch) shouldExit(now time.Time) (bool, string) {
 		w.seen = true
 		return false, ""
 	case w.seen:
-		return true, w.exe + " exited"
+		if !w.packetMoved.IsZero() && now.Sub(w.packetMoved) >= 5*time.Second {
+			return true, w.exe + " exited"
+		} else if w.packetMoved.IsZero() {
+			return true, w.exe + " exited"
+		}
+		return false, ""
 	case now.Sub(w.started) > gameStartupTimeout:
 		return true, w.exe + " did not start within " + gameStartupTimeout.String()
 	}

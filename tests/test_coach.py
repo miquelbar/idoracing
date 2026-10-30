@@ -203,3 +203,21 @@ def test_pep_setup_comparison_cases_a_b_c_and_bubota_naming():
     )
     assert any("Reparto de Frenada" in h for h in rep_c.hypotheses)
     assert any("BB +0.6%" in f for f in rep_c.facts)
+
+
+def test_coach_report_honest_when_telemetry_present_without_corners():
+    from domain.session import LapComparison
+
+    comp = LapComparison(
+        reference_lap="1",
+        comparison_lap="2",
+        time_difference=0.12,
+        sector_differences={"sector1": 0.05, "sector2": 0.07},
+        corners=[],
+    )
+    advisor = CoachAdvisor(OllamaClient(enabled=False))
+    report = advisor.generate_report(comp, car="Rally Car", track="Rally Stage", synthetic=False)
+
+    assert "sin canales de telemetría a 50Hz" not in report.raw_report
+    assert "no disponemos de los tiempos cronometrados" not in " ".join(report.hypotheses)
+    assert "Telemetría continua a 50Hz analizada" in " ".join(report.hypotheses)

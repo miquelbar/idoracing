@@ -47,6 +47,7 @@ class CoachAdvisor:
             ref_lap=comparison.reference_lap,
             comp_lap=comparison.comparison_lap,
             setup_comparison=setup_comparison,
+            synthetic=synthetic,
         )
         verification_indicator = _verification_indicator(comparison, primary)
 
@@ -201,10 +202,15 @@ def _facts(
         else:
             g_diffs = setup_comparison.get("garage_diff_summary") or []
             facts.append(f"Setup de garaje modificado entre P1 y P2: {', '.join(g_diffs)}.")
-    if synthetic or not comparison.corners:
+    if synthetic:
         facts.append(
             "⚠️ Estas vueltas solo contienen tiempos cronometrados (sin canales de telemetría a 50Hz). "
             "Activa la exportación de telemetría (.ld / .csv) en tu simulador para obtener el diagnóstico real por curva."
+        )
+    elif not comparison.corners:
+        facts.append(
+            "Telemetría a 50Hz cargada correctamente (velocidad, pedales y dinámica G). "
+            "No se han detectado curvas cerradas discretas o ambas vueltas tienen un ritmo muy similar en vértice."
         )
     return facts
 
@@ -214,12 +220,21 @@ def _hypotheses_and_exercises(
     ref_lap: str = "1",
     comp_lap: str = "2",
     setup_comparison: dict[str, Any] | None = None,
+    synthetic: bool = False,
 ) -> tuple[list[str], list[str]]:
     if primary is None:
+        if synthetic:
+            return [
+                "Sesión sin canales de telemetría a 50Hz grabados: solo disponemos de los tiempos cronometrados de vuelta y sectores."
+            ], [
+                "Activa la grabación de telemetría MoTeC (.ld) o CSV en el simulador para analizar puntos de frenada, trail braking y trazada GPS sin inventar datos."
+            ]
+        p1 = f"P1 (V{ref_lap})"
+        p2 = f"P2 (V{comp_lap})"
         return [
-            "Sesión sin canales de telemetría a 50Hz grabados: solo disponemos de los tiempos cronometrados de vuelta y sectores."
+            f"Telemetría continua a 50Hz analizada: no se detecta ninguna curva con pérdida crítica (>0.05s) entre {p1} y {p2}."
         ], [
-            "Activa la grabación de telemetría MoTeC (.ld) o CSV en el simulador para analizar puntos de frenada, trail braking y trazada GPS sin inventar datos."
+            "El paso por curva es consistente. Enfoca tu mejora en adelantar la apertura de acelerador y maximizar la tracción en rectas."
         ]
     name, number = primary.corner_name, primary.corner_number
     p1 = f"P1 (V{ref_lap})"
@@ -333,8 +348,10 @@ def _llm_prompt(
 
 
 def _confidence_level(comparison: LapComparison, synthetic: bool) -> str:
-    if synthetic or not comparison.corners:
-        return "Baja"
+    if synthetic:
+        return "Baja (solo tiempos)"
+    if not comparison.corners:
+        return "Media (telemetría continua)"
     return "Alta"
 
 

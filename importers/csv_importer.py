@@ -196,13 +196,30 @@ class CSVImporter:
                     lap_telemetry = {k: [telemetry[k][idx] for idx in indices] for k in telemetry}
                     t0 = lap_telemetry["time"][0]
                     lap_telemetry["time"] = [v - t0 for v in lap_telemetry["time"]]
+                    lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
+                    assert lap_telemetry is not None
                     if track_position:
                         lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
                     else:
                         d0 = lap_telemetry["distance"][0]
                         lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
-                    lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
-                    assert lap_telemetry is not None
+                    if lap_telemetry.get("distance") and lap_telemetry["distance"][0] < 0:
+                        d0 = lap_telemetry["distance"][0]
+                        lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+
+                    # If recorded track distance has an outlap-corrupted scale (> 1.4x physical integrated distance)
+                    if "speed" in lap_telemetry and "time" in lap_telemetry and len(lap_telemetry["speed"]) > 10:
+                        v_arr = np.asarray(lap_telemetry["speed"]) / 3.6
+                        t_arr_phys = np.asarray(lap_telemetry["time"])
+                        phys_span = float(np.sum(v_arr[1:] * np.diff(t_arr_phys)))
+                        rec_span = float(np.ptp(lap_telemetry["distance"])) if lap_telemetry.get("distance") else 0.0
+                        if (
+                            phys_span > 500.0
+                            and (rec_span > 1.4 * phys_span or rec_span < 0.6 * phys_span)
+                            and rec_span > 0
+                        ):
+                            scale = phys_span / rec_span
+                            lap_telemetry["distance"] = [v * scale for v in lap_telemetry["distance"]]
                     t_arr = lap_telemetry["time"]
                     lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
                     # Hybrid lap_valid rule: the recorder's flag is unreliable when it

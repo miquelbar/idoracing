@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Recorder Watchdog & Assetto Corsa Rally 5-Minute Stutter Fix**:
+  - Fixed `gameWatch` in `recorder/gamewatch.go` prematurely terminating the recorder at 5 minutes when process name detection failed under Wine/Proton.
+  - Advancing physics packets (`notePacket` with `packet > 0` or movement in last 10s) now immediately mark `w.seen = true` and keep the watch alive, ensuring the recorder never aborts or causes DXVK/Wine prefix freezing while the car is actively driving.
+  - Added support for all Assetto Corsa Rally binary variants (`AssettoCorsaRally.exe`, `ACR-Win64-Shipping.exe`, `acrally.exe`, `acr.exe`) in Go and launch scripts.
+- **Telemetry Honesty in AI Debrief (Rule 2 Enforcement)**:
+  - Fixed `coach/advisor.py` falsely outputting "Sesión sin canales de telemetría a 50Hz grabados: solo disponemos de los tiempos cronometrados de vuelta y sectores" when discrete corners were unmapped.
+  - Decoupled `synthetic` (true missing telemetry) from `comparison.corners`, accurately presenting continuous 50Hz telemetry analysis on rally stages and custom tracks without corners.
+- **Generic Physical Distance Tracking (Eliminated Track Lookup Switch)**:
+  - Removed `lookupTrackSplineLength` and hardcoded circuit tables from `recorder/pages.go` and `kunos_adapter_windows.go`.
+  - Implemented dynamic loop span calibration using clean normalized spline sweeps (`normPos` 0.05 -> 0.95) and physical Euclidean displacement / velocity integration.
+- **Collapsible & Compact Live Spotter Radio Card in Debrief**:
+  - Refactored `SpotterInfoCard` to start collapsed by default in AI Debrief and Engineer views, exposing only the 3 essential controls (active toggle, volume, and language) without pushing the debrief below the fold.
+  - Relocated in-depth architecture explanations and hotkey remapping exclusively to Settings.
+- **Auto-Import Disk Thrashing Prevention**:
+  - Cached unreadable/no-lap source files in `api/server.py` to prevent 10-second polling from re-parsing skipped files.
+  - Prevented auto-import from reading `.csv` files actively being written by the recorder (< 2s modification age).
+
 ### Added
 - **Assetto Corsa Rally Telemetry Adapter & Auto-detection**:
   - Implemented `newACRallyAdapter()` in `recorder/kunos_adapter_windows.go` connecting directly to Kunos shared memory (`Local\acpmf_physics`, `graphics`, `static`) used by `acr.exe`.

@@ -149,7 +149,7 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <SpotterInfoCard />
+      <SpotterInfoCard collapsible defaultCollapsed showGuide={false} showHotkey={false} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Left Column: Official Structured Debrief (7 cols) */}
       <div className="lg:col-span-7 space-y-4">

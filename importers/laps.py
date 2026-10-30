@@ -85,6 +85,8 @@ def without_boundary_wrap(distance: list[float]) -> list[float]:
             d[: i + 1] -= jump
         else:
             d[i + 1 :] += jump
+    if len(d) > 0 and d[0] < 0:
+        d = d - d[0]
     return d.tolist()
 
 

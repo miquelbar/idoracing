@@ -175,6 +175,7 @@ export interface LapSummary {
   synthetic?: boolean;
   has_telemetry?: boolean;
   is_outlap?: boolean;
+  is_incomplete?: boolean;
 }
 
 export interface SessionDetail {
