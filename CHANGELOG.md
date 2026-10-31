@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Teleport-Truncated Laps Poisoning PB & Hiding Corners**:
+  - `truncate_teleport_jumps` no longer keeps only the first fragment before a "Return to garage": a later segment that restarts at the line and covers clearly more track (a full lap driven after several garage returns within the same lap number) is kept, and only flagged incomplete when it is not a full lap.
+  - `Storage.get_session` re-derives `is_incomplete` for laps covering < 70% of the longest valid lap (the flag was lost once the importer truncated the lap at a garage teleport).
+  - `pickDefaultLaps` ignores incomplete/out laps when computing the session PB, so real flying laps are no longer flagged as out-laps and `/telemetry` compares full laps (all corners shown).
 - **Recorder Watchdog & Assetto Corsa Rally 5-Minute Stutter Fix**:
   - Fixed `gameWatch` in `recorder/gamewatch.go` prematurely terminating the recorder at 5 minutes when process name detection failed under Wine/Proton.
   - Advancing physics packets (`notePacket` with `packet > 0` or movement in last 10s) now immediately mark `w.seen = true` and keep the watch alive, ensuring the recorder never aborts or causes DXVK/Wine prefix freezing while the car is actively driving.

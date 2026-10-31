@@ -274,6 +274,21 @@ class Storage:
                     )
                 )
 
+            # The importer truncates laps cut short by a garage teleport, but the incomplete flag is not
+            # persisted: re-derive it so a short fragment never counts as a flying lap / session PB.
+            spans = {
+                l.lap_number: float(max(l.telemetry["distance"]) - min(l.telemetry["distance"]))
+                for l in laps
+                if l.telemetry and l.telemetry.get("distance")
+            }
+            valid_spans = [spans[l.lap_number] for l in laps if l.is_valid and l.lap_number in spans]
+            if valid_spans:
+                ref_span = max(valid_spans)
+                for l in laps:
+                    if l.lap_number in spans and spans[l.lap_number] < 0.7 * ref_span and not l.is_incomplete:
+                        l.is_incomplete = True
+                        l.is_valid = False
+
             # Reconstruct session telemetry from reference lap or best lap if empty
             session_telemetry = {}
             if laps:

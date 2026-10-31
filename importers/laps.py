@@ -51,17 +51,55 @@ def truncate_teleport_jumps(
 
     if cut_idx is not None and cut_idx >= 1:
         n_orig = max((len(v) for v in telemetry.values() if isinstance(v, (list, np.ndarray))), default=0)
+        # Split at every teleport and keep the segment covering the most track: a driver who returns to the
+        # garage several times inside one lap number may still complete a full lap at the end of it.
+        start, end = _best_segment(telemetry, n_orig, max_step_m)
         truncated: dict[str, list[float]] = {}
         for k, v in telemetry.items():
-            if isinstance(v, list) and len(v) == n_orig:
-                truncated[k] = v[:cut_idx]
-            elif isinstance(v, np.ndarray) and len(v) == n_orig:
-                truncated[k] = v[:cut_idx].tolist()
+            if isinstance(v, (list, np.ndarray)) and len(v) == n_orig:
+                truncated[k] = list(v[start:end])
             else:
                 truncated[k] = v
+        if start > 0 and truncated.get("time"):
+            t0 = truncated["time"][0]
+            truncated["time"] = [t - t0 for t in truncated["time"]]
+        d_all = telemetry.get("distance")
+        if d_all and len(d_all) == n_orig and truncated.get("distance"):
+            seg_span = float(np.ptp(truncated["distance"]))
+            if seg_span >= 0.9 * float(np.ptp(d_all)):
+                return truncated, False
         return truncated, True
 
     return telemetry, False
+
+
+def _best_segment(telemetry: dict[str, list[float]], n: int, max_step_m: float) -> tuple[int, int]:
+    """Index range [start, end) of the teleport-free segment with the widest distance span."""
+    cuts: set[int] = set()
+    x = np.asarray(telemetry.get("x", []), dtype=np.float64)
+    y = np.asarray(telemetry.get("y", []), dtype=np.float64)
+    t = np.asarray(telemetry.get("time", []), dtype=np.float64)
+    if len(x) == n and len(y) == n and n > 1 and (np.any(x != 0.0) or np.any(y != 0.0)):
+        step = np.hypot(np.diff(x), np.diff(y))
+        allowed = np.maximum(max_step_m, 110.0 * np.maximum(np.diff(t), 0.001)) if len(t) == n else max_step_m
+        cuts.update((np.where(step > allowed)[0] + 1).tolist())
+    d = np.asarray(telemetry.get("distance", []), dtype=np.float64)
+    if len(d) == n and n > 1:
+        cuts.update((np.where(np.diff(d) < -5.0)[0] + 1).tolist())
+    bounds = [0, *sorted(cuts), n]
+    best = (0, bounds[1])
+    best_span = -1.0
+    for a, b in zip(bounds[:-1], bounds[1:], strict=True):
+        if b - a < 2:
+            continue
+        span = float(np.ptp(d[a:b])) if len(d) == n else float(b - a)
+        # Only segments that restart at the line (a fresh lap) may replace the first one.
+        if best_span >= 0 and len(d) == n and d[a] - d.min() > 0.05 * float(np.ptp(d)):
+            continue
+        # Later segments must clearly beat the first one, otherwise keep the original truncate-at-first-jump.
+        if best_span < 0 or span > 1.2 * best_span:
+            best, best_span = (a, b), span
+    return best
 
 
 def distance_covered(telemetry: dict[str, list[float]]) -> float:

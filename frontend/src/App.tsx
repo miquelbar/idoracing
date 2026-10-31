@@ -117,7 +117,7 @@ function pickDefaultLaps(session: SessionDetail | null): [number, number] {
   if (!session || session.laps.length === 0) return [1, 2];
   if (session.laps.length === 1) return [session.laps[0].lap_number, session.laps[0].lap_number];
 
-  const positiveTimes = session.laps.filter((l) => l.lap_time > 20).map((l) => l.lap_time);
+  const positiveTimes = session.laps.filter((l) => l.lap_time > 20 && !l.is_incomplete && !l.is_outlap).map((l) => l.lap_time);
   const bestLapTime = positiveTimes.length > 0 ? Math.min(...positiveTimes) : 0;
 
   const flyingValid = session.laps
@@ -352,7 +352,7 @@ export const App: React.FC = () => {
       let compLap = defaultComp;
       const storedLaps = activeSessionId ? readStoredLaps(activeSessionId) : null;
       if (storedLaps && fullSess) {
-        const posTimes = fullSess.laps.filter((l) => l.lap_time > 20).map((l) => l.lap_time);
+        const posTimes = fullSess.laps.filter((l) => l.lap_time > 20 && !l.is_incomplete && !l.is_outlap).map((l) => l.lap_time);
         const bestT = posTimes.length > 0 ? Math.min(...posTimes) : 0;
         const refLapObj = fullSess.laps.find((l) => l.lap_number === storedLaps.ref);
         const compLapObj = fullSess.laps.find((l) => l.lap_number === storedLaps.comp);
