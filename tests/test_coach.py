@@ -243,7 +243,12 @@ def test_coverage_warnings_flag_incomplete_laps_and_cap_confidence():
 
 
 def test_gamepad_question_retrieves_controller_settings():
-    from coach.knowledge_base import knowledge_base
+    from api.server import _ensure_peripheral_section
+    from coach.knowledge_base import detect_input_device, knowledge_base
+
+    assert detect_input_device("me cuesta con el gemepad") == "gamepad"
+    assert detect_input_device("uso volante y pedales fanatec") == "wheel"
+    assert detect_input_device("juego con teclado") == "keyboard"
 
     ctx = knowledge_base.retrieve_context(
         car_name="Porsche 911 GT3 R (992)",
@@ -253,6 +258,11 @@ def test_gamepad_question_retrieves_controller_settings():
     assert "Brake Gamma" not in knowledge_base.retrieve_context(
         car_name="Porsche 911", query="subviraje en curva lenta"
     )
+
+    llm_reply_without_settings = "1. Qué se ha observado\n...\n\nPep · Ingeniero de Pista"
+    enriched = _ensure_peripheral_section(llm_reply_without_settings, "gamepad", "es")
+    assert "Brake Gamma:" in enriched and "Speed Sensitivity:" in enriched
+    assert enriched.endswith("Pep · Ingeniero de Pista")
 
 
 def test_ollama_truncation_is_flagged(monkeypatch):

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interactive Peripheral Selector & Telemetry-to-Peripheral Diagnostic Skill (`simracing-peripherals`)**:
+  - Each assistant message in `AIDebriefDrawer.tsx` and `EngineerView.tsx` now includes an interactive 3-option peripheral selector (`🎮 Gamepad / Mando`, `🛞 Volante / Cockpit`, `⌨️ Teclado`) styled like the suggested query chips.
+  - Selecting a peripheral (or mentioning it in chat) persists the choice, adapts Pep's drill vocabulary, and guarantees via `_ensure_peripheral_section` in `api/server.py` that the in-game controller configuration block (Brake/Steer Gamma, Speed Sensitivity, Steer Filter/Speed, FFB/Load-Cell or Keyboard assist settings) is always included before Pep's signature.
+  - Added `.agents/skills/simracing-peripherals/SKILL.md` and expanded `coach/knowledge/gamepad_controller.md` with a 50Hz Telemetry-to-Peripheral Diagnostic Matrix (identifying brake release cliffs, parasitic pedal drag, thumbstick stair-stepping vs FFB clipping on `excess_steer_deg`, and speed-sensitivity slow-corner lock clamping).
 - **Recording Health Voice Alerts (Pep)**:
   - The recorder now warns by voice (only when the spotter is active and not muted, max once/min per problem) when the recording is going wrong: `rec_lap_aborted` (return to garage mid-lap), `rec_no_distance` (lap distance not advancing while driving), `rec_no_sim_data` (lost shared memory) and `rec_write_failed` (cannot write the CSV).
   - New bilingual clips versioned in `recorder/voices/es|en`, generated from `tools/generate_pep_voices.py`.

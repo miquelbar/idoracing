@@ -117,6 +117,33 @@ export async function fetchCoachReport(
   return res.json();
 }
 
+export type InputPeripheral = 'gamepad' | 'wheel' | 'keyboard';
+
+const PERIPHERAL_STORAGE_KEY = 'idoracing_input_device';
+
+export function getStoredInputDevice(): InputPeripheral | null {
+  try {
+    const val = localStorage.getItem(PERIPHERAL_STORAGE_KEY);
+    if (val === 'gamepad' || val === 'wheel' || val === 'keyboard') return val;
+  } catch {
+    // ignore storage errors
+  }
+  return null;
+}
+
+export function setStoredInputDevice(device: InputPeripheral | null): void {
+  try {
+    if (device) {
+      localStorage.setItem(PERIPHERAL_STORAGE_KEY, device);
+    } else {
+      localStorage.removeItem(PERIPHERAL_STORAGE_KEY);
+    }
+    window.dispatchEvent(new CustomEvent('idoracing-peripheral-change', { detail: device }));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export async function sendChatMessage(
   messages: ChatMessage[],
   refLapId?: string,
@@ -127,8 +154,10 @@ export async function sendChatMessage(
   lang?: string,
   sessionId?: string,
   refSessionId?: string | null,
-  compSessionId?: string | null
+  compSessionId?: string | null,
+  inputDevice?: InputPeripheral | null
 ): Promise<ChatReply> {
+  const activeDevice = inputDevice !== undefined ? inputDevice : getStoredInputDevice();
   const res = await fetch(`${API_BASE}/coach/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -143,10 +172,19 @@ export async function sendChatMessage(
       car_name: carName,
       selected_corner: selectedCorner,
       lang: lang || 'es',
+      input_device: activeDevice || undefined,
     }),
   });
   if (!res.ok) await failure(res, 'Failed to communicate with Race Engineer');
-  return res.json();
+  const data = await res.json();
+  if (
+    data.detected_device &&
+    (data.detected_device === 'gamepad' || data.detected_device === 'wheel' || data.detected_device === 'keyboard') &&
+    data.detected_device !== activeDevice
+  ) {
+    setStoredInputDevice(data.detected_device);
+  }
+  return data;
 }
 
 export async function autodiscoverSims(): Promise<AutoDiscoverData> {

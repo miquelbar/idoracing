@@ -14,11 +14,19 @@ import {
   User,
   Wrench,
 } from 'lucide-react';
-import { fetchCarSetup, fetchCoachReport, sendChatMessage } from '../services/api';
+import {
+  fetchCarSetup,
+  fetchCoachReport,
+  getStoredInputDevice,
+  sendChatMessage,
+  setStoredInputDevice,
+  type InputPeripheral,
+} from '../services/api';
 import { useLanguage } from '../i18n';
 import { useWaitingChatter } from '../i18n/waitingChatter';
 import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse } from '../types/telemetry';
 import { formatMetricKey, formatMetricValue, errorMessage } from '../utils/formatters';
+import { renderFormattedMarkdown } from '../utils/markdown';
 import { SpotterInfoCard } from '../components/SpotterInfoCard';
 
 interface EngineerViewProps {
@@ -75,8 +83,18 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [activePeripheral, setActivePeripheral] = useState<InputPeripheral | null>(() => getStoredInputDevice());
   const waitingChatter = useWaitingChatter(chatLoading, lang);
   const reportWaitingChatter = useWaitingChatter(loadingReport, lang);
+
+  useEffect(() => {
+    const syncPeripheral = (e: Event) => {
+      const custom = e as CustomEvent<InputPeripheral | null>;
+      setActivePeripheral(custom.detail ?? getStoredInputDevice());
+    };
+    window.addEventListener('idoracing-peripheral-change', syncPeripheral);
+    return () => window.removeEventListener('idoracing-peripheral-change', syncPeripheral);
+  }, []);
 
   const handleGenerateReport = async (forceRefresh = false) => {
     if (!comparison) return;
@@ -99,9 +117,8 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     }
   };
 
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const text = inputMessage.trim();
+  const submitChatText = async (rawText: string, overrideDevice?: InputPeripheral) => {
+    const text = rawText.trim();
     if (!text || chatLoading) return;
 
     const newMessages: ChatMessage[] = [...chatMessages, { role: 'user', content: text }];
@@ -120,7 +137,8 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
         lang,
         comparison?.session_id,
         comparison?.ref_session_id,
-        comparison?.comp_session_id
+        comparison?.comp_session_id,
+        overrideDevice ?? activePeripheral
       );
       setChatMessages([...newMessages, { role: 'assistant', content: res.content }]);
     } catch {
@@ -134,6 +152,23 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
     } finally {
       setChatLoading(false);
     }
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    await submitChatText(inputMessage);
+  };
+
+  const handleSelectPeripheral = (device: InputPeripheral) => {
+    setStoredInputDevice(device);
+    setActivePeripheral(device);
+    const queryKey =
+      device === 'gamepad'
+        ? 'qp_periph_gamepad'
+        : device === 'wheel'
+          ? 'qp_periph_wheel'
+          : 'qp_periph_keyboard';
+    void submitChatText(t(queryKey), device);
   };
 
   const refNum = comparison?.ref_lap_id.replace(/\D+/g, '') || '1';
@@ -359,7 +394,40 @@ export const EngineerView: React.FC<EngineerViewProps> = ({
                       : 'bg-night-8 text-gray-200 border border-white/5'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  {isUser ? <p className="whitespace-pre-wrap">{m.content}</p> : renderFormattedMarkdown(m.content)}
+                  {!isUser && (
+                    <div className="mt-3 pt-2.5 border-t border-white/10 space-y-1.5">
+                      <span className="block text-[10px] text-gray-400 font-telemetry font-bold">
+                        {t('pep_peripheral_question')}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(
+                          [
+                            { id: 'gamepad' as const, label: t('periph_gamepad') },
+                            { id: 'wheel' as const, label: t('periph_wheel') },
+                            { id: 'keyboard' as const, label: t('periph_keyboard') },
+                          ] as const
+                        ).map((opt) => {
+                          const isSelected = activePeripheral === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              disabled={chatLoading}
+                              onClick={() => handleSelectPeripheral(opt.id)}
+                              className={`text-[11px] px-2.5 py-1 rounded border transition cursor-pointer disabled:opacity-50 ${
+                                isSelected
+                                  ? 'bg-brand/20 border-brand/60 text-brand font-bold'
+                                  : 'bg-night-4 hover:bg-[#161D2E] text-gray-300 hover:text-white border-white/10'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {isUser && (
                   <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0 mt-0.5">

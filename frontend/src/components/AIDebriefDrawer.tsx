@@ -20,7 +20,7 @@ import {
 import { useLanguage } from '../i18n';
 import { useWaitingChatter } from '../i18n/waitingChatter';
 import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse, CornerDTO } from '../types/telemetry';
-import { fetchCarSetup } from '../services/api';
+import { fetchCarSetup, getStoredInputDevice, setStoredInputDevice, type InputPeripheral } from '../services/api';
 import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 import { renderFormattedMarkdown } from '../utils/markdown';
 import { copyText } from '../utils/clipboard';
@@ -51,58 +51,116 @@ interface ChatBubbleProps {
   roleLabel: string;
   copyLabel: string;
   copiedLabel: string;
+  peripheralQuestion: string;
+  gamepadLabel: string;
+  wheelLabel: string;
+  keyboardLabel: string;
+  activePeripheral: InputPeripheral | null;
+  disabled: boolean;
   onCopy: (text: string, idx: number) => void;
+  onSelectPeripheral: (device: InputPeripheral) => void;
 }
 
 /** One chat message. Memoized so typing in the input never re-renders (and re-parses markdown of) the history. */
-const ChatBubble = memo(({ message: m, idx, copied, roleLabel, copyLabel, copiedLabel, onCopy }: ChatBubbleProps) => (
-  <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group`}>
-    <div className={`flex gap-2.5 text-xs max-w-[90%] ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      {m.role === 'assistant' && (
-        <div className="w-6 h-6 rounded-md bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shrink-0 mt-0.5">
-          <Bot className="w-3.5 h-3.5" />
-        </div>
-      )}
+const ChatBubble = memo(
+  ({
+    message: m,
+    idx,
+    copied,
+    roleLabel,
+    copyLabel,
+    copiedLabel,
+    peripheralQuestion,
+    gamepadLabel,
+    wheelLabel,
+    keyboardLabel,
+    activePeripheral,
+    disabled,
+    onCopy,
+    onSelectPeripheral,
+  }: ChatBubbleProps) => (
+    <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group`}>
+      <div className={`flex gap-2.5 text-xs max-w-[90%] ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {m.role === 'assistant' && (
+          <div className="w-6 h-6 rounded-md bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shrink-0 mt-0.5">
+            <Bot className="w-3.5 h-3.5" />
+          </div>
+        )}
 
-      <div
-        className={`p-3 rounded-xl leading-relaxed text-xs relative ${
-          m.role === 'user'
-            ? 'bg-comp/20 border border-comp/40 text-purple-100 font-sans'
-            : 'bg-night-7 border border-white/5 text-gray-300 font-sans'
-        }`}
-      >
-        {renderFormattedMarkdown(m.content)}
+        <div
+          className={`p-3 rounded-xl leading-relaxed text-xs relative ${
+            m.role === 'user'
+              ? 'bg-comp/20 border border-comp/40 text-purple-100 font-sans'
+              : 'bg-night-7 border border-white/5 text-gray-300 font-sans'
+          }`}
+        >
+          {renderFormattedMarkdown(m.content)}
 
-        <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
-          <span>{roleLabel}</span>
-          <button
-            onClick={() => onCopy(m.content, idx)}
-            className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
-            title={copyLabel}
-          >
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 text-brand" />
-                <span className="text-brand">{copiedLabel}</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3" />
-                <span>{copyLabel}</span>
-              </>
-            )}
-          </button>
+          {m.role === 'assistant' && (
+            <div className="mt-3 pt-2.5 border-t border-white/10 space-y-1.5">
+              <span className="block text-[10px] text-gray-400 font-telemetry font-bold">
+                {peripheralQuestion}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    { id: 'gamepad' as const, label: gamepadLabel },
+                    { id: 'wheel' as const, label: wheelLabel },
+                    { id: 'keyboard' as const, label: keyboardLabel },
+                  ] as const
+                ).map((opt) => {
+                  const isSelected = activePeripheral === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onSelectPeripheral(opt.id)}
+                      className={`text-[11px] px-2.5 py-1 rounded border transition cursor-pointer disabled:opacity-50 ${
+                        isSelected
+                          ? 'bg-brand/20 border-brand/60 text-brand font-bold'
+                          : 'bg-night-4 hover:bg-[#161D2E] text-gray-300 hover:text-white border-white/10'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
+            <span>{roleLabel}</span>
+            <button
+              onClick={() => onCopy(m.content, idx)}
+              className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
+              title={copyLabel}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 text-brand" />
+                  <span className="text-brand">{copiedLabel}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  <span>{copyLabel}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {m.role === 'user' && (
+          <div className="w-6 h-6 rounded-md bg-comp/20 border border-comp/40 flex items-center justify-center text-comp shrink-0 mt-0.5">
+            <User className="w-3.5 h-3.5" />
+          </div>
+        )}
       </div>
-
-      {m.role === 'user' && (
-        <div className="w-6 h-6 rounded-md bg-comp/20 border border-comp/40 flex items-center justify-center text-comp shrink-0 mt-0.5">
-          <User className="w-3.5 h-3.5" />
-        </div>
-      )}
     </div>
-  </div>
-));
+  )
+);
 
 interface ChatInputBarProps {
   placeholder: string;
@@ -169,7 +227,17 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [setupInfo, setSetupInfo] = useState<CarSetupData | null>(null);
+  const [activePeripheral, setActivePeripheral] = useState<InputPeripheral | null>(() => getStoredInputDevice());
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const syncPeripheral = (e: Event) => {
+      const custom = e as CustomEvent<InputPeripheral | null>;
+      setActivePeripheral(custom.detail ?? getStoredInputDevice());
+    };
+    window.addEventListener('idoracing-peripheral-change', syncPeripheral);
+    return () => window.removeEventListener('idoracing-peripheral-change', syncPeripheral);
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !comparison) return;
@@ -236,6 +304,21 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
       }
     });
   }, []);
+
+  const handleSelectPeripheral = useCallback(
+    (device: InputPeripheral) => {
+      setStoredInputDevice(device);
+      setActivePeripheral(device);
+      const queryKey =
+        device === 'gamepad'
+          ? 'qp_periph_gamepad'
+          : device === 'wheel'
+            ? 'qp_periph_wheel'
+            : 'qp_periph_keyboard';
+      onSendMessage(t(queryKey));
+    },
+    [onSendMessage, t]
+  );
 
   if (!isOpen) return null;
 
@@ -670,7 +753,14 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
                     roleLabel={m.role === 'assistant' ? t('pep_role') : t('you_role')}
                     copyLabel={t('copy')}
                     copiedLabel={t('copied')}
+                    peripheralQuestion={t('pep_peripheral_question')}
+                    gamepadLabel={t('periph_gamepad')}
+                    wheelLabel={t('periph_wheel')}
+                    keyboardLabel={t('periph_keyboard')}
+                    activePeripheral={activePeripheral}
+                    disabled={chatLoading}
                     onCopy={copyToClipboard}
+                    onSelectPeripheral={handleSelectPeripheral}
                   />
                 ))}
                 {chatLoading && (

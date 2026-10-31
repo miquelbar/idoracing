@@ -36,6 +36,107 @@ def detect_architecture(car_name: str | None) -> str:
     return "MR"
 
 
+GAMEPAD_KEYWORDS = (
+    "gamepad",
+    "gemepad",
+    "mando",
+    "joystick",
+    "stick",
+    "gatillo",
+    "controller",
+    "dualsense",
+    "dualshock",
+    "xbox",
+)
+WHEEL_KEYWORDS = (
+    "volante y pedales",
+    "cockpit",
+    "pedalera",
+    "load cell",
+    "load-cell",
+    "celula de carga",
+    "fanatec",
+    "moza",
+    "simucube",
+    "thrustmaster",
+    "logitech g29",
+    "g923",
+    "direct drive",
+    "steering wheel",
+)
+KEYBOARD_KEYWORDS = (
+    "teclado",
+    "keyboard",
+    "wasd",
+)
+
+
+def detect_input_device(text: str | None = None, explicit_device: str | None = None) -> str | None:
+    """Return 'gamepad', 'wheel', or 'keyboard' if explicitly selected or mentioned in conversation text."""
+    if explicit_device and explicit_device.lower() in ("gamepad", "wheel", "keyboard"):
+        return explicit_device.lower()
+    if not text:
+        return None
+    norm = _normalize(text)
+    if any(w in norm for w in GAMEPAD_KEYWORDS):
+        return "gamepad"
+    if any(w in norm for w in KEYBOARD_KEYWORDS):
+        return "keyboard"
+    if any(w in norm for w in WHEEL_KEYWORDS):
+        return "wheel"
+    return None
+
+
+def get_peripheral_settings_block(device: str, lang: str = "es") -> str:
+    """Return a structured Markdown block of in-game peripheral settings for guaranteed inclusion."""
+    is_en = lang.lower() == "en"
+    if device == "gamepad":
+        if is_en:
+            return (
+                "**In-Game Controller Settings (Gamepad Baseline):**\n"
+                "* **Brake Gamma:** `1.0 - 1.2` (near-linear so the short LT/L2 trigger travel maps predictably to 15-20% trail brake pressure).\n"
+                "* **Steer Gamma:** `2.2 - 2.5` (softens center thumbstick sensitivity to avoid saturating the front slip angle on entry).\n"
+                "* **Speed Sensitivity:** `60% - 70%` (scales steering lock with speed; above 85% causes sluggish slow-corner understeer).\n"
+                "* **Steer Filter & Steer Speed:** Filter `90% - 98%` and Speed `50% - 70%` for smooth virtual wheel rate, plus **Deadzone** `1% - 3%` and **Steer Assist** `Enabled`."
+            )
+        return (
+            "**Configuración de Mando (Gamepad) en el Juego (Punto de partida):**\n"
+            "* **Brake Gamma:** `1.0 - 1.2` (casi lineal para que el corto recorrido del gatillo LT/L2 permita dosificar el 15-20% de freno residual sin soltar de golpe).\n"
+            "* **Steer Gamma:** `2.2 - 2.5` (hace más progresivo el centro del stick izquierdo para no meter exceso de dirección de golpe y evitar subviraje de entrada).\n"
+            "* **Speed Sensitivity:** `60% - 70%` (si está por encima de 85%, el filtro limita demasiado el giro en curvas lentas provocando subviraje).\n"
+            "* **Steer Filter y Steer Speed:** Filtro `90% - 98%` y Velocidad `50% - 70%` para suavizar el retorno al centro, con **Deadzone** `1% - 3%` y **Steer Assist** `Activado`."
+        )
+    if device == "wheel":
+        if is_en:
+            return (
+                "**In-Game Wheel & Pedal Settings (Cockpit Baseline):**\n"
+                "* **Brake Gamma:** `1.0` (100% linear for Load-Cell pedals, modulating by muscle force) or `1.8 - 2.2` for potentiometer pedals.\n"
+                "* **Steer Lock:** `900°` / Auto per car (`480° - 540°` real GT3 ratio) with `0%` steering deadzone.\n"
+                "* **FFB Gain & Dynamic Damping:** Gain `70% - 85%` (avoid red FFB clipping in high-load corners) and **Dynamic Damping** `100%` to feel the front axle lighten when exceeding peak slip angle."
+            )
+        return (
+            "**Configuración de Volante y Pedales (Cockpit) en el Juego:**\n"
+            "* **Brake Gamma:** `1.0` (100% lineal en pedalera con célula de carga / Load-Cell para modular por presión muscular) o `1.8 - 2.2` en pedales de potenciómetro.\n"
+            "* **Steer Lock (Grados de giro):** `900°` o Automático por coche (`480° - 540°` reales en GT3) con **Deadzone** al `0%`.\n"
+            "* **FFB Gain y Dynamic Damping:** Ganancia al `70% - 85%` (sin llegar a *clipping* en rojo) y **Dynamic Damping** al `100%` para sentir en las manos cómo se aligera la dirección cuando el neumático delantero empieza a subvirar."
+        )
+    if device == "keyboard":
+        if is_en:
+            return (
+                "**In-Game Keyboard Settings & Modulation:**\n"
+                "* **Steer Assist & Stability:** Enable **Steer Assist** to smooth out digital key inputs.\n"
+                "* **Speed Sensitivity & Steer Filter:** Speed Sensitivity `75% - 85%`, **Steer Filter** `95% - 100%`, and **Steer Speed** `35% - 50%` so the virtual wheel turns progressively without snapping front slip angle.\n"
+                "* **Pulse Braking (Tapping) & Electronics:** Hold 100% brake in a straight line, then use **2-3 quick release taps** during turn-in instead of releasing at once, and add **+1 to +2 clicks of ABS and TC** in the garage."
+            )
+        return (
+            "**Configuración de Teclado en el Juego y Modulación:**\n"
+            "* **Steer Assist y Asistencias:** Activa **Steer Assist** en el menú de controles para estabilizar los pulsos digitales.\n"
+            "* **Speed Sensitivity y Steer Filter:** Sensibilidad de velocidad al `75% - 85%`, **Steer Filter** al `95% - 100%` y **Steer Speed** al `35% - 50%` para que las ruedas delanteras giren en rampa sin saturar el agarre de golpe.\n"
+            "* **Frenada por Pulsos (*Tapping*) y Electrónica:** Frena al 100% en recta y, al girar, suelta mediante **2-3 micro-pulsos rápidos (tapping)** para mantener carga en el morro, apoyándote en **+1 o +2 clics de ABS y TC** en el setup."
+        )
+    return ""
+
+
 class SimracingKnowledgeBase:
     """Manages and queries engineering literature modules."""
 
@@ -52,6 +153,11 @@ class SimracingKnowledgeBase:
                 self._cache[md_file.stem] = md_file.read_text(encoding="utf-8")
 
     def get_section(self, file_stem: str) -> str:
+        if file_stem not in self._cache:
+            md_path = self.directory / f"{file_stem}.md"
+            if md_path.exists():
+                with contextlib.suppress(OSError):
+                    self._cache[file_stem] = md_path.read_text(encoding="utf-8")
         return self._cache.get(file_stem, "")
 
     def get_car_guidelines(self, car_name: str | None) -> str:
@@ -77,6 +183,7 @@ class SimracingKnowledgeBase:
         query: str | None = None,
         symptoms: list[str] | None = None,
         include_setup: bool = False,
+        input_device: str | None = None,
     ) -> str:
         """
         Extract relevant expert knowledge based on user query, active car, and telemetry symptoms.
@@ -84,6 +191,7 @@ class SimracingKnowledgeBase:
         """
         snippets: list[str] = []
         combined = _normalize(f"{query or ''} {' '.join(symptoms or [])}")
+        detected_dev = detect_input_device(query, input_device)
 
         # 1. Car architecture insights
         car_guide = self.get_car_guidelines(car_name)
@@ -135,26 +243,13 @@ class SimracingKnowledgeBase:
             if match_brake:
                 snippets.append(f"### Ajustes en Frenada y Reparto (Brake Bias)\n{match_brake.group(0).strip()}")
 
-        # 3b. Gamepad / controller driving: in-game control settings that change trail braking and understeer
+        # 3b. Peripheral / controller driving: in-game control settings that change trail braking and understeer
         gamepad_text = self.get_section("gamepad_controller")
-        if gamepad_text and any(
-            w in combined
-            for w in (
-                "gamepad",
-                "gemepad",
-                "mando",
-                "joystick",
-                "stick",
-                "gatillo",
-                "controller",
-                "gamma",
-                "deadzone",
-                "zona muerta",
-                "dualsense",
-                "xbox",
-            )
+        if gamepad_text and (
+            detected_dev is not None
+            or any(w in combined for w in ("gamma", "deadzone", "zona muerta", "ffb", "force feedback"))
         ):
-            snippets.append(f"### Pilotaje con mando y ajustes del juego\n{gamepad_text}")
+            snippets.append(f"### Periféricos de Conducción y Ajustes en el Juego\n{gamepad_text}")
 
         # 4. Chassis & ARB / Rake essentials
         chassis_text = self.get_section("chassis_dynamics")
@@ -181,8 +276,6 @@ class SimracingKnowledgeBase:
                     "- Evitar sobreconducir: girar más el volante cuando el neumático delantero desliza solo satura el slip angle y destruye el tiempo.\n"
                     "- Estabilizar el morro: una soltada brusca de freno descarga el eje delantero provocando subviraje inmediato."
                 )
-
-        return "\n\n".join(snippets)
 
         return "\n\n".join(snippets)
 

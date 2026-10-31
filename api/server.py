@@ -44,7 +44,7 @@ from analysis.stint_analysis import analyze_session_stint
 from analysis.tire_thermal import analyze_all_tyres
 from analysis.tracks import generate_track_coordinates, get_track_length, is_complete_track_lap
 from coach.advisor import CoachAdvisor
-from coach.knowledge_base import knowledge_base
+from coach.knowledge_base import detect_input_device, get_peripheral_settings_block, knowledge_base
 from coach.llm_client import LLMClient
 from coach.prompt import PEP_SYSTEM_PROMPT_EN, PEP_SYSTEM_PROMPT_ES
 from coach.radio import generate_race_engineer_response
@@ -495,6 +495,7 @@ class ChatRequest(BaseModel):
     car_name: str | None = None
     selected_corner: dict[str, Any] | None = None
     lang: str | None = "es"
+    input_device: str | None = None
 
 
 class LocalImportRequest(BaseModel):
@@ -2154,9 +2155,15 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
                 symptoms.append(str(val))
 
     user_query = req.messages[-1].content if req.messages else ""
+    all_user_text = " ".join(m.content for m in req.messages if m.role == "user")
+    active_device = detect_input_device(all_user_text, req.input_device)
     include_setup = any(k in user_query.lower() for k in ("setup", "reglaj", "barras", "bias", "reparto"))
     expert_kb = knowledge_base.retrieve_context(
-        car_name=req.car_name, query=user_query, symptoms=symptoms, include_setup=include_setup
+        car_name=req.car_name,
+        query=all_user_text or user_query,
+        symptoms=symptoms,
+        include_setup=include_setup,
+        input_device=active_device,
     )
     if expert_kb:
         lines.append(f"\n--- MANUAL DE INGENIERÍA DE PISTA Y DINÁMICA VEHICULAR (LITERATURA CANÓNICA) ---\n{expert_kb}")
@@ -2223,8 +2230,46 @@ def _chat_context(req: ChatRequest, lang: str) -> str:
     except (HTTPException, KeyError, ValueError, TypeError):
         lines.append(labels["same_setup"])
 
+    if active_device:
+        periph_block = get_peripheral_settings_block(active_device, lang)
+        if lang == "en":
+            lines.append(
+                f"\nACTIVE DRIVER PERIPHERAL: {active_device.upper()}.\n"
+                f"MANDATORY: Adapt your driving drill vocabulary to {active_device} and ALWAYS include the following "
+                f"in-game controller configuration section before signing:\n{periph_block}"
+            )
+        else:
+            lines.append(
+                f"\nPERIFÉRICO ACTIVO DEL PILOTO: {active_device.upper()}.\n"
+                f"OBLIGATORIO: Adapta el vocabulario del ejercicio a {active_device} (ej. gatillo LT/L2 y stick si es gamepad) "
+                f"e incluye SIEMPRE antes de tu firma la siguiente sección de ajustes en el juego:\n{periph_block}"
+            )
+
     lines.append(labels["format"])
     return "\n".join(lines) + "\n"
+
+
+def _ensure_peripheral_section(reply: str, active_device: str | None, lang: str) -> str:
+    """Guarantee that when a peripheral is active, the in-game settings block is never omitted by the LLM."""
+    if not active_device:
+        return reply
+    low = reply.lower()
+    if active_device == "gamepad" and ("brake gamma" in low and "speed sensitivity" in low):
+        return reply
+    if active_device == "wheel" and ("brake gamma" in low or "load-cell" in low or "load cell" in low):
+        return reply
+    if active_device == "keyboard" and ("steer assist" in low and "speed sensitivity" in low):
+        return reply
+
+    block = get_peripheral_settings_block(active_device, lang)
+    if not block:
+        return reply
+
+    for sig in ("Pep · Ingeniero de Pista", "— **Pep · Ingeniero de Pista**", "**Pep · Ingeniero de Pista**"):
+        if sig in reply:
+            idx = reply.rfind(sig)
+            return f"{reply[:idx].rstrip()}\n\n{block}\n\n{reply[idx:]}"
+    return f"{reply.rstrip()}\n\n{block}"
 
 
 @app.post("/api/coach/chat")
@@ -2232,6 +2277,8 @@ def chat_with_engineer(req: ChatRequest):
     """Interactive conversational chat with Race Engineer with full telemetry context."""
     lang = (req.lang or "es").lower()
     user_query = req.messages[-1].content if req.messages else ""
+    all_user_text = " ".join(m.content for m in req.messages if m.role == "user")
+    active_device = detect_input_device(all_user_text, req.input_device)
 
     context_prefix = _chat_context(req, lang)
 
@@ -2242,7 +2289,14 @@ def chat_with_engineer(req: ChatRequest):
     chat_timeout = getattr(llm_client, "chat_timeout", float(os.environ.get("RADIO_CHAT_TIMEOUT", "120.0")))
     reply = llm_client.chat(messages, timeout=chat_timeout)
     if reply and reply.strip():
-        return {"role": "assistant", "content": reply, "source": "llm", "model": llm_client.active_model}
+        reply = _ensure_peripheral_section(reply, active_device, lang)
+        return {
+            "role": "assistant",
+            "content": reply,
+            "source": "llm",
+            "model": llm_client.active_model,
+            "detected_device": active_device,
+        }
 
     reply = generate_race_engineer_response(
         query=user_query,
@@ -2251,7 +2305,8 @@ def chat_with_engineer(req: ChatRequest):
         corner=req.selected_corner,
         lang=lang,
     )
-    return {"role": "assistant", "content": reply, "source": "rules", "model": None}
+    reply = _ensure_peripheral_section(reply, active_device, lang)
+    return {"role": "assistant", "content": reply, "source": "rules", "model": None, "detected_device": active_device}
 
 
 @app.get("/api/autodiscover")
