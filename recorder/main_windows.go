@@ -149,11 +149,13 @@ func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.D
 		now := time.Now()
 		sample, meta, live, err := adapter.Read(now)
 		if err != nil {
+			spot.Alert("rec_no_sim_data", now)
 			return err
 		}
 		spot.Step(sample, meta, live, now)
 		live, err = rec.stepSample(sample, meta, live, now)
 		if err != nil {
+			spot.Alert("rec_write_failed", now)
 			return err
 		}
 		watch.notePacket(sample.PacketID, now)

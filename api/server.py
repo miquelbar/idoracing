@@ -2003,6 +2003,38 @@ def get_setup_advice_review(req: SetupAdviceReviewRequest):
     )
 
 
+MIN_LAP_COVERAGE = 0.9
+
+
+def _lap_span(lap: Lap) -> float:
+    dist = (lap.telemetry or {}).get("distance") or []
+    return float(max(dist) - min(dist)) if len(dist) > 1 else 0.0
+
+
+def _lap_coverage_warnings(ref_session: Session, ref_lap: Lap, comp_session: Session, comp_lap: Lap) -> list[str]:
+    """Warn when a compared lap is not a whole lap (cut by a garage return, pit lap, partial recording)."""
+    # Reference circuit length: widest complete lap seen in the sessions involved.
+    spans = [
+        _lap_span(l)
+        for sess in {ref_session.session_id: ref_session, comp_session.session_id: comp_session}.values()
+        for l in sess.laps
+        if not l.is_incomplete and not l.is_outlap
+    ]
+    full = max(spans, default=0.0)
+    warnings: list[str] = []
+    for label, lap in (("P1", ref_lap), ("P2", comp_lap)):
+        span = _lap_span(lap)
+        if lap.is_incomplete or (full > 0 and span < MIN_LAP_COVERAGE * full):
+            pct = f" (solo {span / full * 100:.0f}% del circuito)" if full > 0 else ""
+            warnings.append(
+                f"⚠️ La vuelta {label} (V{lap.lap_number}) está incompleta{pct}: "
+                "la comparación solo es válida en los metros que ambas vueltas recorren."
+            )
+    if len(warnings) == 2:
+        warnings.append("Ninguna de las dos vueltas está entera: no se puede decidir cuál es mejor.")
+    return warnings
+
+
 @app.post("/api/coach/report", response_model=CoachReport)
 def generate_coach_report(req: AIAdviceRequest):
     ref_session = _load_session(req.ref_session_id or req.session_id)
@@ -2032,6 +2064,7 @@ def generate_coach_report(req: AIAdviceRequest):
         track=normalize_track_name(ref_session.track),
         synthetic=not has_telem or ref_lap.synthetic or comp_lap.synthetic,
         setup_comparison=setup_dto.model_dump(),
+        coverage_warnings=_lap_coverage_warnings(ref_session, ref_lap, comp_session, comp_lap),
     )
     if ref_session.session_id == comp_session.session_id:
         storage.save_coach_report(ref_session.session_id, ref_lap.lap_number, comp_lap.lap_number, report)

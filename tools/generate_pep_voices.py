@@ -61,6 +61,23 @@ PEP_SCRIPTS: dict[str, dict[str, str]] = {
         "es": "Aquí Pep en el muro. Aún no tenemos referencias en este circuito. Estoy grabando telemetría: hazte un par de vueltas limpias y lo vemos luego en el box.",
         "en": "Pep on the pit wall. No baseline for this track yet. Telemetry is logging—put in a couple of clean laps and we'll review the data in the box.",
     },
+    # Avisos de salud de la grabación
+    "rec_lap_aborted": {
+        "es": "Has vuelto al box a media vuelta. Esta vuelta no cuenta para el análisis.",
+        "en": "You returned to the garage mid-lap. This lap won't count for analysis.",
+    },
+    "rec_no_distance": {
+        "es": "Atención, no estoy recibiendo la distancia de vuelta. La grabación no servirá para analizar curvas.",
+        "en": "Heads up, I'm not getting lap distance. This recording won't work for corner analysis.",
+    },
+    "rec_no_sim_data": {
+        "es": "He perdido la conexión con el simulador. No estoy grabando.",
+        "en": "I lost the connection to the simulator. I'm not recording.",
+    },
+    "rec_write_failed": {
+        "es": "No consigo guardar la grabación en disco. Revisa el espacio y los permisos.",
+        "en": "I can't save the recording to disk. Check free space and permissions.",
+    },
     # B) Evaluación de Curvas y Piques con la Bubota
     "corner_gain": {
         "es": "Buena rotación en el vértice, ahí le has recortado tiempo a la Bubota.",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -62,6 +63,14 @@ type Spotter struct {
 	hotspotsFired map[int]bool
 	measuredVmins map[int]float32
 	inCorner      map[int]bool
+
+	// Recording health monitoring: voice alerts when the data being recorded is not usable.
+	healthLastAt   map[string]time.Time
+	prevX, prevY   float32
+	prevPosTime    time.Time
+	hasPrevPos     bool
+	noDistSince    time.Time
+	noDistReported bool
 
 	// Tyre alert state: track whether an alert has fired for each tyre [FL, FR, RL, RR]
 	tyreAlertFired [4]bool
@@ -166,6 +175,7 @@ func NewSpotter() *Spotter {
 		ToggleKey:     keyName,
 		VKCode:        vkCode,
 		Muted:         !enabled,
+		healthLastAt:  make(map[string]time.Time),
 		hotspotsFired: make(map[int]bool),
 		measuredVmins: make(map[int]float32),
 		inCorner:      make(map[int]bool),
@@ -208,6 +218,8 @@ func (s *Spotter) Step(sample TelemetrySample, meta SessionMetadata, live bool, 
 	if trackLen <= 0 {
 		trackLen = 4500.0
 	}
+
+	s.monitorRecordingHealth(sample, now)
 
 	// 3. Pit status & Pit exit detection
 	isPit := sample.InPit != 0
@@ -530,4 +542,58 @@ func normalizeTrackSlug(track string) string {
 		return ""
 	}
 	return slug
+}
+
+const (
+	// A recording alert for the same problem is repeated at most once per this interval.
+	healthAlertInterval = 60 * time.Second
+	// Lap distance stuck at zero while the car is moving for this long means the lap data is unusable.
+	noDistanceAfter = 5 * time.Second
+	// Position jump above this (beyond what the car speed allows) is a "return to garage" teleport.
+	teleportStepM = 25.0
+)
+
+// Alert emits a recording-health clip. It ignores the anti-overlap cooldown (the driver must hear that the
+// recording is going wrong) but never repeats the same alert within healthAlertInterval and respects mute.
+func (s *Spotter) Alert(clipID string, now time.Time) bool {
+	if s.Muted {
+		return false
+	}
+	if s.healthLastAt == nil {
+		s.healthLastAt = make(map[string]time.Time)
+	}
+	if last, ok := s.healthLastAt[clipID]; ok && now.Sub(last) < healthAlertInterval {
+		return false
+	}
+	s.healthLastAt[clipID] = now
+	s.emit(clipID, now)
+	return true
+}
+
+// monitorRecordingHealth warns by voice when the lap being recorded will not be usable for analysis.
+func (s *Spotter) monitorRecordingHealth(sample TelemetrySample, now time.Time) {
+	// Teleport (Escape / Return to garage): the lap is cut and will not count.
+	if s.hasPrevPos && (sample.X != 0 || sample.Y != 0) {
+		dt := now.Sub(s.prevPosTime).Seconds()
+		if dt <= 0 {
+			dt = 0.001
+		}
+		allowed := math.Max(teleportStepM, 110.0*dt)
+		jump := math.Hypot(float64(sample.X-s.prevX), float64(sample.Y-s.prevY))
+		if jump > allowed {
+			s.Alert("rec_lap_aborted", now)
+		}
+	}
+	s.prevX, s.prevY, s.prevPosTime, s.hasPrevPos = sample.X, sample.Y, now, true
+
+	// Lap distance not advancing while driving: corners and comparisons will not work.
+	if sample.SpeedKmh > 30 && sample.LapDistance <= 0.01 {
+		if s.noDistSince.IsZero() {
+			s.noDistSince = now
+		} else if now.Sub(s.noDistSince) >= noDistanceAfter {
+			s.Alert("rec_no_distance", now)
+		}
+	} else {
+		s.noDistSince = time.Time{}
+	}
 }

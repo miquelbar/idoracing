@@ -221,3 +221,22 @@ def test_coach_report_honest_when_telemetry_present_without_corners():
     assert "sin canales de telemetría a 50Hz" not in report.raw_report
     assert "no disponemos de los tiempos cronometrados" not in " ".join(report.hypotheses)
     assert "Telemetría continua a 50Hz analizada" in " ".join(report.hypotheses)
+
+
+def test_coverage_warnings_flag_incomplete_laps_and_cap_confidence():
+    from api.server import _lap_coverage_warnings
+    from domain.session import Lap, Session
+
+    def lap(n, span, incomplete=False):
+        return Lap(
+            lap_number=n,
+            lap_time=100.0,
+            is_incomplete=incomplete,
+            telemetry={"speed": [100.0] * 200, "distance": [span * i / 199 for i in range(200)]},
+        )
+
+    full, short = lap(2, 4600.0), lap(3, 800.0)
+    sess = Session(session_id="s", car="c", track="t", date="2026-01-01T00:00:00", telemetry={}, laps=[full, short])
+    warnings = _lap_coverage_warnings(sess, full, sess, short)
+    assert len(warnings) == 1 and "P2" in warnings[0] and "17%" in warnings[0]
+    assert _lap_coverage_warnings(sess, full, sess, full) == []

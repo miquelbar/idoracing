@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Recording Health Voice Alerts (Pep)**:
+  - The recorder now warns by voice (only when the spotter is active and not muted, max once/min per problem) when the recording is going wrong: `rec_lap_aborted` (return to garage mid-lap), `rec_no_distance` (lap distance not advancing while driving), `rec_no_sim_data` (lost shared memory) and `rec_write_failed` (cannot write the CSV).
+  - New bilingual clips versioned in `recorder/voices/es|en`, generated from `tools/generate_pep_voices.py`.
+- **Coach Aware of Incomplete Laps**:
+  - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
+
 ### Fixed
 - **Teleport-Truncated Laps Poisoning PB & Hiding Corners**:
   - `truncate_teleport_jumps` no longer keeps only the first fragment before a "Return to garage": a later segment that restarts at the line and covers clearly more track (a full lap driven after several garage returns within the same lap number) is kept, and only flagged incomplete when it is not a full lap.

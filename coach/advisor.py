@@ -26,6 +26,7 @@ class CoachAdvisor:
         track: str,
         synthetic: bool = False,
         setup_comparison: dict[str, Any] | None = None,
+        coverage_warnings: list[str] | None = None,
     ) -> CoachReport:
         """
         Generate a complete coaching report. Uses the configured LLM if available;
@@ -41,7 +42,8 @@ class CoachAdvisor:
         primary = loss_corners[0] if loss_corners else (comparison.corners[0] if comparison.corners else None)
 
         metrics = _metrics(comparison, sector_str, primary)
-        facts = _facts(comparison, primary, synthetic, setup_comparison)
+        coverage_warnings = coverage_warnings or []
+        facts = [*coverage_warnings, *_facts(comparison, primary, synthetic, setup_comparison)]
         hypotheses, exercises = _hypotheses_and_exercises(
             primary,
             ref_lap=comparison.reference_lap,
@@ -54,11 +56,11 @@ class CoachAdvisor:
         llm_report = None
         if self.llm.is_available():
             llm_report = self.llm.generate(
-                prompt=_llm_prompt(comparison, car, track, sector_str, synthetic, setup_comparison),
+                prompt=_llm_prompt(comparison, car, track, sector_str, synthetic, setup_comparison, coverage_warnings),
                 system_prompt=SYSTEM_PROMPT,
             )
 
-        level = _confidence_level(comparison, synthetic)
+        level = "Baja (vuelta incompleta)" if coverage_warnings else _confidence_level(comparison, synthetic)
         if llm_report and len(llm_report.strip()) > 20:
             raw_report = llm_report
             confidence = f"{level} (LLM + telemetría)"
@@ -302,6 +304,7 @@ def _llm_prompt(
     sector_str: str,
     synthetic: bool,
     setup_comparison: dict[str, Any] | None = None,
+    coverage_warnings: list[str] | None = None,
 ) -> str:
     prompt_data = (
         f"VEHÍCULO: {car}\n"
@@ -325,6 +328,13 @@ def _llm_prompt(
             )
         else:
             prompt_data += f"SETUP MODIFICADO (P2 vs P1): {', '.join(g_diffs)}.\n"
+    if coverage_warnings:
+        prompt_data += (
+            "AVISO DE COBERTURA: "
+            + " ".join(coverage_warnings)
+            + " Dilo al inicio del informe, limita el análisis a las curvas medidas en ambas vueltas "
+            "y no declares que una vuelta es mejor que la otra.\n"
+        )
     if synthetic:
         prompt_data += (
             "AVISO: estas vueltas solo tienen tiempos; las trazas por curva son simuladas. "
