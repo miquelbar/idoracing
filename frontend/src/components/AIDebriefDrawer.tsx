@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -23,6 +23,7 @@ import type { CarSetupData, ChatMessage, CoachReport, ComparisonResponse, Corner
 import { fetchCarSetup } from '../services/api';
 import { formatMetricKey, formatMetricValue } from '../utils/formatters';
 import { renderFormattedMarkdown } from '../utils/markdown';
+import { copyText } from '../utils/clipboard';
 import { SpotterInfoCard } from './SpotterInfoCard';
 
 interface AIDebriefDrawerProps {
@@ -42,6 +43,106 @@ interface AIDebriefDrawerProps {
   comparison?: ComparisonResponse | null;
   initialTab?: 'debrief' | 'radio';
 }
+
+interface ChatBubbleProps {
+  message: ChatMessage;
+  idx: number;
+  copied: boolean;
+  roleLabel: string;
+  copyLabel: string;
+  copiedLabel: string;
+  onCopy: (text: string, idx: number) => void;
+}
+
+/** One chat message. Memoized so typing in the input never re-renders (and re-parses markdown of) the history. */
+const ChatBubble = memo(({ message: m, idx, copied, roleLabel, copyLabel, copiedLabel, onCopy }: ChatBubbleProps) => (
+  <div className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group`}>
+    <div className={`flex gap-2.5 text-xs max-w-[90%] ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+      {m.role === 'assistant' && (
+        <div className="w-6 h-6 rounded-md bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shrink-0 mt-0.5">
+          <Bot className="w-3.5 h-3.5" />
+        </div>
+      )}
+
+      <div
+        className={`p-3 rounded-xl leading-relaxed text-xs relative ${
+          m.role === 'user'
+            ? 'bg-comp/20 border border-comp/40 text-purple-100 font-sans'
+            : 'bg-night-7 border border-white/5 text-gray-300 font-sans'
+        }`}
+      >
+        {renderFormattedMarkdown(m.content)}
+
+        <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
+          <span>{roleLabel}</span>
+          <button
+            onClick={() => onCopy(m.content, idx)}
+            className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
+            title={copyLabel}
+          >
+            {copied ? (
+              <>
+                <Check className="w-3 h-3 text-brand" />
+                <span className="text-brand">{copiedLabel}</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3 h-3" />
+                <span>{copyLabel}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {m.role === 'user' && (
+        <div className="w-6 h-6 rounded-md bg-comp/20 border border-comp/40 flex items-center justify-center text-comp shrink-0 mt-0.5">
+          <User className="w-3.5 h-3.5" />
+        </div>
+      )}
+    </div>
+  </div>
+));
+
+interface ChatInputBarProps {
+  placeholder: string;
+  sendLabel: string;
+  disabled: boolean;
+  onSend: (text: string) => void;
+}
+
+/** Owns the draft text so each keystroke re-renders only this small bar, not the whole drawer. */
+const ChatInputBar = memo(({ placeholder, sendLabel, disabled, onSend }: ChatInputBarProps) => {
+  const [text, setText] = useState('');
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed || disabled) return;
+    onSend(trimmed);
+    setText('');
+  };
+  return (
+    <div className="p-3 border-t border-white/10 bg-[#0E121E] shrink-0">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder={placeholder}
+          className="flex-1 bg-night-4 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand font-telemetry"
+        />
+        <button
+          onClick={submit}
+          disabled={disabled || !text.trim()}
+          className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>{sendLabel}</span>
+        </button>
+      </div>
+    </div>
+  );
+});
 
 export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   isOpen,
@@ -65,7 +166,6 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
   const reportWaitingChatter = useWaitingChatter(loadingReport, lang);
   const [activeTab, setActiveTab] = useState<'debrief' | 'radio'>(initialTab || 'debrief');
   const [debriefViewMode, setDebriefViewMode] = useState<'structured' | 'full'>('structured');
-  const [inputMessage, setInputMessage] = useState('');
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [reportCopied, setReportCopied] = useState(false);
   const [setupInfo, setSetupInfo] = useState<CarSetupData | null>(null);
@@ -124,25 +224,20 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
     }
   }, [chatMessages, activeTab]);
 
+  const copyToClipboard = useCallback((text: string, idx?: number) => {
+    void copyText(text).then((ok) => {
+      if (!ok) return;
+      if (idx !== undefined) {
+        setCopiedIdx(idx);
+        setTimeout(() => setCopiedIdx(null), 2000);
+      } else {
+        setReportCopied(true);
+        setTimeout(() => setReportCopied(false), 2000);
+      }
+    });
+  }, []);
+
   if (!isOpen) return null;
-
-  const handleSend = () => {
-    const text = inputMessage.trim();
-    if (!text || chatLoading) return;
-    onSendMessage(text);
-    setInputMessage('');
-  };
-
-  const copyToClipboard = (text: string, idx?: number) => {
-    navigator.clipboard.writeText(text);
-    if (idx !== undefined) {
-      setCopiedIdx(idx);
-      setTimeout(() => setCopiedIdx(null), 2000);
-    } else {
-      setReportCopied(true);
-      setTimeout(() => setReportCopied(false), 2000);
-    }
-  };
 
   const copyFullReport = () => {
     if (!report) return;
@@ -567,61 +662,16 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
               {/* Chat Message List with Rich Markdown Rendering */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                 {chatMessages.map((m, idx) => (
-                  <div
+                  <ChatBubble
                     key={idx}
-                    className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group`}
-                  >
-                    <div
-                      className={`flex gap-2.5 text-xs max-w-[90%] ${
-                        m.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}
-                    >
-                      {m.role === 'assistant' && (
-                        <div className="w-6 h-6 rounded-md bg-brand/20 border border-brand/40 flex items-center justify-center text-brand shrink-0 mt-0.5">
-                          <Bot className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-
-                      <div
-                        className={`p-3 rounded-xl leading-relaxed text-xs relative ${
-                          m.role === 'user'
-                            ? 'bg-comp/20 border border-comp/40 text-purple-100 font-sans'
-                            : 'bg-night-7 border border-white/5 text-gray-300 font-sans'
-                        }`}
-                      >
-                        {/* Markdown Formatter */}
-                        {renderFormattedMarkdown(m.content)}
-
-                        {/* Copy button on message */}
-                        <div className="mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500 font-telemetry">
-                          <span>{m.role === 'assistant' ? t('pep_role') : t('you_role')}</span>
-                          <button
-                            onClick={() => copyToClipboard(m.content, idx)}
-                            className="hover:text-white flex items-center gap-1 transition cursor-pointer p-0.5 rounded"
-                            title={t('copy')}
-                          >
-                            {copiedIdx === idx ? (
-                              <>
-                                <Check className="w-3 h-3 text-brand" />
-                                <span className="text-brand">{t('copied')}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>{t('copy')}</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      {m.role === 'user' && (
-                        <div className="w-6 h-6 rounded-md bg-comp/20 border border-comp/40 flex items-center justify-center text-comp shrink-0 mt-0.5">
-                          <User className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    message={m}
+                    idx={idx}
+                    copied={copiedIdx === idx}
+                    roleLabel={m.role === 'assistant' ? t('pep_role') : t('you_role')}
+                    copyLabel={t('copy')}
+                    copiedLabel={t('copied')}
+                    onCopy={copyToClipboard}
+                  />
                 ))}
                 {chatLoading && (
                   <div className="flex gap-2 text-xs text-gray-400 items-center p-2 rounded-lg bg-night-7/60 border border-white/5">
@@ -639,30 +689,16 @@ export const AIDebriefDrawer: React.FC<AIDebriefDrawerProps> = ({
 
         {/* Fixed Chat Input Bar at Bottom (Always available in radio mode) */}
         {activeTab === 'radio' && (
-          <div className="p-3 border-t border-white/10 bg-[#0E121E] shrink-0">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={
-                  selectedCorner
-                    ? t('ask_pep_corner_placeholder', { num: selectedCorner.corner_number, name: selectedCorner.name })
-                    : t('ask_pep_track_placeholder', { track: trackName })
-                }
-                className="flex-1 bg-night-4 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand font-telemetry"
-              />
-              <button
-                onClick={handleSend}
-                disabled={chatLoading || !inputMessage.trim()}
-                className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-light text-black font-bold text-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{t('transmit')}</span>
-              </button>
-            </div>
-          </div>
+          <ChatInputBar
+            placeholder={
+              selectedCorner
+                ? t('ask_pep_corner_placeholder', { num: selectedCorner.corner_number, name: selectedCorner.name })
+                : t('ask_pep_track_placeholder', { track: trackName })
+            }
+            sendLabel={t('transmit')}
+            disabled={chatLoading}
+            onSend={(text) => onSendMessage(text)}
+          />
         )}
       </div>
     </div>

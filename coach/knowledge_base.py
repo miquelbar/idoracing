@@ -135,6 +135,27 @@ class SimracingKnowledgeBase:
             if match_brake:
                 snippets.append(f"### Ajustes en Frenada y Reparto (Brake Bias)\n{match_brake.group(0).strip()}")
 
+        # 3b. Gamepad / controller driving: in-game control settings that change trail braking and understeer
+        gamepad_text = self.get_section("gamepad_controller")
+        if gamepad_text and any(
+            w in combined
+            for w in (
+                "gamepad",
+                "gemepad",
+                "mando",
+                "joystick",
+                "stick",
+                "gatillo",
+                "controller",
+                "gamma",
+                "deadzone",
+                "zona muerta",
+                "dualsense",
+                "xbox",
+            )
+        ):
+            snippets.append(f"### Pilotaje con mando y ajustes del juego\n{gamepad_text}")
+
         # 4. Chassis & ARB / Rake essentials
         chassis_text = self.get_section("chassis_dynamics")
         if include_setup and any(

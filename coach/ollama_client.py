@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3.8:27b")
 DEFAULT_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120.0"))
+NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "8192"))
+NUM_PREDICT = int(os.environ.get("OLLAMA_NUM_PREDICT", "2048"))
 DEFAULT_AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() in ("true", "1", "yes")
 
 
@@ -71,8 +73,8 @@ class OllamaClient:
             "think": False,
             "options": {
                 "temperature": 0.2,  # Low temperature for analytical consistency
-                "num_ctx": 4096,  # Fast GPU KV cache fitting, avoids 262k memory swap
-                "num_predict": 800,  # Concise racing engineer answers
+                "num_ctx": NUM_CTX,  # Fits the prompt (engineering manual + context) plus the full answer
+                "num_predict": NUM_PREDICT,  # Room for the full 3-4 section engineer answer
             },
         }
         if system_prompt:
@@ -84,7 +86,11 @@ class OllamaClient:
                 res = client.post(f"{self.base_url}/api/generate", json=payload)
                 if res.status_code == 200:
                     data = res.json()
-                    return data.get("response", "").strip()
+                    text = data.get("response", "").strip()
+                    if data.get("done_reason") == "length" and text:
+                        logger.warning("Ollama answer hit the num_predict limit (%s tokens)", NUM_PREDICT)
+                        text += "\n\n_⚠️ Respuesta cortada por el límite de longitud del modelo. Pídeme que continúe._"
+                    return text
                 logger.warning("Ollama returned HTTP %s", res.status_code)
         except (httpx.HTTPError, ValueError) as e:
             logger.warning("Ollama request to %s failed: %s", self.base_url, e)

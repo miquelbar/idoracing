@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
 
 ### Fixed
+- **Pep Chat: Typing Lag, Truncated Answers, Broken Copy & Gamepad Awareness**:
+  - The sidebar chat input now owns its draft state and the message history is memoized, so each keystroke no longer re-renders and re-parses the markdown of the whole drawer.
+  - Copy buttons work over plain http (e.g. `http://192.168.x.x:8501`) where `navigator.clipboard` does not exist, via a `execCommand` fallback in `frontend/src/utils/clipboard.ts`.
+  - Ollama limits raised (`OLLAMA_NUM_PREDICT` 800 -> 2048, `OLLAMA_NUM_CTX` 4096 -> 8192, both overridable); an answer cut by the limit (`done_reason: length`) is now flagged instead of ending mid-sentence.
+  - New knowledge module `coach/knowledge/gamepad_controller.md` (Brake/Steer Gamma, Speed Sensitivity, Steer Filter/Speed, Deadzone) retrieved when the driver mentions a gamepad; Pep's prompt now combines technique with those in-game settings, presented as starting values rather than measured data.
 - **Teleport-Truncated Laps Poisoning PB & Hiding Corners**:
   - `truncate_teleport_jumps` no longer keeps only the first fragment before a "Return to garage": a later segment that restarts at the line and covers clearly more track (a full lap driven after several garage returns within the same lap number) is kept, and only flagged incomplete when it is not a full lap.
   - `Storage.get_session` re-derives `is_incomplete` for laps covering < 70% of the longest valid lap (the flag was lost once the importer truncated the lap at a garage teleport).

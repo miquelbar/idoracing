@@ -240,3 +240,45 @@ def test_coverage_warnings_flag_incomplete_laps_and_cap_confidence():
     warnings = _lap_coverage_warnings(sess, full, sess, short)
     assert len(warnings) == 1 and "P2" in warnings[0] and "17%" in warnings[0]
     assert _lap_coverage_warnings(sess, full, sess, full) == []
+
+
+def test_gamepad_question_retrieves_controller_settings():
+    from coach.knowledge_base import knowledge_base
+
+    ctx = knowledge_base.retrieve_context(
+        car_name="Porsche 911 GT3 R (992)",
+        query="me es muy difícil hacer trail braking con el gemepad y siempre tiendo a subvirar",
+    )
+    assert "Brake Gamma" in ctx and "Speed Sensitivity" in ctx
+    assert "Brake Gamma" not in knowledge_base.retrieve_context(
+        car_name="Porsche 911", query="subviraje en curva lenta"
+    )
+
+
+def test_ollama_truncation_is_flagged(monkeypatch):
+    import httpx
+
+    from coach.ollama_client import OllamaClient
+
+    class _Res:
+        status_code = 200
+
+        def json(self):
+            return {"response": "texto cortado", "done_reason": "length"}
+
+    class _Client:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            return _Res()
+
+    monkeypatch.setattr(httpx, "Client", _Client)
+    out = OllamaClient(enabled=True).generate("hola")
+    assert out.startswith("texto cortado") and "cortada" in out

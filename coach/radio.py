@@ -6,6 +6,7 @@ selected corner's numbers appended. Templates take {ack}, {car}, {track} and {c_
 from typing import Any
 
 TOPIC_KEYWORDS = {
+    "gamepad": ("gamepad", "gemepad", "mando", "joystick", "stick", "gatillo", "controller", "dualsense", "xbox"),
     "trail": ("trail", "freno", "frenar", "frenada", "brake", "braking"),
     "gear": ("marcha", "gear", "velocidad", "rpm"),
     "setup": ("setup", "reparto", "bias", "presion", "arb", "suspension", "caida", "camber"),
@@ -13,6 +14,28 @@ TOPIC_KEYWORDS = {
 }
 
 REPLIES: dict[str, dict[str, str]] = {
+    "gamepad": {
+        "en": (
+            "{ack}Driving the **{car}** at **{track}** on a **Gamepad**:\n"
+            "\n"
+            "1. **Progressive Trigger Release (Trail Braking):** Gamepad triggers have short travel, which leads to binary braking (100% -> 0%) that unloads the front axle and causes entry understeer. Hold **15-20% residual trigger pressure** while turning in until the car rotates toward the apex.\n"
+            "2. **In-Game Controller Settings (Baseline to test one by one):**\n"
+            "   - **Brake Gamma:** `1.0 - 1.2` (near-linear so trigger release maps predictably to trail brake pressure).\n"
+            "   - **Steer Gamma:** `2.2 - 2.5` (softens center stick sensitivity to avoid saturating front slip angle on entry).\n"
+            "   - **Speed Sensitivity:** `60% - 70%` (scales steering lock with speed; too high causes slow-corner understeer).\n"
+            "   - **Steer Filter / Steer Speed:** Filter `90%+` and Speed `50% - 70%` for smooth virtual wheel rate, plus **Deadzone** `1% - 3%`.{c_info}"
+        ),
+        "es": (
+            "{ack}Pilotando el **{car}** en **{track}** con **Mando (Gamepad)**:\n"
+            "\n"
+            "1. **Modulación del Gatillo (Trail Braking):** El recorrido corto del gatillo tiende a una frenada binaria (100% -> 0%) que descarga el eje delantero y provoca subviraje en entrada. Mantén un **15-20% de presión residual en el gatillo izquierdo** mientras inicias el giro hasta que el coche rote hacia el vértice.\n"
+            "2. **Ajustes de Controles en el Juego (Punto de partida a probar de uno en uno):**\n"
+            "   - **Brake Gamma:** `1.0 - 1.2` (casi lineal para dosificar el último 20% de gatillo sin soltar de golpe).\n"
+            "   - **Steer Gamma:** `2.2 - 2.5` (suaviza el centro del stick y evita meter exceso de ángulo de volante que satura el neumático delantero).\n"
+            "   - **Speed Sensitivity:** `60% - 70%` (si está demasiado alta por encima de 85%, el coche no gira en curvas lentas).\n"
+            "   - **Steer Filter / Steer Speed:** Filtro `90%+` y Velocidad `50% - 70%` para suavizar la transición de pesos, con **Deadzone** `1% - 3%`.{c_info}"
+        ),
+    },
     "trail": {
         "en": (
             "{ack}Optimizing **Trail Braking** in the **{car}** at **{track}**:\n"
