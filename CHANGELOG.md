@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Full GitHub Actions CI Parity in Local Git Hooks (`githooks/pre-commit` & `githooks/pre-push`)**:
+  - Updated `githooks/pre-commit` and added `githooks/pre-push` to execute 100% of `.github/workflows/ci.yml` locally before any commit or push (`ruff check`, `ruff format --check`, `pytest`, `go test ./...`, `linux/test-acc-with-recorder.sh`, `linux/test-sim-launchers.sh`, `GOOS=windows GOARCH=amd64 go build`, `npm run build`, `npm run lint`, and `git fsck`), preventing red CI builds on GitHub.
 - **Interactive Peripheral Selector & Telemetry-to-Peripheral Diagnostic Skill (`simracing-peripherals`)**:
   - Each assistant message in `AIDebriefDrawer.tsx` and `EngineerView.tsx` now includes an interactive 3-option peripheral selector (`🎮 Gamepad / Mando`, `🛞 Volante / Cockpit`, `⌨️ Teclado`) styled like the suggested query chips.
   - Selecting a peripheral (or mentioning it in chat) persists the choice, adapts Pep's drill vocabulary, and guarantees via `_ensure_peripheral_section` in `api/server.py` that the in-game controller configuration block (Brake/Steer Gamma, Speed Sensitivity, Steer Filter/Speed, FFB/Load-Cell or Keyboard assist settings) is always included before Pep's signature.

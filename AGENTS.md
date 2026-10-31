@@ -42,13 +42,15 @@ Este documento define las reglas de desarrollo, arquitectura y buenas prácticas
 
 ## 3. Protocolo de Commits y Verificación
 
-### Prohibido Commit Automático
+### Prohibido Commit Automático y Prohibido `--no-verify`
 - **NUNCA ejecutes `git commit` ni `git push` automáticamente**.
+- **NUNCA uses `--no-verify` en `git commit` ni en `git push`**. Los hooks `githooks/pre-commit` y `githooks/pre-push` replican al 100% el pipeline `.github/workflows/ci.yml` para garantizar que jamás suba un commit que falle en la CI de GitHub.
 - Tras implementar y verificar cualquier tarea:
-  1. Ejecuta la suite de verificación completa:
-     - `pytest tests/` (Python)
-     - `cd recorder && go test ./...` (Go)
-     - `npm run build --prefix frontend` (Vite / TypeScript)
+  1. Ejecuta la suite de verificación completa (idéntica a `.github/workflows/ci.yml`):
+     - `.venv/bin/ruff check . && .venv/bin/ruff format --check .` (Python lint & format)
+     - `.venv/bin/pytest tests/` (Python unit & integration tests)
+     - `cd recorder && go test ./... && bash linux/test-acc-with-recorder.sh && bash linux/test-sim-launchers.sh && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o /tmp/idoracing-recorder-ci.exe . && rm -f /tmp/idoracing-recorder-ci.exe` (Go tests, Linux launcher scripts & Windows cross-compilation)
+     - `npm run build --prefix frontend && npm run lint --prefix frontend` (Vite / TypeScript build & oxlint)
   2. Muestra un resumen ejecutivo al usuario con:
      - Archivos modificados (`git status -s`).
      - Explicación concisa de la solución.

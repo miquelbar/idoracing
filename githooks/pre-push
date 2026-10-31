@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# pre-push: Run the complete GitHub Actions CI suite locally before allowing any push.
+# Mirrors .github/workflows/ci.yml 1:1 (test + frontend + recorder + git object integrity).
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+echo "pre-push: [1/5] Checking Git repository object integrity..."
+git -C "$REPO_ROOT" fsck --no-dangling >/dev/null || {
+	echo "pre-push: ERROR: git fsck detected corrupted objects! Aborting push." >&2
+	exit 1
+}
+
+echo "pre-push: [2/5] Running Frontend CI checks (npm run build + npm run lint)..."
+(
+	cd "$REPO_ROOT/frontend"
+	npm run build
+	npm run lint
+)
+
+echo "pre-push: [3/5] Running Python CI checks (ruff check + ruff format --check + pytest)..."
+RUFF="$REPO_ROOT/.venv/bin/ruff"
+[ -x "$RUFF" ] || RUFF="ruff"
+PYTEST="$REPO_ROOT/.venv/bin/pytest"
+[ -x "$PYTEST" ] || PYTEST="pytest"
+
+"$RUFF" check "$REPO_ROOT"
+"$RUFF" format --check "$REPO_ROOT"
+PYTHONPATH="$REPO_ROOT" "$PYTEST" "$REPO_ROOT/tests" -q
+
+echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher scripts + Windows cross-build)..."
+(
+	cd "$REPO_ROOT/recorder"
+	go test ./...
+	bash linux/test-acc-with-recorder.sh
+	bash linux/test-sim-launchers.sh
+	tmp_exe="$(mktemp -u "${TMPDIR:-/tmp}/idoracing-recorder-XXXXXX.exe")"
+	trap 'rm -f "$tmp_exe"' EXIT
+	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o "$tmp_exe" .
+)
+
+echo "pre-push: [5/5] All GitHub Actions CI checks passed locally! Proceeding with push."
+exit 0

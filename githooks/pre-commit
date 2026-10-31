@@ -72,6 +72,18 @@ else
 	echo "pre-commit: WARNING: ruff not found, skipping Python linting." >&2
 fi
 
+# --- Frontend Typecheck, Build & Lint ---
+if command -v npm >/dev/null 2>&1 && [ -d "$REPO_ROOT/frontend" ]; then
+	staged_frontend=$(git diff --cached --name-only 2>/dev/null | grep "^frontend/" || true)
+	if [ -n "$staged_frontend" ] || [ ! -s "$REPO_ROOT/frontend/dist/index.html" ]; then
+		echo "pre-commit: verifying frontend build & lint..."
+		(cd "$REPO_ROOT/frontend" && npm run build && npm run lint) || {
+			echo "pre-commit: frontend build or lint failed! Fix TypeScript/lint errors before committing." >&2
+			exit 1
+		}
+	fi
+fi
+
 # --- Automated Test Suite Execution (pytest) ---
 PYTEST=""
 if [ -x "$REPO_ROOT/.venv/bin/pytest" ]; then
@@ -90,25 +102,28 @@ else
 	echo "pre-commit: WARNING: pytest not found, skipping Python tests." >&2
 fi
 
-# --- Go Unit Tests (recorder) ---
+# --- Go Unit Tests, Launcher Tests & Windows Build (recorder) ---
 if command -v go >/dev/null 2>&1 && [ -d "$REPO_ROOT/recorder" ]; then
 	echo "pre-commit: running Go unit tests in recorder/..."
 	(cd "$REPO_ROOT/recorder" && go test ./...) || {
 		echo "pre-commit: Go unit tests failed! Fix recorder tests before committing." >&2
 		exit 1
 	}
-fi
 
-# --- Frontend Typecheck & Build ---
-if command -v npm >/dev/null 2>&1 && [ -d "$REPO_ROOT/frontend" ]; then
-	staged_frontend=$(git diff --cached --name-only 2>/dev/null | grep "^frontend/" || true)
-	if [ -n "$staged_frontend" ]; then
-		echo "pre-commit: verifying frontend build with npm run build..."
-		(cd "$REPO_ROOT/frontend" && npm run build) || {
-			echo "pre-commit: frontend build failed! Fix TypeScript/build errors before committing." >&2
-			exit 1
-		}
-	fi
+	echo "pre-commit: running Linux sim launcher tests in recorder/linux/..."
+	(cd "$REPO_ROOT/recorder" && bash linux/test-acc-with-recorder.sh && bash linux/test-sim-launchers.sh) || {
+		echo "pre-commit: Linux sim launcher tests failed! Fix launcher scripts/tests before committing." >&2
+		exit 1
+	}
+
+	echo "pre-commit: verifying Windows cross-build (GOOS=windows GOARCH=amd64)..."
+	tmp_exe="$(mktemp -u "${TMPDIR:-/tmp}/idoracing-recorder-XXXXXX.exe")"
+	(cd "$REPO_ROOT/recorder" && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o "$tmp_exe" .) || {
+		rm -f "$tmp_exe"
+		echo "pre-commit: Windows recorder build failed! Fix *_windows.go compilation errors before committing." >&2
+		exit 1
+	}
+	rm -f "$tmp_exe"
 fi
 
 # --- CHANGELOG Check ---
