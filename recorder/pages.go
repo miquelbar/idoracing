@@ -73,12 +73,14 @@ type staticInfo struct {
 	CarModel          string
 	Track             string
 	TrackSplineLength float32
+	MaxRPM            int32
 }
 
 const (
 	staticCarModelOffset    = 68
 	staticTrackOffset       = 134
 	staticNameChars         = 33
+	staticMaxRPMOffset      = 412
 	staticSplineLenOffset   = 520
 	staticMinimumPageLength = staticSplineLenOffset + 4
 )
@@ -185,6 +187,10 @@ func decodeStatic(b []byte) staticInfo {
 	}
 	car := wideString(b[staticCarModelOffset : staticCarModelOffset+2*staticNameChars])
 	track := wideString(b[staticTrackOffset : staticTrackOffset+2*staticNameChars])
+	maxRpm := int32(binary.LittleEndian.Uint32(b[staticMaxRPMOffset:]))
+	if maxRpm < 0 || maxRpm > 30000 {
+		maxRpm = 0
+	}
 	spline := math.Float32frombits(binary.LittleEndian.Uint32(b[staticSplineLenOffset:]))
 
 	// If offsets were displaced (e.g. AC EVO), scan for printable UTF-16LE strings
@@ -204,6 +210,7 @@ func decodeStatic(b []byte) staticInfo {
 		CarModel:          car,
 		Track:             track,
 		TrackSplineLength: spline,
+		MaxRPM:            maxRpm,
 	}
 }
 
@@ -347,5 +354,6 @@ func (s staticInfo) toMetadata(simulator, simPrefix string) SessionMetadata {
 		Track:             s.Track,
 		CarModel:          s.CarModel,
 		TrackSplineLength: s.TrackSplineLength,
+		MaxRPM:            s.MaxRPM,
 	}
 }

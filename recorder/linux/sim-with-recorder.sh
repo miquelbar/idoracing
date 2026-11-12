@@ -135,6 +135,9 @@ done
 "$@" &
 game=$!
 
+spotter_pid=""
+moza_pid=""
+
 if [ -z "$proton" ]; then
 	echo "idoracing: no Proton in the launch command, starting game without the recorder" >&2
 elif [ ! -f "$recorder" ]; then
@@ -148,7 +151,6 @@ else
 	touch "$log"
 
 	# Spotter audio loop: listens to the recorder log
-	spotter_pid=""
 	if [ "$spotter_enabled" = "true" ]; then
 		(
 			current_track=""
@@ -203,6 +205,12 @@ else
 		spotter_pid=$!
 	fi
 
+	# Moza RPM shift lights bridge
+	if [ "${IDORACING_MOZA_LEDS:-true}" = "true" ] && [ -f "$repo_root/tools/moza_leds.py" ] && command -v python3 >/dev/null 2>&1; then
+		python3 "$repo_root/tools/moza_leds.py" </dev/null >>"$log" 2>&1 &
+		moza_pid=$!
+	fi
+
 	run_recorder() {
 		if [ "$delay" -gt 0 ] 2>/dev/null; then
 			sleep "$delay"
@@ -216,6 +224,9 @@ fi
 wait "$game"
 if [ -n "$spotter_pid" ]; then
 	kill "$spotter_pid" 2>/dev/null || true
+fi
+if [ -n "$moza_pid" ]; then
+	kill "$moza_pid" 2>/dev/null || true
 fi
 pkill -P $$ 2>/dev/null || true
 sleep 0.05 2>/dev/null || true

@@ -9,6 +9,7 @@ type SessionMetadata struct {
 	Track             string
 	CarModel          string
 	TrackSplineLength float32
+	MaxRPM            int32
 }
 
 // TelemetrySample is a single normalized physics/graphics frame ready to be recorded into CSV.

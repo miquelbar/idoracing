@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Native Moza RPM Shift Lights Telemetry Bridge for Linux (`tools/moza_leds.py` & UDP Broadcaster)**:
+  - Added lightweight UDP telemetry broadcaster in `recorder/broadcaster.go` emitting 50Hz frames (`rpm`, `max_rpm`, `gear`, `speed_kmh`, `tc`, `abs`) to `127.0.0.1:10823`.
+  - Added host daemon `tools/moza_leds.py` using the Moza CDC-ACM serial protocol (115200 baud, Group 0x3F, command `send-rpm-telemetry`) to drive rev LEDs directly on Moza steering wheels (CS V2P, GS, KS, ES, FSR) in Linux under Proton/Wine without requiring Moza Pit House or SimHub.
+  - Integrated into `acc-with-recorder.sh` and `sim-with-recorder.sh` to automatically launch in the background alongside the spotter and terminate cleanly on game exit.
+  - Includes `--test` CLI mode for immediate LED sweep validation and comprehensive unit tests (`tests/test_moza_leds.py` with mock PTY serial and `recorder/broadcaster_test.go`).
 - **Full GitHub Actions CI Parity in Local Git Hooks (`githooks/pre-commit` & `githooks/pre-push`)**:
   - Updated `githooks/pre-commit` and added `githooks/pre-push` to execute 100% of `.github/workflows/ci.yml` locally before any commit or push (`ruff check`, `ruff format --check`, `pytest`, `go test ./...`, `linux/test-acc-with-recorder.sh`, `linux/test-sim-launchers.sh`, `GOOS=windows GOARCH=amd64 go build`, `npm run build`, `npm run lint`, and `git fsck`), preventing red CI builds on GitHub.
 - **Interactive Peripheral Selector & Telemetry-to-Peripheral Diagnostic Skill (`simracing-peripherals`)**:

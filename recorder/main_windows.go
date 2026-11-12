@@ -24,6 +24,7 @@ func main() {
 	sim := flag.String("sim", "auto", "simulator: auto, acc, lmu, ac, acevo")
 	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe, Le Mans Ultimate.exe, acs.exe, AssettoCorsaEVO.exe)")
 	logPath := flag.String("log", "", "file to append log messages to")
+	udpAddr := flag.String("udp", "127.0.0.1:10823", "UDP address to broadcast live telemetry frames (or off)")
 	flag.Parse()
 
 	if *logPath != "" {
@@ -54,7 +55,7 @@ func main() {
 		if *sim == "auto" && *exitWith == "" {
 			adapter = selectAdapter(*sim, *exitWith)
 		}
-		if err := record(rec, adapter, watch, time.Second/time.Duration(*hz)); err != nil {
+		if err := record(rec, adapter, watch, time.Second/time.Duration(*hz), *udpAddr); err != nil {
 			log.Print(err)
 		}
 		if exit, reason := watch.shouldExit(time.Now()); exit {
@@ -137,13 +138,15 @@ func selectAdapter(sim string, exitWith string) SimAdapter {
 }
 
 // record reads simulator shared memory through the selected adapter until it closes or fails.
-func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.Duration) error {
+func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.Duration, udpAddr string) error {
 	if err := adapter.Open(); err != nil {
 		return nil // Simulator not running or shared memory pages not ready yet
 	}
 	defer adapter.Close()
 
 	spot := NewSpotter()
+	bcast := NewBroadcaster(udpAddr)
+	defer bcast.Close()
 
 	for {
 		now := time.Now()
@@ -153,6 +156,9 @@ func record(rec *recorder, adapter SimAdapter, watch *gameWatch, livePoll time.D
 			return err
 		}
 		spot.Step(sample, meta, live, now)
+		if live {
+			bcast.Send(sample, meta, now)
+		}
 		live, err = rec.stepSample(sample, meta, live, now)
 		if err != nil {
 			spot.Alert("rec_write_failed", now)

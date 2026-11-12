@@ -78,10 +78,11 @@ func TestStaticInfo(t *testing.T) {
 	for i, u := range utf16.Encode([]rune("spa")) {
 		binary.LittleEndian.PutUint16(b[134+2*i:], u)
 	}
+	putI32(b, 412, 8500)
 	putF32(b, 520, 7004)
 
 	s := decodeStatic(b)
-	if s.CarModel != "amr_v8_vantage_gt3" || s.Track != "spa" || s.TrackSplineLength != 7004 {
+	if s.CarModel != "amr_v8_vantage_gt3" || s.Track != "spa" || s.TrackSplineLength != 7004 || s.MaxRPM != 8500 {
 		t.Fatalf("static = %+v", s)
 	}
 }
