@@ -382,7 +382,7 @@ func runOSWindow(app *HUDApp, width, height int) error {
 		}
 		C.XDrawRectangle(dpy, C.Drawable(backbuffer), gc, 532, C.int(oscY), 12, C.uint(oscH))
 
-		// 7. Footer / Trail Braking Badge
+		// 7. Footer / Trail Braking Badge & Pit Wall Radio Info
 		if isTrail {
 			C.XSetForeground(dpy, gc, colTrail)
 			C.XFillRectangle(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 205, 230, 26)
@@ -390,10 +390,15 @@ func runOSWindow(app *HUDApp, width, height int) error {
 			trailText := C.CString(">>> TRAIL BRAKING ACTIVE <<<")
 			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX+12), 222, trailText, C.int(len(">>> TRAIL BRAKING ACTIVE <<<")))
 			C.free(unsafe.Pointer(trailText))
+
+			C.XSetForeground(dpy, gc, colMuted)
+			brandingText := C.CString("IdoRacing Telemetry  ·  Pep on Pit Wall")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX+245), 222, brandingText, C.int(len("IdoRacing Telemetry  ·  Pep on Pit Wall")))
+			C.free(unsafe.Pointer(brandingText))
 		} else {
 			C.XSetForeground(dpy, gc, colMuted)
-			hintText := C.CString("IdoRacing Pedal & Trail HUD  (Drag with mouse | Esc to exit)")
-			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 222, hintText, C.int(len("IdoRacing Pedal & Trail HUD  (Drag with mouse | Esc to exit)")))
+			hintText := C.CString("IdoRacing Telemetry  ·  Pep on Pit Wall  (Drag to move | Esc to exit)")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 222, hintText, C.int(len("IdoRacing Telemetry  ·  Pep on Pit Wall  (Drag to move | Esc to exit)")))
 			C.free(unsafe.Pointer(hintText))
 		}
 

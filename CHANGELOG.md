@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **HUD Clean Branding & Radio Presentation**:
+  - Replaced technical CPU/OS background specs in the HUD footer overlay with clean race-focused branding (`IdoRacing Telemetry  ·  Pep on Pit Wall`).
+  - Standardized real-time telemetry badge labels and radio status cues to English (`>>> TRAIL BRAKING ACTIVE <<<`, `[#] Pep: Active`, `[X] Pep: MUTED`).
+  - Updated documentation screenshot (`docs/screenshots/pedal-trail-hud.png`) to reflect the clean branding.
+
 ### Added
 - **Live Pedal & Trail Braking HUD with Pep Radio Controls (100% Go Native Overlay & Web View)**:
   - Added standalone 100% Go desktop overlay (`recorder/tools/hud/` compiled to `recorder/bin/idoracing-hud`) rendering real-time scrolling oscilloscope traces for Throttle (neon green) and Brake / Trail Braking (racing red) with 25/50/75/100% grid lines, trail braking decay detection, live gear, speed, RPM, and instantaneous pedal level gauges.
