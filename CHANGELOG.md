@@ -11,7 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HUD Clean Branding & Radio Presentation**:
   - Replaced technical CPU/OS background specs in the HUD footer overlay with clean race-focused branding (`IdoRacing Telemetry  ·  Pep on Pit Wall`).
   - Standardized real-time telemetry badge labels and radio status cues to English (`>>> TRAIL BRAKING ACTIVE <<<`, `[#] Pep: Active`, `[X] Pep: MUTED`).
-  - Updated documentation screenshot (`docs/screenshots/pedal-trail-hud.png`) to reflect the clean branding.
+  - Updated documentation screenshot (`docs/screenshots/live-pedal-hud.png`) to reflect the clean branding.
+- **CI & Build Tag Resilience**:
+  - Added `sudo apt-get install -y libx11-dev` in `.github/workflows/ci.yml` so GitHub Actions runner has native X11 headers for CGO compilation.
+  - Added build tag fallbacks in `hud_linux.go` (`linux && cgo`) and `hud_other.go` (`(!linux && !windows) || (linux && !cgo)`) ensuring `CGO_ENABLED=0 go test ./...` and headless builds never fail with undefined symbols or missing headers.
 
 ### Added
 - **Live Pedal & Trail Braking HUD with Pep Radio Controls (100% Go Native Overlay & Web View)**:

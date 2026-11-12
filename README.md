@@ -101,7 +101,7 @@ Supports:
 ### 6. 📊 Live Pedal & Trail Braking HUD Overlay (100% Go · Zero-Daemon)
 Real-time floating oscilloscope displaying live **Throttle** (Neon Green) and **Brake / Trail Braking** (Racing Red) pedal traces at 60 FPS, with integrated **Pep Radio** controls.
 
-![IdoRacing Live Pedal & Trail Braking HUD](docs/screenshots/pedal-trail-hud.png)
+![IdoRacing Live Pedal & Trail Braking HUD](docs/screenshots/live-pedal-hud.png)
 
 - **Pure 100% Compiled Go**: Zero Python, zero Node, zero background web servers needed while racing. Draws directly using X11 double-buffering at `< 0.1% CPU` and ~15MB RAM, guaranteeing zero frame drops or frametime jitter in your simulator.
 - **Dynamic Trail Braking Detection**: Prominently displays `[>>> TRAIL BRAKING ACTIVE <<<]` in amber when progressive corner-entry brake modulation (bleeding off between 5% and 65% while off throttle) is executed cleanly.
