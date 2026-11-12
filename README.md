@@ -115,9 +115,20 @@ Real-time floating oscilloscope displaying live **Throttle** (Neon Green) and **
   - Standalone binary: run `./recorder/bin/idoracing-hud`.
   - Also available as a browser canvas view (`/#/hud`) in the web UI for mobile/tablet dashboard mounts.
 
-### 7. 🛞 Moza Racing Wheel RPM Shift Lights Bridge (Linux / Proton)
-- Standalone host bridge (`tools/moza_leds.py`) driving native rev LEDs directly on Moza steering wheels (CS V2P, GS, KS, ES, FSR) in Linux under Steam/Proton via CDC-ACM serial at 115200 baud, requiring zero third-party software (no Moza Pit House or SimHub required).
-- Fed at 50Hz via UDP broadcaster (`recorder/broadcaster.go`) on port `10823`. Automatically launches and closes with `sim-with-recorder.sh`.
+### 7. 🛞 Moza Racing Wheel RPM Shift Lights Bridge & Boxflat Integration (Linux / Proton)
+IdoRacing provides first-class support for **MOZA Racing** hardware on Linux under Steam/Proton without requiring Windows, Moza Pit House, or SimHub.
+
+- **Seamless Boxflat Co-existence**:
+  - **[Boxflat](https://github.com/lawstorant/boxflat)** (`boxflat`): Use Boxflat to configure your wheelbase (R3, R5, R9, R12, R16, R21), setup udev rules, set steering lock rotation (e.g. 540°, 900°), calibrate pedals, and tune your Force Feedback (FFB) response curves.
+  - **IdoRacing Moza RPM Bridge (`tools/moza_leds.py`)**: While Boxflat manages your hardware configuration, IdoRacing's bridge talks directly to your steering wheel over CDC-ACM serial (`/dev/ttyACM*`, 115200 baud, Group `0x3F`) to illuminate the sequential rev LEDs in real time.
+- **Compatible Wheels**: Moza CS V2P, GS, KS, ES, FSR, and all Moza wheels with CDC-ACM serial LED telemetry.
+- **Real-Time 50Hz Shift Indicators**:
+  - Progressive 10-LED RPM climb starting at 75% of maximum engine RPM.
+  - Flashing shift point alert at 96% RPM so you never miss an upshift.
+  - Alternating pit-limiter strobe when in the pit lane.
+- **Zero-Setup Automation**:
+  - Automatically launched and cleaned up by `sim-with-recorder.sh` and `acc-with-recorder.sh` (enabled by default; can be toggled with `IDORACING_MOZA_LEDS=false`).
+  - **Quick Test Sweep**: Run `python3 tools/moza_leds.py --test` anytime in your terminal to verify your wheel's LED connection with an instant 10-LED sweep.
 
 ---
 
