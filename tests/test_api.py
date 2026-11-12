@@ -141,6 +141,16 @@ def test_api_autodiscover(client):
         assert mtimes == sorted(mtimes, reverse=True)
 
 
+def test_api_hud_endpoints(client):
+    res = client.get("/api/hud/status")
+    assert res.status_code == 200
+    assert "running" in res.json()
+
+    res_close = client.post("/api/hud/close")
+    assert res_close.status_code == 200
+    assert res_close.json()["status"] in ("closed", "not_running")
+
+
 @pytest.mark.parametrize(
     ("sim_label", "expected_simulator"),
     [("AC1", "Assetto Corsa"), ("AC EVO", "Assetto Corsa EVO")],

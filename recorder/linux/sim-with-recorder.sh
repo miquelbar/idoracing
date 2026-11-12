@@ -137,6 +137,7 @@ game=$!
 
 spotter_pid=""
 moza_pid=""
+hud_pid=""
 
 if [ -z "$proton" ]; then
 	echo "idoracing: no Proton in the launch command, starting game without the recorder" >&2
@@ -163,6 +164,15 @@ else
 				*PEP_PLAY\|*)
 					clip_id="${line#*PEP_PLAY|}"
 					clip_id="$(echo "$clip_id" | tr -d '\r\n[:space:]')"
+					if [ -f "$config_file" ]; then
+						cfg_en=$(grep -o '"enabled": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"enabled": *//' -e 's/"//g' -e 's/ //g')
+						[ "$cfg_en" = "false" ] && spotter_enabled="false"
+						[ "$cfg_en" = "true" ] && spotter_enabled="true"
+						cfg_vol=$(grep -o '"volume": *[0-9]*' "$config_file" | head -n1 | sed -e 's/"volume": *//' -e 's/ //g')
+						if [ -n "$cfg_vol" ] && [ "$cfg_vol" -gt 0 ] 2>/dev/null; then
+							spotter_vol_pct="$cfg_vol"
+						fi
+					fi
 					if [ "$spotter_enabled" = "true" ] && [ -n "$clip_id" ]; then
 						target_ogg=""
 						if [ -n "$current_track" ] && [ -f "$voices_dir/tracks/$current_track/$spotter_lang/$clip_id.ogg" ]; then
@@ -211,6 +221,30 @@ else
 		moza_pid=$!
 	fi
 
+	# Native Pedal & Trail Braking HUD overlay (100% Go)
+	if [ "${IDORACING_HUD:-false}" = "true" ]; then
+		hud_bin=""
+		for cand in "$repo_root/recorder/bin/idoracing-hud" "$repo_root/recorder/idoracing-hud" "$here/idoracing-hud"; do
+			if [ -x "$cand" ]; then
+				hud_bin="$cand"
+				break
+			fi
+		done
+		if [ -z "$hud_bin" ] && command -v go >/dev/null 2>&1 && [ -d "$repo_root/recorder/tools/hud" ]; then
+			( cd "$repo_root/recorder" && go build -trimpath -ldflags="-s -w" -o bin/idoracing-hud ./tools/hud 2>/dev/null || true )
+			[ -x "$repo_root/recorder/bin/idoracing-hud" ] && hud_bin="$repo_root/recorder/bin/idoracing-hud"
+		fi
+		if [ -n "$hud_bin" ]; then
+			"$hud_bin" </dev/null >>"$log" 2>&1 &
+			hud_pid=$!
+		elif [ -f "$repo_root/tools/pedal_hud.py" ] && command -v python3 >/dev/null 2>&1; then
+			python_cmd="/usr/bin/python3"
+			[ ! -x "$python_cmd" ] && python_cmd="python3"
+			"$python_cmd" "$repo_root/tools/pedal_hud.py" </dev/null >>"$log" 2>&1 &
+			hud_pid=$!
+		fi
+	fi
+
 	run_recorder() {
 		if [ "$delay" -gt 0 ] 2>/dev/null; then
 			sleep "$delay"
@@ -227,6 +261,9 @@ if [ -n "$spotter_pid" ]; then
 fi
 if [ -n "$moza_pid" ]; then
 	kill "$moza_pid" 2>/dev/null || true
+fi
+if [ -n "$hud_pid" ]; then
+	kill "$hud_pid" 2>/dev/null || true
 fi
 pkill -P $$ 2>/dev/null || true
 sleep 0.05 2>/dev/null || true

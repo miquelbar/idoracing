@@ -77,6 +77,8 @@ results.json
 # Recorder build output
 recorder/*.exe
 recorder/**/*.exe
+recorder/bin/
+recorder/idoracing-hud
 
 # Spotter dynamic user track data
 recorder/voices/tracks/

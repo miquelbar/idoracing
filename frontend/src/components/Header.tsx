@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Activity,
   Gauge,
   Headphones,
   Layers,
@@ -11,7 +12,7 @@ import type { SpotterConfigDTO, SystemStatus } from '../types/telemetry';
 import { fetchSpotterConfig, updateSpotterConfig } from '../services/api';
 import { useLanguage } from '../i18n';
 
-export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'engineer' | 'settings';
+export type NavTab = 'sessions' | 'telemetry' | 'setup' | 'hud' | 'engineer' | 'settings';
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -69,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'sessions', label: t('sessions_tab'), icon: Layers },
     { id: 'telemetry', label: t('telemetry_tab'), icon: Gauge },
     { id: 'setup', label: t('setup_tab'), icon: Wrench },
+    { id: 'hud', label: t('hud_tab'), icon: Activity },
     { id: 'engineer', label: t('engineer_tab'), icon: MessageSquare },
     { id: 'settings', label: t('settings_tab'), icon: Settings },
   ] as const;
@@ -108,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={tItem.id}
                 onClick={() => onSelectTab(tItem.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                   isActive
                     ? 'bg-[#1E2738] text-white shadow-sm border border-white/10'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]'

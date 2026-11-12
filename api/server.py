@@ -3,15 +3,20 @@ IdoRacing Analytics FastAPI backend: session import and storage, lap comparison,
 corner analysis, track outlines and the AI race engineer endpoints.
 """
 
+import asyncio
 import glob
 import logging
 import os
+import socket
 import struct
+import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal
 
 import certifi
@@ -22,7 +27,16 @@ import numpy as np
 os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -261,6 +275,37 @@ def _auto_import_all(imported_sources: set[str]) -> dict[str, int]:
     return results
 
 
+active_ws_clients: set[WebSocket] = set()
+hud_process: subprocess.Popen | None = None
+
+
+async def _run_udp_telemetry_forwarder():
+    loop = asyncio.get_running_loop()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", 10825))
+    except OSError as err:
+        logger.warning("Live telemetry forwarder: cannot bind UDP port 10825: %s", err)
+        sock.close()
+        return
+    sock.setblocking(False)
+
+    try:
+        while True:
+            data = await loop.sock_recv(sock, 1024)
+            if active_ws_clients:
+                text = data.decode("utf-8")
+                await asyncio.gather(
+                    *[ws.send_text(text) for ws in list(active_ws_clients)],
+                    return_exceptions=True,
+                )
+    except asyncio.CancelledError:
+        pass
+    finally:
+        sock.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure database is initialized
@@ -277,7 +322,20 @@ async def lifespan(app: FastAPI):
         if total:
             parts = ", ".join(f"{v} {k}" for k, v in results.items() if v)
             logger.info("Auto-import complete: %d new sessions (%s)", total, parts)
+
+    # Start live telemetry forwarder for WebSocket HUD
+    forwarder_task = asyncio.create_task(_run_udp_telemetry_forwarder())
+
     yield
+
+    forwarder_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await forwarder_task
+
+    global hud_process
+    if hud_process is not None and hud_process.poll() is None:
+        hud_process.terminate()
+        hud_process = None
 
 
 app = FastAPI(
@@ -577,6 +635,76 @@ def update_settings(cfg: SettingsDTO):
         llm_client.openai_model = cfg.openai_model.strip()
 
     return {"status": "ok", "provider": llm_client.provider, "active_model": llm_client.active_model}
+
+
+@app.websocket("/api/live/ws")
+async def live_telemetry_ws(websocket: WebSocket):
+    """Real-time 50Hz telemetry stream for Web HUD overlay via WebSocket."""
+    await websocket.accept()
+    active_ws_clients.add(websocket)
+    try:
+        while True:
+            # Keep-alive loop reading client messages/pings
+            await websocket.receive_text()
+    except (WebSocketDisconnect, OSError):
+        pass
+    finally:
+        active_ws_clients.discard(websocket)
+
+
+@app.post("/api/hud/launch")
+def launch_native_hud():
+    """Launch the native 100% Go or PySide6 overlay on Linux."""
+    global hud_process
+    if hud_process is not None and hud_process.poll() is None:
+        return {"status": "already_running", "pid": hud_process.pid}
+
+    repo_root = Path(__file__).resolve().parent.parent
+    go_bin = repo_root / "recorder" / "bin" / "idoracing-hud"
+    hud_script = repo_root / "tools" / "pedal_hud.py"
+
+    cmd: list[str] = []
+    if go_bin.exists() and os.access(go_bin, os.X_OK):
+        cmd = [str(go_bin)]
+    elif hud_script.exists():
+        python_bin = "/usr/bin/python3" if os.path.exists("/usr/bin/python3") else sys.executable
+        cmd = [python_bin, str(hud_script)]
+    else:
+        raise HTTPException(status_code=404, detail="No HUD binary or script found")
+
+    try:
+        hud_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return {"status": "launched", "pid": hud_process.pid, "type": "go" if cmd == [str(go_bin)] else "python"}
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/hud/close")
+def close_native_hud():
+    """Terminate the running native transparent overlay."""
+    global hud_process
+    if hud_process is not None and hud_process.poll() is None:
+        hud_process.terminate()
+        try:
+            hud_process.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            hud_process.kill()
+        hud_process = None
+        return {"status": "closed"}
+    return {"status": "not_running"}
+
+
+@app.get("/api/hud/status")
+def get_native_hud_status():
+    """Report whether the native transparent overlay is currently open."""
+    global hud_process
+    running = hud_process is not None and hud_process.poll() is None
+    return {"running": running, "pid": hud_process.pid if running else None}
 
 
 @app.get("/api/spotter/config", response_model=SpotterConfigDTO)

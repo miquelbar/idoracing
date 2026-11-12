@@ -321,5 +321,24 @@ export async function updateSpotterConfig(cfg: Partial<SpotterConfigDTO>): Promi
   return res.json();
 }
 
+export async function launchNativeHud(): Promise<{ status: string; pid?: number }> {
+  const res = await fetch(`${API_BASE}/hud/launch`, { method: 'POST' });
+  if (!res.ok) await failure(res, 'Failed to launch native HUD overlay');
+  return res.json();
+}
+
+export async function closeNativeHud(): Promise<{ status: string }> {
+  const res = await fetch(`${API_BASE}/hud/close`, { method: 'POST' });
+  if (!res.ok) await failure(res, 'Failed to close native HUD overlay');
+  return res.json();
+}
+
+export async function fetchNativeHudStatus(): Promise<{ running: boolean; pid?: number }> {
+  const res = await fetch(`${API_BASE}/hud/status`);
+  if (!res.ok) await failure(res, 'Failed to fetch native HUD status');
+  return res.json();
+}
+
+
 
 

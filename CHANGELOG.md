@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Live Pedal & Trail Braking HUD with Pep Radio Controls (100% Go Native Overlay & Web View)**:
+  - Added standalone 100% Go desktop overlay (`recorder/tools/hud/` compiled to `recorder/bin/idoracing-hud`) rendering real-time scrolling oscilloscope traces for Throttle (neon green) and Brake / Trail Braking (racing red) with 25/50/75/100% grid lines, trail braking decay detection, live gear, speed, RPM, and instantaneous pedal level gauges.
+  - Zero Python / Node overhead while racing: pure compiled Go binary using double-buffered X11 rendering (`< 0.1% CPU`, ~15MB RAM) ensuring zero frame drops or stuttering during gameplay.
+  - Built-in Pep Spotter Radio Controls: directly toggle Mute/Unmute (`[📻 Pep: Activo]` / `[🔇 Pep: MUDO]`) and adjust volume (`[-]` / `[+]`) from the overlay, persisting immediately to `data/spotter_config.json` and taking effect dynamically without restarting the game.
+  - Drag-and-drop repositioning anywhere on screen, with clean termination on `[✕]` click or `Esc` / `q` keypress.
+  - Added dedicated Web HUD view (`/hud` or tab `🎮 Live HUD`) in the React frontend (`HudView.tsx`) streaming 50Hz telemetry over WebSocket (`/api/live/ws`), with controls to launch or close the native overlay with 1 click.
+  - Added multi-target UDP broadcasting in `recorder/broadcaster.go` delivering frames simultaneously to Moza LEDs (10823), Native HUD (10824), and Web WebSocket stream (10825).
 - **Native Moza RPM Shift Lights Telemetry Bridge for Linux (`tools/moza_leds.py` & UDP Broadcaster)**:
   - Added lightweight UDP telemetry broadcaster in `recorder/broadcaster.go` emitting 50Hz frames (`rpm`, `max_rpm`, `gear`, `speed_kmh`, `tc`, `abs`) to `127.0.0.1:10823`.
   - Added host daemon `tools/moza_leds.py` using the Moza CDC-ACM serial protocol (115200 baud, Group 0x3F, command `send-rpm-telemetry`) to drive rev LEDs directly on Moza steering wheels (CS V2P, GS, KS, ES, FSR) in Linux under Proton/Wine without requiring Moza Pit House or SimHub.

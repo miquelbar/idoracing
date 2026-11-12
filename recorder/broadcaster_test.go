@@ -102,3 +102,52 @@ func TestBroadcasterSendAndReceive(t *testing.T) {
 		t.Errorf("second packet RPM = %d; want 7800", pkt.RPM)
 	}
 }
+
+func TestBroadcasterMultiTarget(t *testing.T) {
+	// Start two local UDP listeners
+	l1, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l1.Close()
+
+	l2, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l2.Close()
+
+	targets := l1.LocalAddr().String() + "," + l2.LocalAddr().String()
+	bcast := NewBroadcaster(targets)
+	if bcast == nil {
+		t.Fatalf("failed to create multi-target broadcaster for %s", targets)
+	}
+	defer bcast.Close()
+
+	sample := TelemetrySample{Gas: 0.85, Brake: 0.45, RPM: 6500}
+	meta := SessionMetadata{MaxRPM: 8000}
+	bcast.Send(sample, meta, time.Now())
+
+	buf := make([]byte, 512)
+	_ = l1.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	n1, _, err := l1.ReadFrom(buf)
+	if err != nil {
+		t.Fatalf("l1 failed to receive broadcast: %v", err)
+	}
+	var p1 TelemetryPacket
+	_ = json.Unmarshal(buf[:n1], &p1)
+	if p1.Gas != 0.85 || p1.Brake != 0.45 {
+		t.Errorf("l1 received unexpected packet: %+v", p1)
+	}
+
+	_ = l2.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	n2, _, err := l2.ReadFrom(buf)
+	if err != nil {
+		t.Fatalf("l2 failed to receive broadcast: %v", err)
+	}
+	var p2 TelemetryPacket
+	_ = json.Unmarshal(buf[:n2], &p2)
+	if p2.Gas != 0.85 || p2.Brake != 0.45 {
+		t.Errorf("l2 received unexpected packet: %+v", p2)
+	}
+}

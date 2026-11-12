@@ -28,6 +28,7 @@ import { SessionsView } from './views/SessionsView';
 import { SettingsView } from './views/SettingsView';
 import { CarSetupView } from './views/CarSetupView';
 import { TelemetryView } from './views/TelemetryView';
+import { HudView } from './views/HudView';
 import { CarSetupModal } from './components/CarSetupModal';
 import { StintModal } from './components/StintModal';
 
@@ -153,8 +154,13 @@ function pickDefaultLaps(session: SessionDetail | null): [number, number] {
 
 function getTabFromHash(): NavTab {
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  if (['sessions', 'telemetry', 'setup', 'engineer', 'settings'].includes(hash)) {
+  if (['sessions', 'telemetry', 'setup', 'hud', 'engineer', 'settings'].includes(hash)) {
     return hash as NavTab;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get('tab')?.toLowerCase();
+  if (tabParam && ['sessions', 'telemetry', 'setup', 'hud', 'engineer', 'settings'].includes(tabParam)) {
+    return tabParam as NavTab;
   }
   return 'telemetry';
 }
@@ -676,6 +682,8 @@ export const App: React.FC = () => {
               />
             )}
 
+            {currentTab === 'hud' && <HudView />}
+
             {currentTab === 'engineer' && (
               <EngineerView
                 comparison={comparison}
@@ -695,8 +703,8 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Clean Status Footer (Hidden on telemetry view to maximize dashboard height) */}
-      {currentTab !== 'telemetry' && (
+      {/* Clean Status Footer (Hidden on telemetry and HUD views to maximize screen space) */}
+      {currentTab !== 'telemetry' && currentTab !== 'hud' && (
         <footer className="border-t border-[#1E2638] bg-[#0A0C12] px-6 py-2.5 text-xs text-gray-500 font-telemetry flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-4">
             <span>
