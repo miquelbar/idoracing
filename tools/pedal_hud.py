@@ -156,7 +156,7 @@ class PedalTraceWidget(QWidget):
             painter.drawText(
                 QRectF(margin_left, margin_top, gw, gh),
                 Qt.AlignmentFlag.AlignCenter,
-                "Esperando telemetría de pista (ACC, LMU, AC...)",
+                "Waiting for 50Hz live telemetry (ACC, LMU, AC...)",
             )
             return
 
@@ -222,16 +222,16 @@ class PedalTraceWidget(QWidget):
         gas_pct = int(self.current_gas * 100)
         painter.setPen(QColor(34, 197, 94, 255))
         painter.drawText(
-            QRectF(margin_left, h - margin_bottom + 4, 100, 16), Qt.AlignmentFlag.AlignLeft, f"GAS: {gas_pct}%"
+            QRectF(margin_left, h - margin_bottom + 4, 110, 16), Qt.AlignmentFlag.AlignLeft, f"THROTTLE: {gas_pct}%"
         )
 
         # Brake / Trail Braking Badge
         brake_pct = int(self.current_brake * 100)
         is_trailing = 0.05 < self.current_brake < 0.85
-        brake_text = f"FRENO: {brake_pct}% [TRAIL]" if is_trailing else f"FRENO: {brake_pct}%"
+        brake_text = f"BRAKE: {brake_pct}% [TRAIL]" if is_trailing else f"BRAKE: {brake_pct}%"
         painter.setPen(QColor(239, 68, 68, 255))
         painter.drawText(
-            QRectF(margin_left + 85, h - margin_bottom + 4, 150, 16), Qt.AlignmentFlag.AlignLeft, brake_text
+            QRectF(margin_left + 115, h - margin_bottom + 4, 150, 16), Qt.AlignmentFlag.AlignLeft, brake_text
         )
 
         # Speed and Gear
@@ -240,7 +240,7 @@ class PedalTraceWidget(QWidget):
         painter.drawText(
             QRectF(w - margin_right - 140, h - margin_bottom + 4, 140, 16),
             Qt.AlignmentFlag.AlignRight,
-            f"M: {gear_str} | {int(self.current_speed)} km/h",
+            f"G: {gear_str} | {int(self.current_speed)} km/h",
         )
 
 
@@ -371,7 +371,7 @@ class PedalHudWindow(QWidget):
     def update_pep_button(self) -> None:
         enabled = self.spotter_config.get("enabled", True)
         if enabled:
-            self.btn_pep.setText("📻 Pep: Activo")
+            self.btn_pep.setText("📻 Pep: Active")
             self.btn_pep.setStyleSheet("""
                 QPushButton {
                     background: rgba(16, 185, 129, 0.25); color: #34d399;
@@ -381,7 +381,7 @@ class PedalHudWindow(QWidget):
                 QPushButton:hover { background: rgba(16, 185, 129, 0.45); }
             """)
         else:
-            self.btn_pep.setText("🔇 Pep: MUDO")
+            self.btn_pep.setText("🔇 Pep: MUTED")
             self.btn_pep.setStyleSheet("""
                 QPushButton {
                     background: rgba(239, 68, 68, 0.25); color: #f87171;

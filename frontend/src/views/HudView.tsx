@@ -283,7 +283,7 @@ export const HudView: React.FC = () => {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
-          ctx.fillText('Esperando telemetría viva de pista (ACC, LMU, AC)...', marginLeft + gw / 2, marginTop + gh / 2);
+          ctx.fillText('Waiting for 50Hz live telemetry (ACC, LMU, AC...)...', marginLeft + gw / 2, marginTop + gh / 2);
         }
       }
 
@@ -357,11 +357,11 @@ export const HudView: React.FC = () => {
                     : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                 }`}
               >
-                {connected ? '● En Vivo' : '○ Esperando Sim'}
+                {connected ? '● Live' : '○ Waiting for Sim'}
               </span>
             </div>
             <p className="text-xs text-gray-400">
-              Osciloscopio de pedales a 50Hz para calibrar tu descompresión de freno y rampa de gas.
+              50Hz pedal oscilloscope to master your brake trail release and throttle ramp.
             </p>
           </div>
         </div>
@@ -370,7 +370,7 @@ export const HudView: React.FC = () => {
         <div className="flex items-center gap-2.5 bg-[#0D111A] border border-white/10 rounded-xl px-3 py-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs font-bold text-gray-300">
             <Radio className="w-4 h-4 text-brand" />
-            <span>Radio Pep:</span>
+            <span>Pep Radio:</span>
           </div>
 
           <button
@@ -384,12 +384,12 @@ export const HudView: React.FC = () => {
             {spotterConfig.enabled ? (
               <>
                 <Volume2 className="w-3.5 h-3.5" />
-                <span>Activo</span>
+                <span>Active</span>
               </>
             ) : (
               <>
                 <VolumeX className="w-3.5 h-3.5" />
-                <span>Silenciado</span>
+                <span>Muted</span>
               </>
             )}
           </button>
@@ -443,12 +443,12 @@ export const HudView: React.FC = () => {
         {/* Live Gauges Readout Overlay */}
         <div className="absolute top-3 right-3 flex items-center gap-2 bg-[#121824]/90 backdrop-blur-md border border-white/15 rounded-xl px-3 py-1.5 shadow-lg">
           <div className="flex flex-col items-center">
-            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Marcha</span>
+            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Gear</span>
             <span className="text-xl font-mono font-black text-amber-400">{gearLabel}</span>
           </div>
           <div className="h-6 w-px bg-white/10" />
           <div className="flex flex-col items-center">
-            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Velocidad</span>
+            <span className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Speed</span>
             <span className="text-xl font-mono font-black text-white">{liveReadout.speed} <span className="text-[10px] font-normal text-gray-400">km/h</span></span>
           </div>
         </div>
@@ -458,7 +458,7 @@ export const HudView: React.FC = () => {
           <div className="flex items-center gap-6">
             {/* Throttle Gauge */}
             <div className="flex items-center gap-2.5">
-              <span className="text-xs font-black tracking-wider text-emerald-400 font-mono">GAS</span>
+              <span className="text-xs font-black tracking-wider text-emerald-400 font-mono">THROTTLE</span>
               <div className="w-28 sm:w-40 h-3 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-75 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
@@ -472,7 +472,7 @@ export const HudView: React.FC = () => {
 
             {/* Brake / Trail Braking Gauge */}
             <div className="flex items-center gap-2.5">
-              <span className="text-xs font-black tracking-wider text-rose-400 font-mono">FRENO</span>
+              <span className="text-xs font-black tracking-wider text-rose-400 font-mono">BRAKE</span>
               <div className="w-28 sm:w-40 h-3 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/10">
                 <div
                   className="h-full bg-rose-500 rounded-full transition-all duration-75 shadow-[0_0_10px_rgba(239,68,68,0.6)]"
@@ -513,19 +513,19 @@ export const HudView: React.FC = () => {
           </div>
           <div>
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>Ventana Flotante Nativa (Overlay Always-On-Top)</span>
+              <span>Native Floating Overlay Window (Always-On-Top)</span>
               {nativeHudRunning ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Abierta (PID {nativeHudPid})
+                  Running (PID {nativeHudPid})
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-gray-400">
-                  Cerrada
+                  Closed
                 </span>
               )}
             </h2>
             <p className="text-xs text-gray-400">
-              Abre una ventana translúcida sin bordes que flota directamente encima de ACC/LMU/AC. Arrastrable con el ratón y con tecla de escape (Esc) para cerrarla.
+              Opens a translucent borderless 100% Go window floating directly over ACC/LMU/AC. Draggable with mouse and closes on Esc.
             </p>
           </div>
         </div>
@@ -537,7 +537,7 @@ export const HudView: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold hover:bg-rose-500/30 transition cursor-pointer"
             >
               <X className="w-4 h-4" />
-              <span>Cerrar Ventana Flotante</span>
+              <span>Close Floating Overlay</span>
             </button>
           ) : (
             <button
@@ -545,7 +545,7 @@ export const HudView: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-500 shadow-md shadow-purple-600/20 transition cursor-pointer"
             >
               <ExternalLink className="w-4 h-4" />
-              <span>Abrir Ventana Flotante</span>
+              <span>Open Floating Overlay</span>
             </button>
           )}
         </div>

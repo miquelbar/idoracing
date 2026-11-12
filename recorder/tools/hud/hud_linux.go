@@ -236,16 +236,16 @@ func runOSWindow(app *HUDApp, width, height int) error {
 			C.XFillRectangle(dpy, C.Drawable(backbuffer), gc, 8, 6, 126, 26)
 			C.XSetForeground(dpy, gc, colGas)
 			C.XDrawRectangle(dpy, C.Drawable(backbuffer), gc, 8, 6, 126, 26)
-			pepText := C.CString("[#] Pep: Activo")
-			C.XDrawString(dpy, C.Drawable(backbuffer), gc, 16, 23, pepText, C.int(len("[#] Pep: Activo")))
+			pepText := C.CString("[#] Pep: Active")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, 16, 23, pepText, C.int(len("[#] Pep: Active")))
 			C.free(unsafe.Pointer(pepText))
 		} else {
 			C.XSetForeground(dpy, gc, colBox)
 			C.XFillRectangle(dpy, C.Drawable(backbuffer), gc, 8, 6, 126, 26)
 			C.XSetForeground(dpy, gc, colClose)
 			C.XDrawRectangle(dpy, C.Drawable(backbuffer), gc, 8, 6, 126, 26)
-			pepText := C.CString("[X] Pep: MUDO")
-			C.XDrawString(dpy, C.Drawable(backbuffer), gc, 20, 23, pepText, C.int(len("[X] Pep: MUDO")))
+			pepText := C.CString("[X] Pep: MUTED")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, 18, 23, pepText, C.int(len("[X] Pep: MUTED")))
 			C.free(unsafe.Pointer(pepText))
 		}
 
@@ -288,7 +288,7 @@ func runOSWindow(app *HUDApp, width, height int) error {
 		}
 		statsStr := fmt.Sprintf("G:%s  %.0fkm/h  %drpm", gearStr, latestPkt.SpeedKmh, latestPkt.RPM)
 		if !hasData {
-			statsStr = "Esperando telemetria 50Hz..."
+			statsStr = "Waiting for 50Hz telemetry..."
 		}
 		statsCStr := C.CString(statsStr)
 		C.XSetForeground(dpy, gc, colWhite)
@@ -387,13 +387,13 @@ func runOSWindow(app *HUDApp, width, height int) error {
 			C.XSetForeground(dpy, gc, colTrail)
 			C.XFillRectangle(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 205, 230, 26)
 			C.XSetForeground(dpy, gc, colBg)
-			trailText := C.CString(">>> TRAIL BRAKING ACTIVO <<<")
-			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX+12), 222, trailText, C.int(len(">>> TRAIL BRAKING ACTIVO <<<")))
+			trailText := C.CString(">>> TRAIL BRAKING ACTIVE <<<")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX+12), 222, trailText, C.int(len(">>> TRAIL BRAKING ACTIVE <<<")))
 			C.free(unsafe.Pointer(trailText))
 		} else {
 			C.XSetForeground(dpy, gc, colMuted)
-			hintText := C.CString("IdoRacing Pedal & Trail HUD  (Arrastrar con raton | Esc para salir)")
-			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 222, hintText, C.int(len("IdoRacing Pedal & Trail HUD  (Arrastrar con raton | Esc para salir)")))
+			hintText := C.CString("IdoRacing Pedal & Trail HUD  (Drag with mouse | Esc to exit)")
+			C.XDrawString(dpy, C.Drawable(backbuffer), gc, C.int(oscX), 222, hintText, C.int(len("IdoRacing Pedal & Trail HUD  (Drag with mouse | Esc to exit)")))
 			C.free(unsafe.Pointer(hintText))
 		}
 

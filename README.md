@@ -104,9 +104,9 @@ Real-time floating oscilloscope displaying live **Throttle** (Neon Green) and **
 ![IdoRacing Live Pedal & Trail Braking HUD](docs/screenshots/pedal-trail-hud.png)
 
 - **Pure 100% Compiled Go**: Zero Python, zero Node, zero background web servers needed while racing. Draws directly using X11 double-buffering at `< 0.1% CPU` and ~15MB RAM, guaranteeing zero frame drops or frametime jitter in your simulator.
-- **Dynamic Trail Braking Detection**: Prominently displays `[>>> TRAIL BRAKING ACTIVO <<<]` in amber when progressive corner-entry brake modulation (bleeding off between 5% and 65% while off throttle) is executed cleanly.
+- **Dynamic Trail Braking Detection**: Prominently displays `[>>> TRAIL BRAKING ACTIVE <<<]` in amber when progressive corner-entry brake modulation (bleeding off between 5% and 65% while off throttle) is executed cleanly.
 - **Integrated Pit-Wall Radio Controls**:
-  - Click `[📻 Pep: Activo]` to instantly mute or unmute Pep (`[🔇 Pep: MUDO]`).
+  - Click `[📻 Pep: Active]` to instantly mute or unmute Pep (`[🔇 Pep: MUTED]`).
   - Adjust spotter radio volume on the fly with `[-]` and `[+]`.
   - Persists immediately to `data/spotter_config.json` and takes effect dynamically during your stint.
 - **Interactive & Dismissable**: Click and drag anywhere to position it over your dashboard or second monitor. Dismiss at any time via `[✕]` or pressing `Esc` / `Q`.
