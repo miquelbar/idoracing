@@ -9,7 +9,27 @@ set -u
 
 here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 repo_root="$(cd "$here/../.." && pwd)"
-recorder="${IDORACING_RECORDER:-$here/idoracing-recorder.exe}"
+recorder="${IDORACING_RECORDER:-}"
+if [ -z "$recorder" ]; then
+	for cand in "$here/idoracing-recorder.exe" "$here/../idoracing-recorder.exe" "$repo_root/recorder/idoracing-recorder.exe"; do
+		if [ -f "$cand" ]; then
+			magic=$(head -c 2 "$cand" 2>/dev/null || true)
+			if [ "$magic" = "MZ" ]; then
+				recorder="$cand"
+				break
+			fi
+		fi
+	done
+	if [ -z "$recorder" ]; then
+		if [ -f "$here/idoracing-recorder.exe" ]; then
+			recorder="$here/idoracing-recorder.exe"
+		elif [ -f "$here/../idoracing-recorder.exe" ]; then
+			recorder="$here/../idoracing-recorder.exe"
+		else
+			recorder="$here/idoracing-recorder.exe"
+		fi
+	fi
+fi
 delay="${IDORACING_RECORDER_DELAY:-10}"
 log="${IDORACING_RECORDER_LOG:-${XDG_STATE_HOME:-$HOME/.local/state}/idoracing-recorder.log}"
 voices_dir="${IDORACING_VOICES_DIR:-$repo_root/recorder/voices}"
@@ -34,9 +54,9 @@ if [ -f "$config_file" ]; then
 fi
 
 # Optional local user environment overrides (e.g. SDL_GAMECONTROLLER_IGNORE_DEVICES)
-if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/idoracing/env" ]; then
+if [ -f "${XDG_CONFIG_HOME:-${HOME:-}/.config}/idoracing/env" ]; then
 	# shellcheck disable=SC1090
-	. "${XDG_CONFIG_HOME:-$HOME/.config}/idoracing/env"
+	. "${XDG_CONFIG_HOME:-${HOME:-}/.config}/idoracing/env"
 fi
 
 play_clip() {
@@ -120,6 +140,10 @@ if [ -z "$proton" ]; then
 elif [ ! -f "$recorder" ]; then
 	echo "idoracing: $recorder not found, starting game without the recorder" >&2
 else
+	rec_magic=$(head -c 2 "$recorder" 2>/dev/null || true)
+	if [ "$rec_magic" != "MZ" ] && [ -s "$recorder" ]; then
+		echo "idoracing: WARNING: $recorder is NOT a Windows PE executable (magic: '$rec_magic'). Rebuild with: GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w -H=windowsgui' -o idoracing-recorder.exe ." >&2
+	fi
 	mkdir -p "$(dirname "$log")"
 	touch "$log"
 

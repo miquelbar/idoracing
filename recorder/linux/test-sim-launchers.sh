@@ -96,4 +96,13 @@ IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDO
 sleep 0.5
 grep -qx "run $work/idoracing-recorder.exe -sim acrally -exit-with acr.exe,AssettoCorsaRally.exe,ACR-Win64-Shipping.exe,AssettoCorsaRally-Win64-Shipping.exe,acrally.exe -log $work/log" "$CALLS" || fail "sim-with-recorder.sh auto-acr failed"
 
+# 7. Regression check: warning when recorder is a Linux ELF binary
+fake_elf="$work/fake_elf.exe"
+printf '\x7fELF\x02\x01\x01\x00' >"$fake_elf"
+elf_err="$work/elf_err.log"
+: >"$CALLS"
+IDORACING_RECORDER="$fake_elf" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/acc-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/acc/AC2-Win64-Shipping.exe" 2>"$elf_err"
+grep -q "WARNING.*NOT a Windows PE executable" "$elf_err" || fail "acc-with-recorder.sh did not warn on ELF executable"
+
 echo "All sim launcher tests passed ok!"

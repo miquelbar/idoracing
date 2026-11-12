@@ -117,13 +117,10 @@ if command -v go >/dev/null 2>&1 && [ -d "$REPO_ROOT/recorder" ]; then
 	}
 
 	echo "pre-commit: verifying Windows cross-build (GOOS=windows GOARCH=amd64)..."
-	tmp_exe="$(mktemp -u "${TMPDIR:-/tmp}/idoracing-recorder-XXXXXX.exe")"
-	(cd "$REPO_ROOT/recorder" && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o "$tmp_exe" .) || {
-		rm -f "$tmp_exe"
+	(cd "$REPO_ROOT/recorder" && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe . && cp -f idoracing-recorder.exe linux/idoracing-recorder.exe) || {
 		echo "pre-commit: Windows recorder build failed! Fix *_windows.go compilation errors before committing." >&2
 		exit 1
 	}
-	rm -f "$tmp_exe"
 fi
 
 # --- CHANGELOG Check ---

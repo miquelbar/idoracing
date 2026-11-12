@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
 
 ### Fixed
+- **Linux Launcher Scripts Auto-Detect Windows PE Recorder & Fail Early on ELF Executables**:
+  - `recorder/linux/*.sh` launcher scripts (`acc-with-recorder.sh`, `sim-with-recorder.sh`, `lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`, `dr2-with-recorder.sh`) now check for Windows PE executable magic (`MZ`) and search fallback paths (`recorder/linux/` and `recorder/`). If an ELF binary or incompatible executable is detected, a prominent warning is emitted rather than silently dying inside Proton.
+  - Added regression test `tests/test_recorder_binary.py` and launcher suite test cases verifying that recorder binaries are genuine Windows PE executables (`MZ`) and that launcher scripts properly warn if an ELF binary is ever provided.
+  - `githooks/pre-commit` and `githooks/pre-push` now cross-compile the Windows PE binary directly to both `recorder/idoracing-recorder.exe` and `recorder/linux/idoracing-recorder.exe`, guaranteeing binaries are never left as stale Linux ELF stubs.
 - **Pep Chat: Typing Lag, Truncated Answers, Broken Copy & Gamepad Awareness**:
   - The sidebar chat input now owns its draft state and the message history is memoized, so each keystroke no longer re-renders and re-parses the markdown of the whole drawer.
   - Copy buttons work over plain http (e.g. `http://192.168.x.x:8501`) where `navigator.clipboard` does not exist, via a `execCommand` fallback in `frontend/src/utils/clipboard.ts`.

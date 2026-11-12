@@ -34,9 +34,8 @@ echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher scripts + W
 	go test ./...
 	bash linux/test-acc-with-recorder.sh
 	bash linux/test-sim-launchers.sh
-	tmp_exe="$(mktemp -u "${TMPDIR:-/tmp}/idoracing-recorder-XXXXXX.exe")"
-	trap 'rm -f "$tmp_exe"' EXIT
-	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o "$tmp_exe" .
+	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .
+	cp -f idoracing-recorder.exe linux/idoracing-recorder.exe
 )
 
 echo "pre-push: [5/5] All GitHub Actions CI checks passed locally! Proceeding with push."
