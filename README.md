@@ -129,6 +129,8 @@ IdoRacing provides first-class support for **MOZA Racing** hardware on Linux und
 - **Zero-Setup Automation**:
   - Automatically launched and cleaned up by `sim-with-recorder.sh` and `acc-with-recorder.sh` (enabled by default; can be toggled with `IDORACING_MOZA_LEDS=false`).
   - **Quick Test Sweep**: Run `python3 tools/moza_leds.py --test` anytime in your terminal to verify your wheel's LED connection with an instant 10-LED sweep.
+- **⚠️ MOZA Hardware & ACC Infinite Track Loading Fix (`GE-Proton11-7+`)**:
+  If using MOZA hardware (e.g. MOZA R3/R5/R9/R12/R16/R21 wheelbases or pedals) and ACC gets stuck indefinitely on the track loading screen, this is caused by DirectInput/HID enumeration contention in older Wine/Proton 10 builds. Switching Steam's Compatibility Tool to **`GE-Proton11-7`** (or newer GE-Proton 11.x) completely fixes this track loading hang.
 
 ---
 
@@ -140,7 +142,7 @@ The recommended and simplest way on Linux with Steam + Proton is the **universal
 > [!IMPORTANT]
 > **Proton Version & Compatibility Warnings for Linux Sim Racers:**
 > - **Recommended Proton Versions**:
->   - **Assetto Corsa Competizione (ACC)**: Run on official **Proton 9.0 (Default)**, **Proton Experimental**, or tested **GE-Proton9** / **GE-Proton10**.
+>   - **Assetto Corsa Competizione (ACC)**: Run on official **Proton 9.0 (Default)**, **Proton Experimental**, or **GE-Proton 11-7+**. **Note for MOZA wheelbase & pedal users**: If ACC gets stuck indefinitely on the track loading screen, switch to **`GE-Proton11-7`**, which resolves DirectInput USB HID enumeration hangs with MOZA hardware.
 >   - **Le Mans Ultimate (LMU)**: Requires a Proton build with `bcrypt` & DirectInput fixes (such as **GE-Proton**).
 > - **⚠️ NVAPI Overrides Warning (`PROTON_ENABLE_NVAPI=1` / `DXVK_ENABLE_NVAPI=1`)**:
 >   Do **NOT** force `PROTON_ENABLE_NVAPI=1` or `DXVK_ENABLE_NVAPI=1` in your Steam launch options on NVIDIA GPUs. Under Linux/Proton, enabling NVAPI with DXVK causes GPU Xid 109 timeouts and deadlocks ACC's `RenderThread` indefinitely during track loading. The launcher scripts automatically enforce `DXVK_ENABLE_NVAPI=0` and `PROTON_ENABLE_NVAPI=0` to protect your session.
@@ -181,7 +183,7 @@ Because `idoracing-recorder.exe` is built as a background GUI process (`-H=windo
 ---
 
 ### 🏎️ Assetto Corsa Competizione (ACC)
-- **Proton Version & Compatibility (Linux)**: Use official **Proton 9.0 (Default)** or **Proton Experimental** (or **GE-Proton9/10**). Ensure NVAPI overrides (`PROTON_ENABLE_NVAPI=1`) are not passed in launch options, as they cause ACC to freeze indefinitely during track loading.
+- **Proton Version & Track Loading Hang (Linux / MOZA Hardware)**: Use official **Proton 9.0 (Default)**, **Proton Experimental**, or **GE-Proton11-7+**. If using MOZA wheelbases or pedals and ACC gets stuck on the loading screen, switch to **`GE-Proton11-7`** to resolve DirectInput USB contention. Also ensure NVAPI overrides (`PROTON_ENABLE_NVAPI=1`) are not passed in launch options, as they cause ACC to freeze indefinitely during track loading.
 - **Automatic Live Recorder (50Hz + GPS coords)**:
   - **Linux (Steam + Proton)**: Add `gamemoderun /path/to/idoracing/recorder/linux/sim-with-recorder.sh %command%` (or dedicated `acc-with-recorder.sh %command%`).
   - **Windows**: Run `idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe` (or use `-sim auto`).

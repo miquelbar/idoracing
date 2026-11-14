@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Corrected gear display formatting in Linux HUD (`hud_linux.go`) to match the simulator standard (-1=R, 0=N, 1+=forward).
 - **ACC Proton Track Loading Hang & Wayland Display Resilience**:
   - `tools/moza_leds.py` now connects lazily to the Moza CDC-ACM serial port only when active telemetry frames with `rpm > 0` are received (and closes the port after 5 seconds idle), preventing USB serial contention while Wine/Proton initializes DirectInput / FFB during ACC track load.
+  - Documented recommendation for **`GE-Proton 11-7+`** in `README.md` and `recorder/README.md` to permanently resolve infinite track loading screen hangs when racing with MOZA hardware.
   - Automatically export `SDL_GAMECONTROLLER_IGNORE_DEVICES="0x3434/0x0a81"` by default in `acc-with-recorder.sh` and `sim-with-recorder.sh` to prevent Keychron K8 Max virtual gamepad HID from hanging DirectInput enumeration.
   - Added automatic fallback to Xwayland displays `:0` and `:1` in `hud_linux.go` and exported `DISPLAY=":0"` in launcher scripts when running under Wayland.
 - **Linux Launcher Scripts Auto-Detect Windows PE Recorder & Fail Early on ELF Executables**:

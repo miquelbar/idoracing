@@ -64,7 +64,7 @@ bash linux/test-sim-launchers.sh
 
 > [!WARNING]
 > **Proton Version & Compatibility Warnings:**
-> - **ACC**: Run with official **Proton 9.0 (Default)**, **Proton Experimental**, or tested **GE-Proton9** / **GE-Proton10**.
+> - **ACC & MOZA Hardware**: Run with official **Proton 9.0 (Default)**, **Proton Experimental**, or **GE-Proton 11-7+**. If using MOZA hardware (wheelbase/pedals) and ACC hangs indefinitely on the track loading screen, switch to **`GE-Proton11-7`** to resolve DirectInput USB HID enumeration contention.
 > - **LMU**: Requires **GE-Proton** (or custom builds with `bcrypt` & DirectInput patches) for shared memory and FFB.
 > - **NVAPI Overrides Warning (`PROTON_ENABLE_NVAPI=1` / `DXVK_ENABLE_NVAPI=1`)**: Do **NOT** force NVAPI overrides in Steam launch options on NVIDIA GPUs. Under Wine/Proton, NVAPI with DXVK deadlocks ACC's `RenderThread` indefinitely during track loading. The launcher scripts automatically unset and disable NVAPI overrides (`DXVK_ENABLE_NVAPI=0`).
 
