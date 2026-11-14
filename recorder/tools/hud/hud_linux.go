@@ -378,6 +378,10 @@ func runOSWindow(app *HUDApp, width, height int) error {
 			// Render lines
 			C.XDrawLines(dpy, C.Drawable(backbuffer), gcGas, (*C.XPoint)(unsafe.Pointer(&gasPts[0])), C.int(numSamples), C.CoordModeOrigin)
 			C.XDrawLines(dpy, C.Drawable(backbuffer), gcBrake, (*C.XPoint)(unsafe.Pointer(&brakePts[0])), C.int(numSamples), C.CoordModeOrigin)
+		} else {
+			// Baseline 0% flat line before telemetry arrives
+			C.XSetForeground(dpy, gc, colMuted)
+			C.XDrawLine(dpy, C.Drawable(backbuffer), gc, C.int(oscX), C.int(y0), C.int(oscX+oscW), C.int(y0))
 		}
 
 		// 6. Right Vertical Instantaneous Level Bars (Throttle & Brake)
@@ -401,6 +405,17 @@ func runOSWindow(app *HUDApp, width, height int) error {
 			C.XFillRectangle(dpy, C.Drawable(backbuffer), gc, 532, C.int(y0-barBrakeH), 12, C.uint(barBrakeH))
 		}
 		C.XDrawRectangle(dpy, C.Drawable(backbuffer), gc, 532, C.int(oscY), 12, C.uint(oscH))
+
+		// Column labels: T (Throttle) and B (Brake)
+		C.XSetForeground(dpy, gc, colGas)
+		tLabel := C.CString("T")
+		C.XDrawString(dpy, C.Drawable(backbuffer), gc, 515, C.int(y0+14), tLabel, 1)
+		C.free(unsafe.Pointer(tLabel))
+
+		C.XSetForeground(dpy, gc, colBrake)
+		bLabel := C.CString("B")
+		C.XDrawString(dpy, C.Drawable(backbuffer), gc, 535, C.int(y0+14), bLabel, 1)
+		C.free(unsafe.Pointer(bLabel))
 
 		// 7. Footer / Trail Braking Badge & Pit Wall Radio Info
 		if isTrail {

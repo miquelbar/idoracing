@@ -36,7 +36,20 @@ voices_dir="${IDORACING_VOICES_DIR:-$repo_root/recorder/voices}"
 config_file="${IDORACING_CONFIG:-$repo_root/data/spotter_config.json}"
 
 # Clean up all background jobs on script exit
-trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
+cleanup() {
+	pkill -9 -f "tail -n0 -F $log" 2>/dev/null || true
+	kill -9 $(jobs -p) 2>/dev/null || true
+	pkill -9 -P $$ 2>/dev/null || true
+	wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# Disable NVAPI overrides that cause GPU Xid 109 timeouts / RenderThread deadlocks on Nvidia Linux
+unset DXVK_ENABLE_NVAPI
+unset PROTON_ENABLE_NVAPI
+unset ROTON_ENABLE_NVAPI
+export DXVK_ENABLE_NVAPI=0
+export PROTON_ENABLE_NVAPI=0
 
 # Keychron keyboards (0x3434/0x0a81, etc.) present virtual gamepad HID endpoints that cause Wine/Proton DInput to hang
 if [ -z "${SDL_GAMECONTROLLER_IGNORE_DEVICES:-}" ]; then
@@ -128,7 +141,21 @@ fi
 
 proton=""
 rec_cmd=()
+in_reaper=false
+if [ "${1:-}" != "" ] && [[ "${1:-}" =~ reaper$ ]] && [ "${2:-}" = "SteamLaunch" ]; then
+	in_reaper=true
+fi
+
+past_reaper=false
+[ "$in_reaper" = "false" ] && past_reaper=true
+
 for arg in "$@"; do
+	if [ "$past_reaper" = "false" ]; then
+		if [ "$arg" = "--" ]; then
+			past_reaper=true
+		fi
+		continue
+	fi
 	if [ "$arg" = "--verb=waitforexitandrun" ]; then
 		rec_cmd+=("--verb=run")
 	else
@@ -156,6 +183,7 @@ game=$!
 spotter_pid=""
 moza_pid=""
 hud_pid=""
+rec_pid=""
 
 if [ -z "$proton" ]; then
 	echo "idoracing: no Proton in the launch command, starting game without the recorder" >&2
@@ -270,18 +298,29 @@ else
 		exec "${rec_cmd[@]}"
 	}
 
+	rec_pid=""
 	run_recorder >>"$log" 2>&1 &
+	rec_pid=$!
 fi
 
 wait "$game"
+sleep 0.1
+pkill -9 -f "tail -n0 -F $log" 2>/dev/null || true
+if [ -n "$rec_pid" ]; then
+	kill -9 "$rec_pid" 2>/dev/null || true
+	pkill -9 -P "$rec_pid" 2>/dev/null || true
+fi
 if [ -n "$spotter_pid" ]; then
-	kill "$spotter_pid" 2>/dev/null || true
+	kill -9 "$spotter_pid" 2>/dev/null || true
+	pkill -9 -P "$spotter_pid" 2>/dev/null || true
 fi
 if [ -n "$moza_pid" ]; then
-	kill "$moza_pid" 2>/dev/null || true
+	kill -9 "$moza_pid" 2>/dev/null || true
+	pkill -9 -P "$moza_pid" 2>/dev/null || true
 fi
 if [ -n "$hud_pid" ]; then
-	kill "$hud_pid" 2>/dev/null || true
+	kill -9 "$hud_pid" 2>/dev/null || true
+	pkill -9 -P "$hud_pid" 2>/dev/null || true
 fi
-pkill -P $$ 2>/dev/null || true
-sleep 0.05 2>/dev/null || true
+pkill -9 -P $$ 2>/dev/null || true
+wait 2>/dev/null || true

@@ -42,6 +42,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
 
 ### Fixed
+- **UDP Telemetry Broadcaster Wine / Proton Fallback (`ws2_32.dll`)**:
+  - Fixed UDP broadcaster failing silently under Wine/Proton (`wsaioctl: winapi error #10045 WSAEOPNOTSUPP`) caused by Go 1.27+ `net.ListenUDP` calling `SIO_UDP_CONNRESET`.
+  - Added native Winsock (`ws2_32.dll`) fallback (`recorder/broadcaster_windows.go`) ensuring UDP telemetry frames reach host daemons (`tools/moza_leds.py`, native HUD, WebSocket bridge) reliably under Steam Play / Proton.
+- **Steam Process Cleanup & Exit Hang in Sim Launchers**:
+  - Fixed Steam remaining indefinitely in "Running" state after closing the simulator due to orphaned background spotter log listeners (`tail -n0 -F`) reparented to `steam-runtime-supervisor`.
+  - Enhanced `cleanup()` traps and post-game termination in `recorder/linux/acc-with-recorder.sh` and `recorder/linux/sim-with-recorder.sh` to forcefully kill log listeners (`pkill -9 -f "tail -n0 -F $log"`), child process trees, and reap background jobs cleanly before exiting.
+  - Stripped leading `reaper SteamLaunch AppId=* --` arguments when wrapping `rec_cmd` under Steam process reaper.
+- **Native HUD Oscilloscope Baseline & Instantaneous Pedal Labels**:
+  - Render a visible baseline 0% flat line in `recorder/tools/hud/hud_linux.go` when idle or before telemetry arrives so the oscilloscope isn't empty on launch.
+  - Added distinct `T` (Throttle, neon green) and `B` (Brake, racing red) column labels underneath the instantaneous vertical pedal level bars.
 - **LMU Real Pedal Telemetry & Gear Display in Native HUD**:
   - Read `UnfilteredThrottle` and `UnfilteredBrake` from Le Mans Ultimate / rFactor 2 shared memory (`$rFactor2SMMP_Telemetry$`) so pedal traces and live bars work properly when driving with assists turned off.
   - Corrected gear display formatting in Linux HUD (`hud_linux.go`) to match the simulator standard (-1=R, 0=N, 1+=forward).

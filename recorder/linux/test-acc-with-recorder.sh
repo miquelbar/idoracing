@@ -45,6 +45,21 @@ grep -qx "entry: --verb=waitforexitandrun -- $fake_proton waitforexitandrun /gam
 grep -qx "entry: --verb=run -- $fake_proton run $work/idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe,acc.exe -log $work/log" "$CALLS" || fail "recorder not started through runtime entry point with --verb=run"
 
 : >"$CALLS"
+mkdir -p "$work/reaper"
+fake_reaper="$work/reaper/reaper"
+cat >"$fake_reaper" <<'FAKE'
+#!/usr/bin/env bash
+shift 3 # SteamLaunch AppId=805550 --
+exec "$@"
+FAKE
+chmod +x "$fake_reaper"
+
+IDORACING_RECORDER="$work/idoracing-recorder.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
+	bash "$here/acc-with-recorder.sh" "$fake_reaper" SteamLaunch AppId=805550 -- "$fake_entry" --verb=waitforexitandrun -- "$fake_proton" waitforexitandrun "/games/acc/AC2-Win64-Shipping.exe"
+sleep 1
+grep -qx "entry: --verb=run -- $fake_proton run $work/idoracing-recorder.exe -exit-with AC2-Win64-Shipping.exe,acc.exe -log $work/log" "$CALLS" || fail "reaper prefix was not stripped for recorder"
+
+: >"$CALLS"
 IDORACING_RECORDER="$work/missing.exe" IDORACING_RECORDER_DELAY=0 IDORACING_RECORDER_LOG="$work/log" \
 	bash "$here/acc-with-recorder.sh" "$fake_proton" waitforexitandrun "/games/acc/AC2-Win64-Shipping.exe" 2>/dev/null
 sleep 1

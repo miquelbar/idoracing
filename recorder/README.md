@@ -62,6 +62,12 @@ bash linux/test-sim-launchers.sh
 
 ## Run on Linux (Steam + Proton)
 
+> [!WARNING]
+> **Proton Version & Compatibility Warnings:**
+> - **ACC**: Run with official **Proton 9.0 (Default)**, **Proton Experimental**, or tested **GE-Proton9** / **GE-Proton10**.
+> - **LMU**: Requires **GE-Proton** (or custom builds with `bcrypt` & DirectInput patches) for shared memory and FFB.
+> - **NVAPI Overrides Warning (`PROTON_ENABLE_NVAPI=1` / `DXVK_ENABLE_NVAPI=1`)**: Do **NOT** force NVAPI overrides in Steam launch options on NVIDIA GPUs. Under Wine/Proton, NVAPI with DXVK deadlocks ACC's `RenderThread` indefinitely during track loading. The launcher scripts automatically unset and disable NVAPI overrides (`DXVK_ENABLE_NVAPI=0`).
+
 The simulator's shared memory only exists inside the wineserver that runs the game, so the recorder has to run in the same Proton prefix, with the same Proton build and the same fsync/esync setting. The launch-option scripts take care of that by reusing the Proton from the command Steam builds:
 
 1. Put `idoracing-recorder.exe` next to the `linux/*.sh` scripts.

@@ -22,9 +22,14 @@ type TelemetryPacket struct {
 	InPit    int32   `json:"in_pit"`
 }
 
+type udpSender interface {
+	WriteToUDP(data []byte, addr *net.UDPAddr) (int, error)
+	Close() error
+}
+
 // Broadcaster sends live telemetry frames over UDP.
 type Broadcaster struct {
-	conn     *net.UDPConn
+	sender   udpSender
 	addrs    []*net.UDPAddr
 	lastSent time.Time
 	throttle time.Duration
@@ -59,12 +64,12 @@ func NewBroadcaster(addrStr string) *Broadcaster {
 		return nil
 	}
 
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	sender, err := createUDPSender()
 	if err != nil {
 		return nil
 	}
 	return &Broadcaster{
-		conn:     conn,
+		sender:   sender,
 		addrs:    resolved,
 		throttle: 20 * time.Millisecond, // ~50Hz max rate
 	}
@@ -72,7 +77,7 @@ func NewBroadcaster(addrStr string) *Broadcaster {
 
 // Send broadcasts a telemetry snapshot to all configured targets.
 func (b *Broadcaster) Send(sample TelemetrySample, meta SessionMetadata, now time.Time) {
-	if b == nil || b.conn == nil {
+	if b == nil || b.sender == nil {
 		return
 	}
 	if !b.lastSent.IsZero() && now.Sub(b.lastSent) < b.throttle {
@@ -100,17 +105,17 @@ func (b *Broadcaster) Send(sample TelemetrySample, meta SessionMetadata, now tim
 	data, err := json.Marshal(pkt)
 	if err == nil {
 		for _, addr := range b.addrs {
-			_, _ = b.conn.WriteToUDP(data, addr)
+			_, _ = b.sender.WriteToUDP(data, addr)
 		}
 	}
 }
 
 // Close closes the UDP socket.
 func (b *Broadcaster) Close() error {
-	if b == nil || b.conn == nil {
+	if b == nil || b.sender == nil {
 		return nil
 	}
-	err := b.conn.Close()
-	b.conn = nil
+	err := b.sender.Close()
+	b.sender = nil
 	return err
 }
