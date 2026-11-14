@@ -183,6 +183,10 @@ class MozaController:
         if self.last_mask is not None and self.last_mask > 0 and (now - self.last_packet_at > 1.5):
             self.send_bytes(encode_rpm_leds(0))
             self.last_mask = 0
+        if self.fd is not None and self.last_packet_at > 0 and (now - self.last_packet_at > 5.0):
+            # Close port after 5 seconds idle so game transitions (menus/track loads) have free device access
+            self.close()
+            self.last_mask = None
 
     def close(self) -> None:
         if self.fd is not None:
@@ -242,22 +246,12 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
     signal.signal(signal.SIGINT, on_signal)
     signal.signal(signal.SIGTERM, on_signal)
 
-    print(f"idoracing-moza: listening on UDP 127.0.0.1:{udp_port}")
-    if moza.open():
-        print(f"idoracing-moza: connected to Moza on {moza.port_path}")
-    else:
-        print("idoracing-moza: waiting for Moza device to connect...")
+    print(f"idoracing-moza: listening on UDP 127.0.0.1:{udp_port} (waiting for telemetry to connect wheel)...")
 
     last_device_check = 0.0
 
     while running:
         now = time.time()
-
-        # Try to connect if not yet connected
-        if moza.fd is None and (now - last_device_check) > 2.0:
-            last_device_check = now
-            if moza.open():
-                print(f"idoracing-moza: connected to Moza on {moza.port_path}")
 
         # Wait for telemetry packet (up to 50ms)
         r, _, _ = select.select([sock], [], [], 0.05)
@@ -267,7 +261,16 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
                 pkt = json.loads(data.decode("utf-8"))
                 rpm = float(pkt.get("rpm", 0.0))
                 max_rpm = float(pkt.get("max_rpm", 8500.0))
-                moza.update_rpm(rpm, max_rpm, now)
+                if rpm > 0:
+                    # Connect to wheel only when telemetry is actively streaming
+                    if moza.fd is None and (now - last_device_check) > 2.0:
+                        last_device_check = now
+                        if moza.open():
+                            print(f"idoracing-moza: connected to Moza on {moza.port_path}")
+                    if moza.fd is not None:
+                        moza.update_rpm(rpm, max_rpm, now)
+                else:
+                    moza.check_timeout(now)
             except (ValueError, KeyError, OSError):
                 pass
         else:

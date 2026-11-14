@@ -53,10 +53,12 @@ def load_spotter_config() -> dict[str, Any]:
                     "enabled": bool(data.get("enabled", True)),
                     "language": str(data.get("language", "es")),
                     "volume": max(0, min(100, int(data.get("volume", 85)))),
+                    "hud_enabled": bool(data.get("hud_enabled", True)),
+                    "moza_leds": bool(data.get("moza_leds", True)),
                 }
         except (OSError, ValueError):
             pass
-    return {"enabled": True, "language": "es", "volume": 85}
+    return {"enabled": True, "language": "es", "volume": 85, "hud_enabled": True, "moza_leds": True}
 
 
 def save_spotter_config(cfg: dict[str, Any]) -> None:
@@ -75,6 +77,10 @@ def save_spotter_config(cfg: dict[str, Any]) -> None:
         existing["volume"] = max(0, min(100, int(cfg.get("volume", 85))))
         if "language" in cfg:
             existing["language"] = str(cfg["language"])
+        if "hud_enabled" in cfg:
+            existing["hud_enabled"] = bool(cfg["hud_enabled"])
+        if "moza_leds" in cfg:
+            existing["moza_leds"] = bool(cfg["moza_leds"])
 
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(existing, f, indent=2)

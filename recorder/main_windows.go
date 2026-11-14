@@ -24,7 +24,7 @@ func main() {
 	sim := flag.String("sim", "auto", "simulator: auto, acc, lmu, ac, acevo")
 	exitWith := flag.String("exit-with", "", "exit once this game executable has stopped (e.g. AC2-Win64-Shipping.exe, Le Mans Ultimate.exe, acs.exe, AssettoCorsaEVO.exe)")
 	logPath := flag.String("log", "", "file to append log messages to")
-	udpAddr := flag.String("udp", "127.0.0.1:10823", "UDP address to broadcast live telemetry frames (or off)")
+	udpAddr := flag.String("udp", "", "UDP addresses to broadcast live telemetry frames (defaults to Moza 10823, HUD 10824, and WebSocket 10825, or off)")
 	flag.Parse()
 
 	if *logPath != "" {

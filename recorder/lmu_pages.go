@@ -160,17 +160,17 @@ func decodeLMUNative(buf []byte) (sample TelemetrySample, meta SessionMetadata, 
 	if lastID == 0 {
 		lastID = veh.ID
 	}
-	live = (playerHasVehicle || activeVehicles > 0) && (veh.EngineRPM > 50 || speedKmh > 1.0)
+	live = (playerHasVehicle || activeVehicles > 0) && (veh.EngineRPM > 50 || speedKmh > 1.0 || veh.UnfilteredThrottle > 0.05 || veh.UnfilteredBrake > 0.05)
 
 	sample = TelemetrySample{
 		PacketID:       lastID,
 		Lap:            veh.LapNumber,
 		LapDistance:    lapDist,
 		SpeedKmh:       speedKmh,
-		Gas:            float32(veh.FilteredThrottle),
-		Brake:          float32(veh.FilteredBrake),
+		Gas:            resolvePedal(veh.UnfilteredThrottle, veh.FilteredThrottle),
+		Brake:          resolvePedal(veh.UnfilteredBrake, veh.FilteredBrake),
 		Gear:           veh.Gear,
-		SteerAngle:     float32(veh.FilteredSteering),
+		SteerAngle:     resolveSteering(veh.UnfilteredSteering, veh.FilteredSteering),
 		RPM:            int32(veh.EngineRPM),
 		LatG:           latG,
 		LongG:          longG,
@@ -349,7 +349,7 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 			var vHead rF2VehicleTelemetryHeader
 			if err := binary.Read(bytes.NewReader(tbuf[vOffset:]), binary.LittleEndian, &vHead); err == nil {
 				vSpeed := math.Sqrt(vHead.LocalVel.X*vHead.LocalVel.X + vHead.LocalVel.Y*vHead.LocalVel.Y + vHead.LocalVel.Z*vHead.LocalVel.Z)
-				if vHead.EngineRPM > 50 || vSpeed > 0.5 || vHead.FilteredThrottle > 0.05 {
+				if vHead.EngineRPM > 50 || vSpeed > 0.5 || vHead.UnfilteredThrottle > 0.05 || vHead.FilteredThrottle > 0.05 {
 					playerTelemIdx = v
 					playerID = vHead.ID
 					break
@@ -419,17 +419,17 @@ func decodeLMULocked(tbuf []byte, sbuf []byte, lockedID int32, lockedCar string)
 	}
 
 	lastID := int32(versionBegin)
-	live = (veh.EngineRPM > 50 || speedKmh > 1.0 || veh.DeltaTime > 0)
+	live = (veh.EngineRPM > 50 || speedKmh > 1.0 || veh.DeltaTime > 0 || veh.UnfilteredThrottle > 0.05 || veh.UnfilteredBrake > 0.05)
 
 	sample = TelemetrySample{
 		PacketID:       lastID,
 		Lap:            veh.LapNumber,
 		LapDistance:    lapDist,
 		SpeedKmh:       speedKmh,
-		Gas:            float32(veh.FilteredThrottle),
-		Brake:          float32(veh.FilteredBrake),
+		Gas:            resolvePedal(veh.UnfilteredThrottle, veh.FilteredThrottle),
+		Brake:          resolvePedal(veh.UnfilteredBrake, veh.FilteredBrake),
 		Gear:           veh.Gear,
-		SteerAngle:     float32(veh.FilteredSteering),
+		SteerAngle:     resolveSteering(veh.UnfilteredSteering, veh.FilteredSteering),
 		RPM:            int32(veh.EngineRPM),
 		LatG:           latG,
 		LongG:          longG,
@@ -468,3 +468,31 @@ func cString(b []byte) string {
 	}
 	return string(b[:n])
 }
+
+// resolvePedal returns the driver's pedal input [0.0, 1.0].
+// In Le Mans Ultimate / rFactor 2 shared memory, UnfilteredThrottle/UnfilteredBrake
+// contain the physical pedal position from the controller. FilteredThrottle/FilteredBrake
+// only report driving aids/AI intervention and remain 0.0 when aids are off.
+func resolvePedal(unfiltered, filtered float64) float32 {
+	val := float32(unfiltered)
+	if val <= 0 && filtered > 0 {
+		val = float32(filtered)
+	}
+	if val < 0 {
+		return 0
+	}
+	if val > 1 {
+		return 1
+	}
+	return val
+}
+
+// resolveSteering returns the steering input [-1.0, 1.0].
+func resolveSteering(unfiltered, filtered float64) float32 {
+	val := float32(unfiltered)
+	if val == 0 && filtered != 0 {
+		val = float32(filtered)
+	}
+	return val
+}
+

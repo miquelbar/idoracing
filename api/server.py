@@ -384,6 +384,8 @@ class SpotterConfigDTO(BaseModel):
     volume: int = 85
     toggle_key: str = "F9"
     toggle_vk_code: int = 120
+    hud_enabled: bool = True
+    moza_leds: bool = True
 
 
 class CornerDTO(BaseModel):
@@ -672,12 +674,17 @@ def launch_native_hud():
     else:
         raise HTTPException(status_code=404, detail="No HUD binary or script found")
 
+    env = os.environ.copy()
+    if not env.get("DISPLAY") and env.get("WAYLAND_DISPLAY"):
+        env["DISPLAY"] = ":0"
+
     try:
         hud_process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
         )
         return {"status": "launched", "pid": hud_process.pid, "type": "go" if cmd == [str(go_bin)] else "python"}
     except OSError as exc:

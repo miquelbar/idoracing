@@ -564,3 +564,72 @@ func TestLMUMantheyPorschePlayerResolution(t *testing.T) {
 		t.Fatalf("LapDistance = %v; want 2100.0", sample.LapDistance)
 	}
 }
+
+func TestLMUPedalUnfilteredPriority(t *testing.T) {
+	// Case 1: Real LMU scenario where FilteredThrottle & FilteredBrake are 0.0 because aids are off
+	veh1 := rF2VehicleTelemetryHeader{
+		ID:                 1,
+		DeltaTime:          0.02,
+		EngineRPM:          7200,
+		Gear:               3,
+		UnfilteredThrottle: 0.85,
+		FilteredThrottle:   0.0,
+		UnfilteredBrake:    0.65,
+		FilteredBrake:      0.0,
+		UnfilteredSteering: -0.30,
+		FilteredSteering:   0.0,
+	}
+
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.LittleEndian, &veh1)
+	tbuf := make([]byte, 16+buf.Len())
+	binary.LittleEndian.PutUint32(tbuf[0:4], 2)
+	binary.LittleEndian.PutUint32(tbuf[4:8], 2)
+	binary.LittleEndian.PutUint32(tbuf[12:16], 1)
+	copy(tbuf[16:], buf.Bytes())
+
+	sample, _, live, _, err := decodeLMULocked(tbuf, nil, -1, "")
+	if err != nil || !live {
+		t.Fatalf("decodeLMULocked failed: live=%v err=%v", live, err)
+	}
+	if math.Abs(float64(sample.Gas-0.85)) > 0.001 {
+		t.Fatalf("sample.Gas = %v; want 0.85 (from UnfilteredThrottle)", sample.Gas)
+	}
+	if math.Abs(float64(sample.Brake-0.65)) > 0.001 {
+		t.Fatalf("sample.Brake = %v; want 0.65 (from UnfilteredBrake)", sample.Brake)
+	}
+	if math.Abs(float64(sample.SteerAngle-(-0.30))) > 0.001 {
+		t.Fatalf("sample.SteerAngle = %v; want -0.30 (from UnfilteredSteering)", sample.SteerAngle)
+	}
+
+	// Case 2: Fallback to Filtered when Unfiltered is 0 (synthetic or assist driving)
+	veh2 := rF2VehicleTelemetryHeader{
+		ID:                 1,
+		DeltaTime:          0.02,
+		EngineRPM:          7200,
+		Gear:               3,
+		UnfilteredThrottle: 0.0,
+		FilteredThrottle:   0.45,
+		UnfilteredBrake:    0.0,
+		FilteredBrake:      0.25,
+		UnfilteredSteering: 0.0,
+		FilteredSteering:   0.15,
+	}
+	buf.Reset()
+	binary.Write(&buf, binary.LittleEndian, &veh2)
+	copy(tbuf[16:], buf.Bytes())
+
+	sample2, _, live2, _, err := decodeLMULocked(tbuf, nil, -1, "")
+	if err != nil || !live2 {
+		t.Fatalf("decodeLMULocked failed: live=%v err=%v", live2, err)
+	}
+	if math.Abs(float64(sample2.Gas-0.45)) > 0.001 {
+		t.Fatalf("sample2.Gas = %v; want 0.45 (fallback to FilteredThrottle)", sample2.Gas)
+	}
+	if math.Abs(float64(sample2.Brake-0.25)) > 0.001 {
+		t.Fatalf("sample2.Brake = %v; want 0.25 (fallback to FilteredBrake)", sample2.Brake)
+	}
+	if math.Abs(float64(sample2.SteerAngle-0.15)) > 0.001 {
+		t.Fatalf("sample2.SteerAngle = %v; want 0.15 (fallback to FilteredSteering)", sample2.SteerAngle)
+	}
+}

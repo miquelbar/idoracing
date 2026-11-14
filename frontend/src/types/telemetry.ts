@@ -451,6 +451,8 @@ export interface SpotterConfigDTO {
   volume: number;
   toggle_key?: string;
   toggle_vk_code?: number;
+  hud_enabled?: boolean;
+  moza_leds?: boolean;
 }
 
 

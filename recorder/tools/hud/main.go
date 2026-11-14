@@ -109,6 +109,8 @@ type SpotterConfig struct {
 	Volume       int    `json:"volume"`
 	ToggleKey    string `json:"toggle_key,omitempty"`
 	ToggleVkCode int    `json:"toggle_vk_code,omitempty"`
+	HUDEnabled   bool   `json:"hud_enabled,omitempty"`
+	MozaLEDs     bool   `json:"moza_leds,omitempty"`
 }
 
 // SpotterManager manages reading and atomically updating the spotter configuration.

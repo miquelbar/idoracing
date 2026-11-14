@@ -62,14 +62,34 @@ import "C"
 
 import (
 	"fmt"
+	"os"
 	"time"
 	"unsafe"
 )
 
 func runOSWindow(app *HUDApp, width, height int) error {
-	dpy := C.XOpenDisplay(nil)
+	var dpy *C.Display
+	dispEnv := os.Getenv("DISPLAY")
+	if dispEnv != "" {
+		cName := C.CString(dispEnv)
+		dpy = C.XOpenDisplay(cName)
+		C.free(unsafe.Pointer(cName))
+	}
 	if dpy == nil {
-		return fmt.Errorf("cannot open X11 display (ensure DISPLAY is set)")
+		dpy = C.XOpenDisplay(nil)
+	}
+	if dpy == nil {
+		for _, cand := range []string{":0", ":1"} {
+			cName := C.CString(cand)
+			dpy = C.XOpenDisplay(cName)
+			C.free(unsafe.Pointer(cName))
+			if dpy != nil {
+				break
+			}
+		}
+	}
+	if dpy == nil {
+		return fmt.Errorf("cannot open X11 display (ensure DISPLAY is set or Xwayland is running)")
 	}
 	defer C.XCloseDisplay(dpy)
 
@@ -279,12 +299,12 @@ func runOSWindow(app *HUDApp, width, height int) error {
 		// 3e. Car Stats Readout (Gear, Speed, RPM)
 		latestPkt, hasData, isTrail := app.GetLatest()
 		gearStr := "N"
-		if latestPkt.Gear == 0 {
+		if latestPkt.Gear == -1 {
 			gearStr = "R"
-		} else if latestPkt.Gear == 1 {
+		} else if latestPkt.Gear == 0 {
 			gearStr = "N"
-		} else if latestPkt.Gear > 1 {
-			gearStr = fmt.Sprintf("%d", latestPkt.Gear-1)
+		} else if latestPkt.Gear > 0 {
+			gearStr = fmt.Sprintf("%d", latestPkt.Gear)
 		}
 		statsStr := fmt.Sprintf("G:%s  %.0fkm/h  %drpm", gearStr, latestPkt.SpeedKmh, latestPkt.RPM)
 		if !hasData {

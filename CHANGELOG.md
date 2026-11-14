@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
 
 ### Fixed
+- **LMU Real Pedal Telemetry & Gear Display in Native HUD**:
+  - Read `UnfilteredThrottle` and `UnfilteredBrake` from Le Mans Ultimate / rFactor 2 shared memory (`$rFactor2SMMP_Telemetry$`) so pedal traces and live bars work properly when driving with assists turned off.
+  - Corrected gear display formatting in Linux HUD (`hud_linux.go`) to match the simulator standard (-1=R, 0=N, 1+=forward).
+- **ACC Proton Track Loading Hang & Wayland Display Resilience**:
+  - `tools/moza_leds.py` now connects lazily to the Moza CDC-ACM serial port only when active telemetry frames with `rpm > 0` are received (and closes the port after 5 seconds idle), preventing USB serial contention while Wine/Proton initializes DirectInput / FFB during ACC track load.
+  - Automatically export `SDL_GAMECONTROLLER_IGNORE_DEVICES="0x3434/0x0a81"` by default in `acc-with-recorder.sh` and `sim-with-recorder.sh` to prevent Keychron K8 Max virtual gamepad HID from hanging DirectInput enumeration.
+  - Added automatic fallback to Xwayland displays `:0` and `:1` in `hud_linux.go` and exported `DISPLAY=":0"` in launcher scripts when running under Wayland.
 - **Linux Launcher Scripts Auto-Detect Windows PE Recorder & Fail Early on ELF Executables**:
   - `recorder/linux/*.sh` launcher scripts (`acc-with-recorder.sh`, `sim-with-recorder.sh`, `lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`, `dr2-with-recorder.sh`) now check for Windows PE executable magic (`MZ`) and search fallback paths (`recorder/linux/` and `recorder/`). If an ELF binary or incompatible executable is detected, a prominent warning is emitted rather than silently dying inside Proton.
   - Added regression test `tests/test_recorder_binary.py` and launcher suite test cases verifying that recorder binaries are genuine Windows PE executables (`MZ`) and that launcher scripts properly warn if an ELF binary is ever provided.

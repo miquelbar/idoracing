@@ -82,10 +82,28 @@ fi
 # Clean up all background jobs on script exit
 trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
 
-# Read spotter configuration (enabled, language, volume)
+# Keychron keyboards (0x3434/0x0a81, etc.) present virtual gamepad HID endpoints that cause Wine/Proton DInput to hang
+if [ -z "${SDL_GAMECONTROLLER_IGNORE_DEVICES:-}" ]; then
+	export SDL_GAMECONTROLLER_IGNORE_DEVICES="0x3434/0x0a81"
+fi
+
+# Optional local user environment overrides (e.g. SDL_GAMECONTROLLER_IGNORE_DEVICES)
+if [ -f "${XDG_CONFIG_HOME:-${HOME:-}/.config}/idoracing/env" ]; then
+	# shellcheck disable=SC1090
+	. "${XDG_CONFIG_HOME:-${HOME:-}/.config}/idoracing/env"
+fi
+
+# Ensure DISPLAY fallback for Wayland environments where Xwayland runs on :0
+if [ -z "${DISPLAY:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+	export DISPLAY=":0"
+fi
+
+# Read spotter and HUD configuration (enabled, language, volume, hud, moza)
 spotter_enabled="true"
 spotter_lang="es"
 spotter_vol_pct="${IDORACING_SPOTTER_VOLUME:-100}"
+hud_enabled="${IDORACING_HUD:-true}"
+moza_leds_enabled="${IDORACING_MOZA_LEDS:-true}"
 if [ -f "$config_file" ]; then
 	cfg_en=$(grep -o '"enabled": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"enabled": *//' -e 's/"//g' -e 's/ //g')
 	[ "$cfg_en" = "false" ] && spotter_enabled="false"
@@ -95,6 +113,12 @@ if [ -f "$config_file" ]; then
 	if [ -n "$cfg_vol" ] && [ "$cfg_vol" -gt 0 ] 2>/dev/null; then
 		spotter_vol_pct="$cfg_vol"
 	fi
+	cfg_hud=$(grep -o '"hud_enabled": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"hud_enabled": *//' -e 's/"//g' -e 's/ //g')
+	[ "$cfg_hud" = "false" ] && hud_enabled="false"
+	[ "$cfg_hud" = "true" ] && hud_enabled="true"
+	cfg_moza=$(grep -o '"moza_leds": *[^,}]*' "$config_file" | head -n1 | sed -e 's/"moza_leds": *//' -e 's/"//g' -e 's/ //g')
+	[ "$cfg_moza" = "false" ] && moza_leds_enabled="false"
+	[ "$cfg_moza" = "true" ] && moza_leds_enabled="true"
 fi
 
 play_clip() {
@@ -217,13 +241,13 @@ else
 	fi
 
 	# Moza RPM shift lights bridge
-	if [ "${IDORACING_MOZA_LEDS:-true}" = "true" ] && [ -f "$repo_root/tools/moza_leds.py" ] && command -v python3 >/dev/null 2>&1; then
+	if [ "$moza_leds_enabled" = "true" ] && [ -f "$repo_root/tools/moza_leds.py" ] && command -v python3 >/dev/null 2>&1; then
 		python3 "$repo_root/tools/moza_leds.py" </dev/null >>"$log" 2>&1 &
 		moza_pid=$!
 	fi
 
 	# Native Pedal & Trail Braking HUD overlay (100% Go)
-	if [ "${IDORACING_HUD:-false}" = "true" ]; then
+	if [ "$hud_enabled" = "true" ]; then
 		hud_bin=""
 		for cand in "$repo_root/recorder/bin/idoracing-hud" "$repo_root/recorder/idoracing-hud" "$here/idoracing-hud"; do
 			if [ -x "$cand" ]; then
@@ -236,7 +260,7 @@ else
 			[ -x "$repo_root/recorder/bin/idoracing-hud" ] && hud_bin="$repo_root/recorder/bin/idoracing-hud"
 		fi
 		if [ -n "$hud_bin" ]; then
-			"$hud_bin" </dev/null >>"$log" 2>&1 &
+			"$hud_bin" -config "$config_file" </dev/null >>"$log" 2>&1 &
 			hud_pid=$!
 		elif [ -f "$repo_root/tools/pedal_hud.py" ] && command -v python3 >/dev/null 2>&1; then
 			python_cmd="/usr/bin/python3"
