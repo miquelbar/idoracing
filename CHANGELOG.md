@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added automatic fallback to Xwayland displays `:0` and `:1` in `hud_linux.go` and exported `DISPLAY=":0"` in launcher scripts when running under Wayland.
 - **Linux Launcher Scripts Auto-Detect Windows PE Recorder & Fail Early on ELF Executables**:
   - `recorder/linux/*.sh` launcher scripts (`acc-with-recorder.sh`, `sim-with-recorder.sh`, `lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`, `dr2-with-recorder.sh`) now check for Windows PE executable magic (`MZ`) and search fallback paths (`recorder/linux/` and `recorder/`). If an ELF binary or incompatible executable is detected, a prominent warning is emitted rather than silently dying inside Proton.
+  - Fail early and bypass daemon / recorder startup when the executable is not a Windows PE binary, preventing Proton/Wine hangs in CI tests and when launching games with stale binaries.
   - Added regression test `tests/test_recorder_binary.py` and launcher suite test cases verifying that recorder binaries are genuine Windows PE executables (`MZ`) and that launcher scripts properly warn if an ELF binary is ever provided.
   - `githooks/pre-commit` and `githooks/pre-push` now cross-compile the Windows PE binary directly to both `recorder/idoracing-recorder.exe` and `recorder/linux/idoracing-recorder.exe`, guaranteeing binaries are never left as stale Linux ELF stubs.
 - **Pep Chat: Typing Lag, Truncated Answers, Broken Copy & Gamepad Awareness**:

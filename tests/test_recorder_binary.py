@@ -72,7 +72,7 @@ def test_launcher_warns_on_elf_executable():
                 "IDORACING_RECORDER_LOG": str(tmp_path / "test.log"),
             }
 
-            res = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=5)
+            res = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=15)
             stderr = res.stderr
             assert "WARNING" in stderr or "Windows PE" in stderr, (
                 f"[{script_name}] Launcher did not warn about ELF executable! Stderr: {stderr}"

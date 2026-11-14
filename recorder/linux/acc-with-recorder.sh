@@ -196,11 +196,10 @@ if [ -z "$proton" ]; then
 	echo "idoracing: no Proton in the launch command, starting ACC without the recorder" >&2
 elif [ ! -f "$recorder" ]; then
 	echo "idoracing: $recorder not found, starting ACC without the recorder" >&2
-else
+elif [ -s "$recorder" ] && [ "$(head -c 2 "$recorder" 2>/dev/null || true)" != "MZ" ]; then
 	rec_magic=$(head -c 2 "$recorder" 2>/dev/null || true)
-	if [ "$rec_magic" != "MZ" ] && [ -s "$recorder" ]; then
-		echo "idoracing: WARNING: $recorder is NOT a Windows PE executable (magic: '$rec_magic'). Rebuild with: GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w -H=windowsgui' -o idoracing-recorder.exe ." >&2
-	fi
+	echo "idoracing: WARNING: $recorder is NOT a Windows PE executable (magic: '$rec_magic'). Rebuild with: GOOS=windows GOARCH=amd64 go build -trimpath -ldflags='-s -w -H=windowsgui' -o idoracing-recorder.exe ., starting ACC without the recorder" >&2
+else
 	mkdir -p "$(dirname "$log")"
 	touch "$log"
 
